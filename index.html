@@ -376,7 +376,6 @@ const E=[
   {km:771.5,d:42.5,  h:83,   l:"HR",ort:"Jurovčak / Međimurje",  t:"Camping",    n:"Wine Camp Hažić",                        addr:"Jurovčak 37, 40313 Jurovčak",                            p:"+385 99 219 9411",  lat:46.4987,lon:16.3298},
   {km:784.9,d:13.4,  h:5,    l:"HR",ort:"Varaždin",              t:"Ladestation",n:"Tesla Supercharger Varaždin",            addr:"Ul. Grada Lipika 10, 42204 Varaždin",                    p:"nicht verfügbar",   lat:46.2647,lon:16.3781},
   {km:942.1,d:157.2, h:220,  l:"HR",ort:"Budakovac / Virovitica", t:"Camping",    n:"Budakovac Camping",                       addr:"Čorova 50, 33410 Budakovac",                             p:"+385 98 965 6734",  lat:45.8462,lon:17.6301},
-  {km:1051.7,d:109.6,h:86,   l:"HR",ort:"Slavonski Brod",         t:"Ladestation",n:"Tesla Supercharger Slavonski Brod",       addr:"Gospodarska ul. 11, 35207 Slavonski Brod",                p:"nicht verfügbar",   lat:45.1753,lon:18.0632},
   {km:1201.4,d:149.7,h:547,  l:"RS",ort:"Zasavica",               t:"Camping",    n:"Camping Zasavica",                        addr:"Aleksandra Markovića, Zasavica",                          p:"+381 64 6442017",   lat:44.9607,lon:19.5233},
   {km:1203.0,d:1.6,  h:1,    l:"RS",ort:"Sremska Mitrovica",      t:"Ladestation",n:"Charge&Go Charging Station",             addr:"Bulevar Konstantina Velikog 21, Sremska Mitrovica",        p:"+381 11 7158599",   lat:44.9773,lon:19.5917},
   {km:1360.1,d:157.1,h:1038, l:"RS",ort:"Čačak",                 t:"Ladestation",n:"Charge&GO Charging Station Čačak",       addr:"Konjevići BB, 32103 Čačak",                              p:"+381 11 7158599",   lat:43.9032,lon:20.3986},
@@ -466,114 +465,52 @@ loadCustomPois();
 // ══════════════════════════════════════════
 let googleFavs=[];
 let favMarkers={};
-
-function loadGoogleFavs(){
-  try{ googleFavs=JSON.parse(localStorage.getItem('bikepacking_google_favs')||'[]'); }
-  catch(e){ googleFavs=[]; }
-}
-function saveGoogleFavs(){
-  try{ localStorage.setItem('bikepacking_google_favs',JSON.stringify(googleFavs)); }
-  catch(e){}
-}
+function loadGoogleFavs(){try{googleFavs=JSON.parse(localStorage.getItem('bikepacking_google_favs')||'[]');}catch(e){googleFavs=[];}}
+function saveGoogleFavs(){try{localStorage.setItem('bikepacking_google_favs',JSON.stringify(googleFavs));}catch(e){}}
 loadGoogleFavs();
-
 function syncFavMarker(fav){
   if(!mapObj||!mapInitialized||!fav.lat||!fav.lon) return;
   if(favMarkers[fav.id]) mapObj.removeLayer(favMarkers[fav.id]);
-  const icon=L.divIcon({
-    html:`<div style="background:#e0305a;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.22);cursor:pointer">❤️</div>`,
-    iconSize:[32,32],iconAnchor:[16,16],className:''
-  });
+  const icon=L.divIcon({html:`<div style="background:#e0305a;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.22);cursor:pointer">❤️</div>`,iconSize:[32,32],iconAnchor:[16,16],className:''});
   const m=L.marker([fav.lat,fav.lon],{icon,zIndexOffset:300});
   m.bindTooltip(`<b>❤️ ${fav.n}</b>${fav.addr?'<br>'+fav.addr:''}`,{direction:'top',offset:[0,-14]});
   m.addTo(mapObj);
   favMarkers[fav.id]=m;
 }
-function removeFavMarker(id){
-  if(favMarkers[id]&&mapObj){mapObj.removeLayer(favMarkers[id]);delete favMarkers[id];}
-}
-function syncAllFavMarkers(){
-  googleFavs.forEach(f=>syncFavMarker(f));
-}
-
+function removeFavMarker(id){if(favMarkers[id]&&mapObj){mapObj.removeLayer(favMarkers[id]);delete favMarkers[id];}}
+function syncAllFavMarkers(){googleFavs.forEach(f=>syncFavMarker(f));}
 function importFavJson(event){
-  const file=event.target.files[0];
-  if(!file) return;
+  const file=event.target.files[0]; if(!file) return;
   const reader=new FileReader();
   reader.onload=function(ev){
-    let data;
-    try{ data=JSON.parse(ev.target.result); }
-    catch(e){ alert('❌ Ungültige JSON-Datei.'); return; }
-
+    let data; try{data=JSON.parse(ev.target.result);}catch(e){alert('❌ Ungültige JSON-Datei.');return;}
     let entries=[];
     if(Array.isArray(data)) entries=data;
     else if(data.features) entries=data.features;
-
-    if(!entries.length){ alert('❌ Keine Einträge gefunden. Stelle sicher dass es die Datei "Gespeicherte Orte.json" ist.'); return; }
-
-    // Remove old fav markers from map
-    googleFavs.forEach(f=>removeFavMarker(f.id));
-    googleFavs=[];
-    let imported=0, skipped=0;
-
+    if(!entries.length){alert('❌ Keine Einträge gefunden. Bitte die Datei „Gespeicherte Orte.json" verwenden.');return;}
+    googleFavs.forEach(f=>removeFavMarker(f.id)); googleFavs=[];
+    let imported=0,skipped=0;
     entries.forEach((entry,i)=>{
       const title=entry.Title||entry.title||entry.properties?.Title||entry.properties?.name||'';
-      if(!title){ skipped++; return; }
-
-      let lat=null, lon=null;
+      if(!title){skipped++;return;}
+      let lat=null,lon=null;
       const addr=entry.properties?.location?.address||entry.Address||'';
-
-      // GeoJSON Point geometry (most common in Takeout)
-      if(entry.geometry?.type==='Point'&&entry.geometry.coordinates?.length>=2){
-        lon=parseFloat(entry.geometry.coordinates[0]);
-        lat=parseFloat(entry.geometry.coordinates[1]);
-      }
-      // Nested geo coordinates
-      if(!lat&&entry.properties?.location?.geo){
-        lat=parseFloat(entry.properties.location.geo.latitude||entry.properties.location.geo.lat||0);
-        lon=parseFloat(entry.properties.location.geo.longitude||entry.properties.location.geo.lng||0);
-      }
-      // URL fallback
-      if(!lat){
-        const url=entry['Google Maps URL']||entry.properties?.['Google Maps URL']||entry.url||'';
-        const m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-        if(m){ lat=parseFloat(m[1]); lon=parseFloat(m[2]); }
-      }
-
-      if(!lat||!lon||isNaN(lat)||isNaN(lon)||lat===0){ skipped++; return; }
-
-      const fav={id:'fav_'+i+'_'+Date.now(),n:title,addr,lat,lon};
-      googleFavs.push(fav);
-      imported++;
+      if(entry.geometry?.type==='Point'&&entry.geometry.coordinates?.length>=2){lon=parseFloat(entry.geometry.coordinates[0]);lat=parseFloat(entry.geometry.coordinates[1]);}
+      if(!lat&&entry.properties?.location?.geo){lat=parseFloat(entry.properties.location.geo.latitude||entry.properties.location.geo.lat||0);lon=parseFloat(entry.properties.location.geo.longitude||entry.properties.location.geo.lng||0);}
+      if(!lat){const url=entry['Google Maps URL']||entry.properties?.['Google Maps URL']||entry.url||'';const m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);if(m){lat=parseFloat(m[1]);lon=parseFloat(m[2]);}}
+      if(!lat||!lon||isNaN(lat)||isNaN(lon)||lat===0){skipped++;return;}
+      googleFavs.push({id:'fav_'+i+'_'+Date.now(),n:title,addr,lat,lon}); imported++;
     });
-
     saveGoogleFavs();
-    // Switch to map and sync markers
     if(currentView==='poi') toggleView();
-    setTimeout(()=>{ syncAllFavMarkers(); }, 300);
+    setTimeout(()=>syncAllFavMarkers(),300);
     event.target.value='';
-    setTimeout(()=>{
-      const msg=skipped>0?`✅ ${imported} Favoriten importiert.\n⚠️ ${skipped} ohne Koordinaten übersprungen.`:`✅ ${imported} Favoriten importiert!`;
-      alert(msg);
-    }, 400);
+    setTimeout(()=>alert(skipped>0?`✅ ${imported} Favoriten importiert.\n⚠️ ${skipped} ohne Koordinaten übersprungen.`:`✅ ${imported} Favoriten importiert!`),400);
   };
   reader.readAsText(file,'UTF-8');
 }
-
-function deleteFav(id){
-  if(!confirm('Diesen Favoriten löschen?')) return;
-  removeFavMarker(id);
-  googleFavs=googleFavs.filter(f=>f.id!==id);
-  saveGoogleFavs();
-  renderList();
-}
-function deleteAllFavs(){
-  if(!confirm(`Alle ${googleFavs.length} Favoriten wirklich löschen?`)) return;
-  googleFavs.forEach(f=>removeFavMarker(f.id));
-  googleFavs=[];
-  saveGoogleFavs();
-  renderList();
-}
+function deleteFav(id){if(!confirm('Diesen Favoriten löschen?'))return;removeFavMarker(id);googleFavs=googleFavs.filter(f=>f.id!==id);saveGoogleFavs();renderList();}
+function deleteAllFavs(){if(!confirm(`Alle ${googleFavs.length} Favoriten wirklich löschen?`))return;googleFavs.forEach(f=>removeFavMarker(f.id));googleFavs=[];saveGoogleFavs();renderList();}
 
 // Add/update a single custom POI marker on the map
 function syncCustomPoiMarker(poi){
@@ -827,11 +764,7 @@ function toggleView(){
     document.getElementById('toggle-icon').textContent='📋';
     document.getElementById('toggle-label').textContent='POI-Liste';
     if(!mapInitialized) initMap();
-    else{
-      if(mapObj) setTimeout(()=>mapObj.invalidateSize(),150);
-      syncAllCustomPoiMarkers();
-      syncAllFavMarkers();
-    }
+    else{if(mapObj) setTimeout(()=>mapObj.invalidateSize(),150);syncAllCustomPoiMarkers();syncAllFavMarkers();}
   } else {
     currentView='poi';
     document.getElementById('view-map').style.display='none';
@@ -924,49 +857,36 @@ function setFilter(f){
 function renderList(){
   const hint=document.getElementById('no-gps-hint');
   const list=document.getElementById('poi-list');
+  if(!uLat){hint.style.display='';list.innerHTML='';return;}
+  hint.style.display='none';
 
-  // ── FAVOURITES filter — works without GPS ──
+  // ── FAVOURITES — works without GPS ──
   if(activeFilter==='fav'){
-    hint.style.display='none';
     const importBtn=`<button onclick="document.getElementById('fav-json-input').click()" style="width:100%;padding:11px;background:linear-gradient(135deg,#e0305a,#a01030);border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;margin-bottom:10px;-webkit-appearance:none">📥 Google Takeout JSON importieren</button>`;
     if(googleFavs.length===0){
-      list.innerHTML=importBtn+`<div style="text-align:center;padding:20px;color:#9ab0c8;font-size:.8rem;line-height:1.9;background:#fff;border-radius:12px;border:1px solid #e8eef4">
-        <span style="font-size:2.2rem;display:block;margin-bottom:8px">❤️</span>
-        <b>Noch keine Favoriten importiert.</b><br><br>
-        So gehts:<br>
-        1. <a href="https://takeout.google.com" target="_blank" style="color:#e0305a">takeout.google.com</a> öffnen<br>
-        2. Nur <b>„Maps (Ihre Orte)"</b> auswählen<br>
-        3. Export herunterladen &amp; entpacken<br>
-        4. Datei <b>„Gespeicherte Orte.json"</b> importieren
-      </div>`;
+      list.innerHTML=importBtn+`<div style="text-align:center;padding:20px;color:#9ab0c8;font-size:.8rem;line-height:1.9;background:#fff;border-radius:12px;border:1px solid #e8eef4"><span style="font-size:2.2rem;display:block;margin-bottom:8px">❤️</span><b>Noch keine Favoriten importiert.</b><br><br>So gehts:<br>1. <a href="https://takeout.google.com" target="_blank" style="color:#e0305a">takeout.google.com</a> öffnen<br>2. Nur <b>„Maps (Ihre Orte)"</b> auswählen<br>3. Export herunterladen &amp; entpacken<br>4. Datei <b>„Gespeicherte Orte.json"</b> importieren</div>`;
       return;
     }
     const items=googleFavs.map(f=>({...f,dist:uLat&&f.lat?hav(uLat,uLon,f.lat,f.lon):null})).sort((a,b)=>(a.dist??999)-(b.dist??999));
     const deleteAllBtn=`<button onclick="deleteAllFavs()" style="width:100%;padding:8px;background:#fff0f3;border:1.5px solid #f0a0b8;border-radius:10px;color:#a0103a;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;margin-bottom:10px;-webkit-appearance:none">🗑️ Alle ${googleFavs.length} Favoriten löschen</button>`;
     const cards=items.map(f=>{
       const mapsUrl=`https://maps.google.com/?q=${f.lat},${f.lon}`;
-      const dist=f.dist!==null?(f.dist<1?(f.dist*1000).toFixed(0)+' m':f.dist<10?f.dist.toFixed(1)+' km':Math.round(f.dist)+' km'):'';
+      const dist=f.dist!=null?(f.dist<1?(f.dist*1000).toFixed(0)+' m':f.dist<10?f.dist.toFixed(1)+' km':Math.round(f.dist)+' km'):'';
       return `<div class="poi-card" style="border:2px solid #f0a0b8" data-poi-id="${f.id}">
         <div class="poi-header">
           <div class="poi-icon" style="background:#fff0f3;font-size:1.2rem;line-height:1">❤️</div>
-          <div class="poi-title-block">
-            <div class="poi-name">${f.n}</div>
-            <div class="poi-sub"><span class="poi-badge badge-fav">Google Favorit</span>${f.addr?f.addr:''}</div>
-          </div>
+          <div class="poi-title-block"><div class="poi-name">${f.n}</div><div class="poi-sub"><span class="poi-badge badge-fav">Google Favorit</span>${f.addr?f.addr:''}</div></div>
           ${dist?`<div class="poi-dist">${dist}<small>entfernt</small></div>`:''}
         </div>
         <div class="poi-actions">
           <a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps öffnen</a>
-          <button class="btn-call" onclick="deleteFav('${f.id}')" style="cursor:pointer;color:#c04040;flex-shrink:0" title="Löschen">🗑️</button>
+          <button class="btn-call" onclick="deleteFav('${f.id}')" style="cursor:pointer;color:#c04040;flex-shrink:0">🗑️</button>
         </div>
       </div>`;
     }).join('');
     list.innerHTML=importBtn+deleteAllBtn+cards;
     return;
   }
-
-  if(!uLat){hint.style.display='';list.innerHTML='';return;}
-  hint.style.display='none';
 
   // ── OWN POIs filter ──
   if(activeFilter==='own'){
