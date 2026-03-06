@@ -623,13 +623,22 @@ function deletePoi(id){
 
 function deleteBuiltinPoi(e){
   if(!isAdmin) return;
-  if(!confirm(`POI „${e.n}" ausblenden?\n\nEr wird in der Liste nicht mehr angezeigt. Rückgängig machen: im Filter „Eigene POIs" den versteckten Eintrag löschen.`)) return;
-  // Save a hidden marker in customPois so we can track it
+  if(!confirm(`POI „${e.n}" wirklich löschen?`)) return;
+  // Remove from map immediately
+  if(mapObj && builtinMarkers[e.n]){
+    mapObj.removeLayer(builtinMarkers[e.n]);
+    delete builtinMarkers[e.n];
+  }
+  // Also remove override marker if exists
+  const overrideId='override_'+e.n.replace(/[^a-zA-Z0-9]/g,'_');
+  removeCustomPoiMarker(overrideId);
+  customPois=customPois.filter(x=>x.id!==overrideId);
+  // Mark as hidden so it stays gone after reload
   const hideId='hidden_'+e.n.replace(/[^a-zA-Z0-9]/g,'_');
   if(!customPois.find(x=>x.id===hideId)){
     customPois.push({id:hideId,_hidden:true,n:e.n,km:e.km,t:e.t,l:e.l,ort:e.ort});
-    saveCustomPois();
   }
+  saveCustomPois();
   renderList();
 }
 
@@ -973,6 +982,7 @@ setTimeout(()=>{const el=document.getElementById('poi-km');if(el)el.addEventList
 // ══════════════════════════════════════════════════════
 let mapObj=null;
 let campM=[],chargeM=[],showC=true,showH=true;
+let builtinMarkers={}; // name → leaflet marker, for deletion
 let activeId=null;
 let mapWatchId=null,navMode=false,autoCenter=true;
 let uMark=null,uCircle=null,uHeading=null,prevLat=null,prevLon=null;
@@ -997,7 +1007,13 @@ function initMap(){
   E.forEach((e,i)=>{
     const m=L.marker([e.lat,e.lon],{icon:mkIco(e.t)});
     m.bindTooltip(`<b>${e.n}</b><br>${FL[e.l]} ${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
-    m.on('click',()=>showPanel(e,i));m.addTo(mapObj);
+    m.on('click',()=>showPanel(e,i));
+    // Check if this POI is already deleted (hidden) — don't add to map
+    const hiddenIds=new Set(customPois.filter(x=>x._hidden).map(x=>x.n));
+    if(!hiddenIds.has(e.n)){
+      m.addTo(mapObj);
+    }
+    builtinMarkers[e.n]=m;
     e.t==="Camping"?campM.push(m):chargeM.push(m);
   });
 
