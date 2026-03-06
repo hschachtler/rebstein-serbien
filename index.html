@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BikePacking">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BikePacking – Rebstein → Serbien</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:#f0f4f8;
+  color:#1a2b3c;
+  height:100vh;height:100dvh;
+  display:flex;flex-direction:column;overflow:hidden;
+  padding-top:env(safe-area-inset-top);
+  padding-bottom:env(safe-area-inset-bottom);
+  padding-left:env(safe-area-inset-left);
+  padding-right:env(safe-area-inset-right);
+}
+
+/* ── TOP BAR ── */
+#topbar{
+  background:#fff;
+  border-bottom:1px solid #e2e8f0;
+  padding:6px 10px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;box-shadow:0 1px 8px rgba(0,0,0,.07);z-index:1000;
+  gap:6px;
+}
+#topbar h1{font-family:'Playfair Display',serif;font-size:.78rem;color:#1a2b3c;white-space:nowrap;flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#topbar h1 span{color:#c85a0a}
+#topbar-btns{display:flex;gap:5px;align-items:center;flex-shrink:0}
+.topbar-btn{display:flex;align-items:center;gap:4px;padding:6px 9px;border:none;border-radius:16px;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;cursor:pointer;white-space:nowrap;min-height:30px;-webkit-appearance:none;transition:opacity .2s;text-decoration:none}
+.topbar-btn:active{opacity:.75}
+.topbar-btn-weather{background:linear-gradient(135deg,#1a5080,#2a6aaa);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)}
+.topbar-btn-map{background:linear-gradient(135deg,#1a6b4a,#1a5080);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)}
+.topbar-btn-komoot{background:#6ab04c;color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15);padding:5px 9px}
+.topbar-btn-login{background:#f0f4f8;border:1px solid #dde4ec;color:#5a7a9a}
+
+/* ── VIEW TOGGLE BUTTON ── */
+#view-toggle-btn:active{opacity:.75}
+/* Hide topbar when map is fullscreen */
+#view-map.active-map ~ * #view-toggle-btn{display:none}
+
+/* ── VIEW CONTAINERS ── */
+#view-poi{display:flex;flex-direction:column;flex:1;overflow:hidden}
+#view-map{display:none;flex-direction:column;flex:1;overflow:hidden;position:relative}
+#view-map.active{display:flex}
+#view-poi.active{display:flex}
+
+/* ── MAP VIEW – fullscreen ── */
+#view-map{position:fixed;top:0;left:0;right:0;bottom:0;z-index:500;display:none;flex-direction:column}
+
+/* ══════════════════════════
+   POI VIEW STYLES
+══════════════════════════ */
+#gpsarea{
+  padding:10px 14px;background:#fff;
+  border-bottom:1px solid #e8eef4;
+  display:flex;flex-direction:column;gap:6px;
+}
+#gps-btn-poi{
+  width:100%;padding:12px;
+  background:linear-gradient(135deg,#1a6b4a,#1a5080);
+  border:none;border-radius:12px;color:#fff;
+  font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  min-height:46px;-webkit-appearance:none;transition:opacity .2s;
+}
+#gps-btn-poi:active{opacity:.85}
+#gps-btn-poi.busy{background:linear-gradient(135deg,#7a6a1a,#5a4a1a)}
+#gps-btn-poi.ok{background:linear-gradient(135deg,#1a7a4a,#1a6a3a)}
+#gps-status-poi{font-size:.72rem;color:#6a8aa4;text-align:center;min-height:16px}
+#gps-status-poi.ok{color:#1a7a4a;font-weight:500}
+#gps-status-poi.err{color:#c04040}
+
+#filters{
+  display:flex;gap:8px;padding:8px 14px;
+  background:#fff;border-bottom:1px solid #e8eef4;flex-shrink:0;
+}
+.ftab{
+  flex:1;padding:7px 4px;border:2px solid #dde4ec;
+  border-radius:10px;background:#f4f6f9;color:#5a7a9a;
+  font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;
+  cursor:pointer;text-align:center;min-height:38px;
+  display:flex;align-items:center;justify-content:center;gap:3px;
+  transition:all .15s;-webkit-appearance:none;
+}
+.ftab.active-camp{background:#eaf5f0;border-color:#1a9a5a;color:#1a6a3a}
+.ftab.active-chg{background:#e8f0fb;border-color:#1a60c0;color:#1a4a8a}
+.ftab.active-all{background:#f0ecf8;border-color:#7a5aa0;color:#4a2a7a}
+.ftab.active-rest{background:#fff4e8;border-color:#e07820;color:#a04010}
+
+#listarea{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px 24px}
+#no-gps-hint{text-align:center;padding:36px 20px;color:#9ab0c8;font-size:.82rem;line-height:1.7}
+#no-gps-hint .big{font-size:2.5rem;display:block;margin-bottom:8px}
+
+.poi-card{background:#fff;border-radius:14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden;border:1px solid #e8eef4}
+.poi-card.nearest{border:2px solid #1a9a5a;box-shadow:0 3px 16px rgba(26,154,90,.15)}
+.poi-card.nearest-chg{border:2px solid #1a60c0;box-shadow:0 3px 16px rgba(26,96,192,.15)}
+
+.poi-header{display:flex;align-items:center;gap:10px;padding:11px 13px 7px}
+.poi-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.poi-title-block{flex:1;min-width:0}
+.poi-name{font-size:.8rem;font-weight:600;color:#1a2b3c;line-height:1.3;margin-bottom:2px}
+.poi-sub{font-size:.63rem;color:#7a92a8;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.poi-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:.6rem;font-weight:600}
+.badge-camp{background:#eaf5ee;color:#1a6a3a;border:1px solid #9ad8b0}
+.badge-chg{background:#e8f0fb;color:#1a4a8a;border:1px solid #90b8e8}
+.badge-rest{background:#fff4e8;color:#a04010;border:1px solid #f0b878}
+.badge-nearest{background:#fff3cd;color:#856404;border:1px solid #ffc107}
+.nearest-tag{display:inline-flex;align-items:center;gap:3px;background:#fff3cd;color:#856404;border-radius:6px;padding:1px 6px;font-size:.6rem;font-weight:700}
+
+.poi-dist{font-size:.95rem;font-weight:700;color:#c85a0a;white-space:nowrap;flex-shrink:0}
+.poi-dist small{font-size:.58rem;font-weight:500;color:#9ab0c8;display:block;text-align:right}
+
+.poi-details{padding:0 13px 7px;display:flex;flex-direction:column;gap:3px}
+.poi-detail-row{display:flex;align-items:flex-start;gap:5px;font-size:.7rem;color:#4a6a84;line-height:1.4}
+.poi-detail-row .ico{flex-shrink:0;width:16px;text-align:center;font-size:.78rem}
+
+.poi-actions{padding:7px 13px 11px;display:flex;gap:7px}
+.btn-maps{flex:1;padding:9px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:5px;min-height:40px;-webkit-appearance:none;transition:opacity .15s}
+.btn-maps:active{opacity:.8}
+.btn-call{padding:9px 12px;background:#f0f4f8;border:1px solid #dde4ec;border-radius:10px;color:#1a2b3c;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px;min-height:40px;-webkit-appearance:none}
+.btn-call:active{background:#e4ecf4}
+.btn-call.disabled{color:#b0c0d0;pointer-events:none}
+
+.badge-own{background:#f0ecf8;color:#5a2a9a;border:1px solid #c0a0e8}
+.ftab.active-own{background:#f0ecf8;border-color:#7a5aa0;color:#4a2a7a}
+.poi-card.own-poi{border:2px solid #7a5aa0;box-shadow:0 3px 16px rgba(122,90,160,.13)}
+.type-btn{padding:10px 8px;border:1.5px solid #dde4ec;border-radius:10px;background:#f4f6f9;color:#5a7a9a;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;text-align:center;-webkit-appearance:none;transition:all .15s}
+.type-btn.active-type{background:#f0ecf8;border-color:#7a5aa0;color:#4a2a7a}
+.badge-sonstiges{background:#f4f6f9;color:#3a5a7a;border:1px solid #c0cdd8}
+.section-lbl{font-size:.6rem;font-weight:700;color:#9ab0c8;text-transform:uppercase;letter-spacing:.1em;padding:7px 2px 3px}
+
+#rest-card{background:#fff;border-radius:14px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.06);border:2px solid #e07820;overflow:hidden}
+.btn-rest{width:100%;padding:11px;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;-webkit-appearance:none;transition:opacity .15s}
+.btn-rest:active{opacity:.8}
+.btn-rest-primary{background:linear-gradient(135deg,#e07820,#c05010);color:#fff}
+.btn-rest-secondary{background:#f4f6f9;border:1px solid #dde4ec;color:#1a2b3c}
+
+/* ══════════════════════════
+   MAP VIEW STYLES
+══════════════════════════ */
+#gpsbar{background:#fff;border-bottom:2px solid #e2e8f0;display:flex;align-items:stretch;flex-shrink:0;box-shadow:0 1px 6px rgba(0,0,0,.04);overflow-x:auto;-webkit-overflow-scrolling:touch;min-height:54px;padding-top:env(safe-area-inset-top)}
+#gpsbar::-webkit-scrollbar{display:none}
+.gpssec{display:flex;align-items:center;gap:7px;padding:5px 11px;border-right:1px solid #edf2f7;flex-shrink:0;min-width:0}
+.gpssec:last-child{border-right:none}
+.gpsico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.gpstxt{min-width:0}
+.gpslbl{font-size:.48rem;color:#9ab0c8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:1px}
+.gpsval{font-size:.72rem;font-weight:600;color:#1a2b3c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:128px}
+.gpssub{font-size:.58rem;color:#6a8aa4;margin-top:1px;line-height:1.3}
+.dist-pill{display:inline-block;background:#fff4ec;color:#c85a0a;border:1px solid #f0c090;border-radius:10px;padding:1px 7px;font-size:.6rem;font-weight:600;margin-top:2px}
+.dist-pill.ch{background:#ecf2ff;color:#1a50aa;border-color:#a8c4f0}
+
+#gps-btn-map{display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:500;cursor:pointer;flex-shrink:0;min-width:130px;min-height:54px;transition:opacity .2s;-webkit-appearance:none}
+#gps-btn-map:active{opacity:.8}
+#gps-btn-map.busy{background:linear-gradient(135deg,#7a6a1a,#5a4a1a)}
+#gps-btn-map.ok{background:linear-gradient(135deg,#1a7a4a,#1a6a3a)}
+
+#map{flex:1;background:#e8eef4;position:relative}
+.leaflet-popup-content-wrapper{background:#fff!important;border:1px solid #dde4ec!important;border-radius:12px!important;box-shadow:0 6px 24px rgba(0,0,0,.12)!important;font-family:'DM Sans',sans-serif!important;color:#1a2b3c!important}
+.leaflet-popup-tip{background:#fff!important}
+.leaflet-popup-content{margin:9px 13px!important;font-size:.76rem!important;line-height:1.5!important;color:#1a2b3c!important}
+
+#panel{position:absolute;top:10px;right:8px;width:calc(100vw - 16px);max-width:320px;max-height:calc(100% - 20px);background:#fff;border:1px solid #dde4ec;border-radius:14px;z-index:900;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 6px 28px rgba(0,0,0,.15);transition:transform .3s,opacity .3s}
+#panel.hidden{transform:translateY(calc(100% + 20px));opacity:0;pointer-events:none}
+#phdr{padding:11px 13px;background:linear-gradient(135deg,#f0f7f4,#e8f0fb);border-bottom:1px solid #dde4ec;display:flex;justify-content:space-between;align-items:flex-start;gap:7px}
+#phdr h3{font-family:'Playfair Display',serif;font-size:.85rem;color:#1a2b3c;line-height:1.3;flex:1}
+#pclose{background:#f0f4f8;border:1px solid #d8e0e8;color:#6a8aa4;cursor:pointer;width:30px;height:30px;border-radius:8px;font-size:.95rem;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;-webkit-appearance:none}
+#pclose:active{background:#fee8e8;border-color:#f0a0a0;color:#b04040}
+#pbody{padding:11px 13px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.irow{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px;padding-bottom:7px;border-bottom:1px solid #f4f6f9}
+.irow:last-child{border-bottom:none;margin-bottom:0}
+.iico{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;margin-top:1px}
+.itxt{flex:1}
+.ilbl{font-size:.48rem;color:#9ab0c8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.ival{font-size:.73rem;color:#1a2b3c;line-height:1.35}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;font-size:.63rem;font-weight:500;margin-bottom:7px}
+.badge.camp{background:#eaf5ee;color:#1a6a3a;border:1px solid #9ad8b0}
+.badge.chg{background:#e8f0fb;color:#1a4a8a;border:1px solid #90b8e8}
+.kmbar{width:100%;height:4px;background:#edf2f7;border-radius:2px;margin:5px 0 9px;overflow:hidden}
+.kmfill{height:100%;border-radius:2px;background:linear-gradient(90deg,#1a8a5a,#1a5080)}
+.mapbtn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:9px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:500;cursor:pointer;text-decoration:none;transition:all .2s;margin-top:9px;min-height:42px;-webkit-appearance:none}
+.mapbtn:active{opacity:.85}
+
+#listpanel{position:absolute;bottom:8px;left:8px;width:calc(100vw - 16px);max-width:290px;background:#fff;border:1px solid #dde4ec;border-radius:14px;z-index:800;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.09);transition:all .3s}
+#listpanel.hidden{transform:translateY(12px);opacity:0;pointer-events:none}
+#listhdr{padding:9px 12px;background:linear-gradient(135deg,#f0f7f4,#e8f0fb);border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
+#listhdr h4{font-family:'Playfair Display',serif;font-size:.78rem;color:#1a2b3c}
+#ltoggle{background:#f0f4f8;border:1px solid #d8e0e8;color:#5a7a9a;font-size:.6rem;padding:4px 9px;border-radius:10px;cursor:pointer;font-family:'DM Sans',sans-serif;min-height:30px;-webkit-appearance:none}
+#elist{overflow-y:auto;max-height:250px;-webkit-overflow-scrolling:touch}
+.li{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #f4f6f9;cursor:pointer;transition:background .15s;min-height:42px}
+.li:active{background:#f5f9ff}
+.li.act{background:#eaf5f0}
+.ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.lkm{font-size:.59rem;color:#c85a0a;font-weight:600;min-width:42px}
+.lname{font-size:.66rem;color:#2a3d50;flex:1;line-height:1.25}
+.lflag{font-size:.74rem}
+
+@keyframes pulse{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.12;transform:scale(1.8)}}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#c8d4e0;border-radius:2px}
+a{color:inherit}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR (global) -->
+<div id="topbar">
+  <h1>🚴 BikePacking <span>Rebstein → Serbien</span></h1>
+  <div id="topbar-btns">
+    <button id="weather-btn" class="topbar-btn topbar-btn-weather" onclick="openWeather()">
+      <span class="topbar-btn-icon">🌤️</span><span>Wetter</span>
+    </button>
+    <button id="view-toggle-btn" class="topbar-btn topbar-btn-map" onclick="toggleView()">
+      <span class="topbar-btn-icon" id="toggle-icon">🗺️</span>
+      <span id="toggle-label">Karte</span>
+    </button>
+    <a class="topbar-btn topbar-btn-komoot" href="https://www.komoot.com/de-de/tour/2807940472?share_token=atc2kUSnubj82bVFqU1pGamZ8Nmdcnl9FJ3cIPS7IxTVi2JDhN&ref=wtd" target="_blank" title="Tour auf Komoot">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+      <span>Komoot</span>
+    </a>
+    <button id="topbar-login-btn" class="topbar-btn topbar-btn-login" onclick="isAdmin?doLogout():openLoginModal()">
+      <span id="topbar-login-icon">🔐</span><span id="topbar-login-label">Login</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════
+     POI VIEW
+═══════════════════════════════ -->
+<div id="view-poi" class="active">
+
+  <!-- GPS -->
+  <div id="gpsarea">
+    <button id="gps-btn-poi" onclick="locateMePoi()">📡 Standort bestimmen</button>
+    <div id="gps-status-poi">GPS noch nicht aktiv – tippe den Button oben</div>
+  </div>
+
+  <!-- FILTER -->
+  <div id="filters">
+    <button class="ftab active-all" id="f-all" onclick="setFilter('all')">🗂 Alle</button>
+    <button class="ftab" id="f-camp" onclick="setFilter('camp')">⛺ Camp</button>
+    <button class="ftab" id="f-chg" onclick="setFilter('chg')">⚡ Laden</button>
+    <button class="ftab" id="f-rest" onclick="setFilter('rest')">🍽️ Essen</button>
+    <button class="ftab" id="f-add" onclick="openAddPoi()" style="flex:0 0 auto;padding:7px 10px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border-color:transparent;color:#fff">➕</button>
+  </div>
+
+  <!-- LIST -->
+  <div id="listarea">
+    <div id="no-gps-hint">
+      <span class="big">🗺️</span>
+      Tippe <b>„Standort bestimmen"</b><br>
+      um die nächsten POIs<br>nach Entfernung zu sehen.
+    </div>
+    <div id="poi-list"></div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════
+     MAP VIEW
+═══════════════════════════════ -->
+<div id="view-map">
+
+  <!-- GPS BAR -->
+  <div id="gpsbar">
+    <button id="gps-btn-map" onclick="locateMeMap()">📡 Standort bestimmen</button>
+    <div class="gpssec">
+      <div class="gpsico" style="background:#fff4ec">📍</div>
+      <div class="gpstxt">
+        <div class="gpslbl">Mein Standort</div>
+        <div class="gpsval" id="g-pos">GPS nicht aktiv</div>
+        <div class="gpssub" id="g-acc"></div>
+      </div>
+    </div>
+    <div class="gpssec">
+      <div class="gpsico" style="background:#eaf5ee">⛺</div>
+      <div class="gpstxt">
+        <div class="gpslbl">Nächster Camping</div>
+        <div class="gpsval" id="g-cn">–</div>
+        <div class="gpssub" id="g-cd"></div>
+      </div>
+    </div>
+    <div class="gpssec">
+      <div class="gpsico" style="background:#e8f0fb">⚡</div>
+      <div class="gpstxt">
+        <div class="gpslbl">Nächste Ladestation</div>
+        <div class="gpsval" id="g-hn">–</div>
+        <div class="gpssub" id="g-hd"></div>
+      </div>
+    </div>
+    <div class="gpssec" style="flex:0 0 auto;min-width:138px">
+      <div class="gpsico" style="background:#f4f6f9">🗺️</div>
+      <div class="gpstxt">
+        <div class="gpslbl">Route-Fortschritt</div>
+        <div class="gpsval" id="g-prog">–</div>
+        <div class="gpssub" id="g-rem">–</div>
+      </div>
+    </div>
+    <!-- Close map button -->
+    <button onclick="toggleView()" style="flex-shrink:0;margin:8px 10px 8px auto;padding:0 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:20px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18);min-height:36px;-webkit-appearance:none">📋 POI-Liste</button>
+    <!-- Admin tracking button -->
+    <button id="admin-btn" onclick="isAdmin?stopRiderTracking():openLoginModal()" style="flex-shrink:0;margin:8px 10px 8px 0;padding:0 12px;background:#f4f6f9;border:1px solid #dde4ec;border-radius:20px;color:#5a7a9a;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;cursor:pointer;white-space:nowrap;min-height:36px;-webkit-appearance:none">🔐 Admin</button>
+  </div>
+
+  <!-- Rider position info bar -->
+  <div id="rider-bar" style="display:none;background:linear-gradient(135deg,#fff4ec,#fff8f0);border-bottom:1px solid #f0c090;padding:5px 14px;align-items:center;gap:8px;flex-shrink:0">
+    <span id="rider-bar-txt" style="font-size:.72rem;color:#c85a0a;font-weight:600;font-family:'DM Sans',sans-serif"></span>
+    <button onclick="if(riderMarker)mapObj.setView(riderMarker.getLatLng(),13,{animate:true})" style="margin-left:auto;background:#c85a0a;border:none;color:#fff;font-size:.65rem;font-weight:600;padding:3px 9px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;-webkit-appearance:none">📍 Zur Position</button>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- DETAIL PANEL -->
+  <div id="panel" class="hidden">
+    <div id="phdr"><h3 id="ptitle"></h3><button id="pclose" onclick="closePanel()">✕</button></div>
+    <div id="pbody"></div>
+  </div>
+
+  <!-- LIST TOGGLE BUTTON -->
+  <button id="list-toggle-btn" onclick="toggleListPanel()" style="position:absolute;bottom:8px;left:8px;z-index:900;background:#fff;border:1px solid #dde4ec;border-radius:10px;padding:7px 11px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;color:#1a2b3c;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);display:flex;align-items:center;gap:4px;min-height:38px;-webkit-appearance:none">📋 Stationen</button>
+
+  <!-- LIST PANEL -->
+  <div id="listpanel" class="hidden">
+    <div id="listhdr">
+      <h4>📋 Alle Einträge (29)</h4>
+      <button id="ltoggle" onclick="toggleList()">▼ ausblenden</button>
+      <button onclick="toggleListPanel()" style="background:#fee8e8;border:1px solid #f0a0a0;color:#b04040;font-size:.72rem;padding:3px 7px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-left:3px;min-height:30px;-webkit-appearance:none">✕</button>
+    </div>
+    <div id="elist"></div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// SHARED DATA
+// ══════════════════════════════════════════
+const E=[
+  {km:4.4,  d:4.4,   h:7,    l:"CH",ort:"Altstätten",             t:"Camping",    n:"Allmend Rheintal / Stellplatz Altstätten",addr:"Oberrieterstrasse 44, 9450 Altstätten",                    p:"+41 71 755 00 11",  lat:47.3673,lon:9.5533},
+  {km:16.7, d:12.3,  h:40,   l:"AT",ort:"Feldkirch",              t:"Camping",    n:"Waldcamping Feldkirch",                   addr:"Stadionstrasse 9, 6800 Feldkirch",                        p:"+43 5522 760013190",lat:47.2591,lon:9.5835},
+  {km:36.9, d:20.2,  h:131,  l:"AT",ort:"Ludesch",                t:"Ladestation",n:"da emobil Charging Station",              addr:"Walgaustrasse 32, 6713 Ludesch",                          p:"+43 50 2277 2299",  lat:47.193,lon:9.7774},
+  {km:62.5, d:25.6,  h:506,  l:"AT",ort:"Wald am Arlberg",        t:"Camping",    n:"Arlberg Camping",                         addr:"Sonnenbühel 107, 6752 Wald am Arlberg",                  p:"+43 5585 7386",     lat:47.1302,lon:10.0537},
+  {km:89.4, d:26.9,  h:808,  l:"AT",ort:"Pettneu am Arlberg",     t:"Camping",    n:"ArlbergLife Camping",                     addr:"Pettneu 58c, 6574 Pettneu am Arlberg",                    p:"+43 664 1630393",   lat:47.1482,lon:10.3462},
+  {km:110.0,d:20.6,  h:52,   l:"AT",ort:"Landeck",                t:"Camping",    n:"Camping Riffler",                         addr:"Bruggfeldstrasse 2, 6500 Landeck",                        p:"+43 660 6500880",   lat:47.1424,lon:10.5613},
+  {km:185.1,d:75.1,  h:224,  l:"AT",ort:"Natters / Innsbruck",    t:"Camping",    n:"Ferienparadies Natterer See",             addr:"Natterer See 1, 6161 Natters",                            p:"+43 512 546732",    lat:47.2382,lon:11.3387},
+  {km:191.4,d:6.3,   h:19,   l:"AT",ort:"Innsbruck",              t:"Ladestation",n:"da emobil Charging Station Innsbruck",    addr:"Amraser-See-Strasse 29, 6020 Innsbruck",                  p:"+43 50 2277 2299",  lat:47.2618,lon:11.423},
+  {km:251.8,d:60.4,  h:1077, l:"IT",ort:"Campo di Trens / Sterzing",t:"Camping",  n:"Wohnmobilstellplatz Campo di Trens",      addr:"Zona Artigianale 10, 39040 Campo di Trens",               p:"+39 0472 766695",   lat:46.8805,lon:11.4384},
+  {km:278.1,d:26.3,  h:203,  l:"IT",ort:"Varna / Brixen",         t:"Camping",    n:"Camping Löwenhof Varna/Brixen",           addr:"Via Brennero 60, 39040 Varna BZ",                         p:"+39 0472 836216",   lat:46.7348,lon:11.6477},
+  {km:308.9,d:30.8,  h:406,  l:"IT",ort:"Brunico / Bruneck",      t:"Ladestation",n:"Neogy Charging Station Brunico",          addr:"Anello Nord 18, 39031 Brunico BZ",                        p:"+39 800 832 855",   lat:46.8,lon:11.9329},
+  {km:389.7,d:80.8,  h:562,  l:"AT",ort:"Lienz",                  t:"Camping",    n:"Camping Falken Lienz",                    addr:"Falkenweg 7, 9900 Lienz",                                 p:"nicht verfügbar",   lat:46.8227,lon:12.7711},
+  {km:390.0,d:0.3,   h:0,    l:"AT",ort:"Lienz",                  t:"Ladestation",n:"da emobil Charging Station Lienz",        addr:"Tiroler Str. 17d, 9900 Lienz",                            p:"+43 50 2277 2299",  lat:46.8275,lon:12.7661},
+  {km:442.6,d:52.6,  h:218,  l:"AT",ort:"Hermagor / Nassfeld",    t:"Camping",    n:"EuroParcs Hermagor",                      addr:"Obervellach 15, 9620 Obervellach",                        p:"+43 4282 2051",     lat:46.6337,lon:13.395},
+  {km:442.6,d:0.0,   h:0,    l:"AT",ort:"Hermagor",               t:"Ladestation",n:"AAE Naturstrom Charging Station",         addr:"Blumengasse 1, 9620 Hermagor",                            p:"nicht verfügbar",   lat:46.6272,lon:13.3756},
+  {km:508.5,d:65.9,  h:205,  l:"AT",ort:"Villach",                t:"Ladestation",n:"SMATRICS EnBW Villach",                   addr:"Maria-Gailer-Strasse 35, 9500 Villach",                   p:"+43 50 3135 1855",  lat:46.6054,lon:13.8659},
+  {km:510.4,d:1.9,   h:2,    l:"AT",ort:"Treffen am Ossiacher See",t:"Camping",   n:"campingbeach Ossiacher See",              addr:"Seeuferstrasse 109, 9520 Treffen",                        p:"+43 4248 2757",     lat:46.6563,lon:13.8918},
+  {km:553.1,d:42.7,  h:162,  l:"AT",ort:"Klagenfurt",             t:"Camping",    n:"Camping Klagenfurt am Wörthersee",        addr:"Metnitzstrand 5, 9020 Klagenfurt",                        p:"+43 463 287810",    lat:46.6185,lon:14.2564},
+  {km:636.9,d:83.8,  h:402,  l:"SI",ort:"Slovenj Gradec",         t:"Ladestation",n:"Porsche Slovenija Charging Station",      addr:"Legenska cesta 42, 2380 Slovenj Gradec",                  p:"+386 1 230 40 03",  lat:46.5096,lon:15.0911},
+  {km:694.9,d:58.0,  h:499,  l:"SI",ort:"Maribor",                t:"Camping",    n:"Avtokamp Kekec",                          addr:"Pohorska ulica 35c, 2000 Maribor",                        p:"+386 40 225 386",   lat:46.5357,lon:15.6052},
+  {km:728.7,d:33.8,  h:53,   l:"SI",ort:"Ptuj",                   t:"Camping",    n:"Camping Terme Ptuj",                      addr:"Pot v Toplice 10, 2250 Ptuj",                             p:"+386 2 749 45 80",  lat:46.4228,lon:15.8543},
+  {km:729.0,d:0.3,   h:0,    l:"SI",ort:"Ptuj",                   t:"Ladestation",n:"Lidl Charging Station Ptuj",              addr:"Volkmerjeva cesta 26a, 2250 Ptuj",                        p:"+386 1 888 81 94",  lat:46.4283,lon:15.8677},
+  {km:771.5,d:42.5,  h:83,   l:"HR",ort:"Jurovčak / Međimurje",  t:"Camping",    n:"Wine Camp Hažić",                        addr:"Jurovčak 37, 40313 Jurovčak",                            p:"+385 99 219 9411",  lat:46.4987,lon:16.3298},
+  {km:784.9,d:13.4,  h:5,    l:"HR",ort:"Varaždin",              t:"Ladestation",n:"Tesla Supercharger Varaždin",            addr:"Ul. Grada Lipika 10, 42204 Varaždin",                    p:"nicht verfügbar",   lat:46.2647,lon:16.3781},
+  {km:942.1,d:157.2, h:220,  l:"HR",ort:"Budakovac / Virovitica", t:"Camping",    n:"Budakovac Camping",                       addr:"Čorova 50, 33410 Budakovac",                             p:"+385 98 965 6734",  lat:45.8462,lon:17.6301},
+  {km:1051.7,d:109.6,h:86,   l:"HR",ort:"Slavonski Brod",         t:"Ladestation",n:"Tesla Supercharger Slavonski Brod",       addr:"Gospodarska ul. 11, 35207 Slavonski Brod",                p:"nicht verfügbar",   lat:45.1753,lon:18.0632},
+  {km:1201.4,d:149.7,h:547,  l:"RS",ort:"Zasavica",               t:"Camping",    n:"Camping Zasavica",                        addr:"Aleksandra Markovića, Zasavica",                          p:"+381 64 6442017",   lat:44.9607,lon:19.5233},
+  {km:1203.0,d:1.6,  h:1,    l:"RS",ort:"Sremska Mitrovica",      t:"Ladestation",n:"Charge&Go Charging Station",             addr:"Bulevar Konstantina Velikog 21, Sremska Mitrovica",        p:"+381 11 7158599",   lat:44.9773,lon:19.5917},
+  {km:1360.1,d:157.1,h:1038, l:"RS",ort:"Čačak",                 t:"Ladestation",n:"Charge&GO Charging Station Čačak",       addr:"Konjevići BB, 32103 Čačak",                              p:"+381 11 7158599",   lat:43.9032,lon:20.3986},
+];
+
+const R=[
+  {km:4,   l:"CH",ort:"Altstätten",    t:"Restaurant",n:"Oldtown Streetfood 9450",      addr:"Engelgasse 20, 9450 Altstätten",         p:"+41 71 599 25 58", lat:47.3776,lon:9.5400, rating:5.0, hours:"Di–Sa 11–22 Uhr"},
+  {km:4,   l:"CH",ort:"Altstätten",    t:"Restaurant",n:"Restaurant mamma Teresa",       addr:"Rathauspl. 7, 9450 Altstätten",          p:"+41 71 558 17 36", lat:47.3782,lon:9.5407, rating:4.9, hours:"Di–So 11–22 Uhr"},
+  {km:4,   l:"CH",ort:"Altstätten",    t:"Restaurant",n:"Restaurant Tübli",              addr:"Dameshäuser 3, 9450 Altstätten",         p:"+41 71 599 23 98", lat:47.3867,lon:9.5352, rating:4.8, hours:"Mo/Do–So 9:30–23:30 Uhr"},
+  {km:17,  l:"AT",ort:"Feldkirch",     t:"Restaurant",n:"ILLSIDE",                       addr:"Schubert-Platz 2, 6800 Feldkirch",       p:"+43 699 10206800", lat:47.2337,lon:9.5985, rating:4.9, hours:"Di–Sa 17–23 Uhr"},
+  {km:17,  l:"AT",ort:"Feldkirch",     t:"Restaurant",n:"Schützenhaus",                  addr:"Göfiser Str. 2, 6800 Feldkirch",         p:"+43 5522 85290",   lat:47.2365,lon:9.6015, rating:4.7, hours:"Mo/Do–Sa 17–23, So 10–22 Uhr"},
+  {km:17,  l:"AT",ort:"Feldkirch",     t:"Restaurant",n:"Dogana Gastronomie",             addr:"Neustadt 20, 6800 Feldkirch",            p:"+43 5522 75126",   lat:47.2367,lon:9.5986, rating:4.7, hours:"Di–Sa 8:30–24 Uhr"},
+  {km:110, l:"AT",ort:"Landeck",       t:"Restaurant",n:"Das Landegger",                 addr:"Malserstrasse 31, 6500 Landeck",         p:"+43 660 9194155",  lat:47.1388,lon:10.5662, rating:4.5, hours:"Di–So 9–23 Uhr"},
+  {km:110, l:"AT",ort:"Landeck",       t:"Restaurant",n:"Dorfwirt Stanz",                addr:"Stanz bei Landeck 150, 6500 Stanz",      p:"+43 699 17177855", lat:47.1477,lon:10.5481, rating:4.8, hours:"Mi–Sa 11–22, So 10–18 Uhr"},
+  {km:110, l:"AT",ort:"Landeck",       t:"Restaurant",n:"il Palazzo Restaurant & Pizzeria",addr:"Schrofensteinstr. 14, 6500 Landeck",   p:"+43 676 3533688",  lat:47.1486,lon:10.5715, rating:4.8, hours:"Di–Sa 11–21:30, So 11–21 Uhr"},
+  {km:185, l:"AT",ort:"Natters",       t:"Restaurant",n:"Fratelli Restaurant Natters",   addr:"Seestrasse 19, 6161 Natters",            p:"+43 664 5490434",  lat:47.2349,lon:11.3658, rating:4.6, hours:"Di–So 11–22 Uhr"},
+  {km:185, l:"AT",ort:"Natters",       t:"Restaurant",n:"Wirtshaus Nattererboden",        addr:"Natterer Boden 1, 6161 Natters",         p:"+43 512 546200",   lat:47.2433,lon:11.3755, rating:4.2, hours:"Mo/Do–So 11–22 Uhr"},
+  {km:185, l:"AT",ort:"Innsbruck",     t:"Restaurant",n:"Kostbar Mutters",               addr:"Gärberbach 1, 6020 Innsbruck",           p:"+43 664 80493601", lat:47.2295,lon:11.3858, rating:4.8, hours:"Täglich 9–18 Uhr"},
+  {km:252, l:"IT",ort:"Sterzing/Vipiteno",t:"Restaurant",n:"Restaurant Pizzeria Tie Break",addr:"Via Johann Kofler 28, 39049 Vipiteno",p:"+39 0472 760153",  lat:46.8935,lon:11.4372, rating:4.4, hours:"Mo–Sa 11:30–14:30 & 16:30–23 Uhr"},
+  {km:252, l:"IT",ort:"Sterzing/Vipiteno",t:"Restaurant",n:"Biwak Restaurant Pizzeria Pub",addr:"Via Brennero 12, 39049 Vipiteno",     p:"+39 0472 766817",  lat:46.9040,lon:11.4295, rating:4.4, hours:"Mo 7–18, Di–So 7–1 Uhr"},
+  {km:278, l:"IT",ort:"Brixen/Bressanone",t:"Restaurant",n:"Traubenwirt",                addr:"Via Portici Minori 9, 39042 Bressanone",p:"+39 0472 836552",  lat:46.7160,lon:11.6557, rating:4.4, hours:"Täglich 11:30–14:30 & 18–22 Uhr"},
+  {km:390, l:"AT",ort:"Lienz",         t:"Restaurant",n:"Kirchenwirt",                   addr:"Pfarrgasse 7, 9900 Lienz",               p:"+43 4852 62500",   lat:46.8341,lon:12.7600, rating:4.6, hours:"Mo/Do–So 11–23 Uhr"},
+  {km:390, l:"AT",ort:"Lienz",         t:"Restaurant",n:"Himmelblau Restaurant",         addr:"Johann Ignaz Oberhueber-Gasse 6, 9900 Lienz",p:"+43 4852 65791",lat:46.8289,lon:12.7657, rating:4.6, hours:"Di–Sa 17–24 Uhr"},
+  {km:390, l:"AT",ort:"Lienz",         t:"Restaurant",n:"Restaurant Fasslwirt",          addr:"Aguntstrasse 22, 9900 Lienz",            p:"+43 676 7519990",  lat:46.8252,lon:12.7908, rating:4.7, hours:"Mo–Mi 9–14 & 17:30–22 Uhr"},
+  {km:510, l:"AT",ort:"Villach",       t:"Restaurant",n:"Restaurant Aurea",              addr:"Paracelsusgasse 6, 9500 Villach",        p:"+43 664 1867561",  lat:46.6142,lon:13.8451, rating:5.0, hours:"Mi–Sa 18–23 Uhr"},
+  {km:510, l:"AT",ort:"Villach",       t:"Restaurant",n:"Ristorante Nero di seppia",     addr:"Gaswerkstrasse 10, 9500 Villach",        p:"+43 676 6775975",  lat:46.6181,lon:13.8555, rating:4.9, hours:"Di–Sa 11:30–14:30 & 17:30–24 Uhr"},
+  {km:553, l:"AT",ort:"Klagenfurt",    t:"Restaurant",n:"Le Souk",                       addr:"Universitätsstrasse 25, 9020 Klagenfurt",p:"+43 676 9378098", lat:46.6174,lon:14.2706, rating:4.9, hours:"Di–Sa 17–24 Uhr"},
+  {km:553, l:"AT",ort:"Klagenfurt",    t:"Restaurant",n:"Gasthaus im Landhaushof",       addr:"Landhaushof 1, 9020 Klagenfurt",         p:"+43 463 502363",   lat:46.6251,lon:14.3058, rating:4.6, hours:"Mo–So 11–22 Uhr"},
+  {km:553, l:"AT",ort:"Klagenfurt",    t:"Restaurant",n:"Restaurant im weissen Ross",    addr:"St. Veiter Ring 19, 9020 Klagenfurt",    p:"+43 664 1300007",  lat:46.6281,lon:14.3072, rating:4.7, hours:"Mi–So 12–22 Uhr"},
+  {km:695, l:"SI",ort:"Maribor",       t:"Restaurant",n:"Jack & Joe Steak and Burger",   addr:"Ob bregu 20, 2000 Maribor",              p:"+386 51 370 621",  lat:46.5575,lon:15.6377, rating:4.8, hours:"Täglich 12–23 Uhr"},
+  {km:695, l:"SI",ort:"Maribor",       t:"Restaurant",n:"BašČaršija Maribor",            addr:"Poštna ulica 8, 2000 Maribor",           p:"+386 2 250 63 59", lat:46.5583,lon:15.6449, rating:4.6, hours:"Täglich 10–23 Uhr"},
+  {km:695, l:"SI",ort:"Maribor",       t:"Restaurant",n:"Novi Svet",                     addr:"Slomškov trg 5, 2000 Maribor",           p:"+386 2 250 04 86", lat:46.5587,lon:15.6456, rating:4.4, hours:"Di–So 11–22 Uhr"},
+  {km:729, l:"SI",ort:"Ptuj",          t:"Restaurant",n:"Gostilna Rozika",               addr:"Slomškova ulica 7, 2250 Ptuj",           p:"+386 70 668 487",  lat:46.4213,lon:15.8723, rating:4.6, hours:"Mo–Sa 8–22, So 10–16 Uhr"},
+  {km:729, l:"SI",ort:"Ptuj",          t:"Restaurant",n:"Gostilna Ribič",                addr:"Dravska ulica 9, 2250 Ptuj",             p:"+386 2 749 06 35", lat:46.4183,lon:15.8682, rating:4.5, hours:"Di–So 11–21 Uhr"},
+  {km:785, l:"HR",ort:"Varaždin",      t:"Restaurant",n:"Bedem",                         addr:"Ul. Vladimira Nazora 9, 42000 Varaždin", p:"+385 42 557 545",  lat:46.3111,lon:16.3341, rating:4.6, hours:"Täglich 8–22 Uhr"},
+  {km:785, l:"HR",ort:"Varaždin",      t:"Restaurant",n:"The Family",                    addr:"Ul. Braće Radić 1, 42000 Varaždin",      p:"+385 42 420 104",  lat:46.3063,lon:16.3335, rating:4.6, hours:"Mo–Do 8–22, Fr 8–24, Sa 10–24, So 10–22 Uhr"},
+  {km:1052,l:"HR",ort:"Slavonski Brod",t:"Restaurant",n:"Restoran Gurman",               addr:"Ul. Matije Mesića 47, 35000 Slavonski Brod",p:"+385 35 427 841",lat:45.1536,lon:18.0187, rating:4.7, hours:"Di–So 10–23 Uhr"},
+  {km:1203,l:"RS",ort:"Sremska Mitrovica",t:"Restaurant",n:"Restoran Diana",             addr:"Kralja Petra I 70, Sremska Mitrovica",   p:"+381 62 552255",   lat:44.9741,lon:19.6102, rating:4.8, hours:"Täglich 8–23 Uhr"},
+  {km:1203,l:"RS",ort:"Sremska Mitrovica",t:"Restaurant",n:"Restoran Gracian",           addr:"Kralja Aleksandra 16b, Sremska Mitrovica",p:"+381 66 5555255", lat:44.9741,lon:19.6256, rating:4.8, hours:"Täglich 8–23 Uhr"},
+];
+
+const FL={CH:"🇨🇭",AT:"🇦🇹",IT:"🇮🇹",SI:"🇸🇮",HR:"🇭🇷",RS:"🇷🇸",DE:"🇩🇪","??":"🌍"};
+const CC="#1a9a5a", HC="#1a60c0", TOTAL=1360;
+
+// Country flag helpers (defined early so syncCustomPoiMarker can use them)
+const FLAG_MAP={
+  CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
+  SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
+  CZ:'🇨🇿',PL:'🇵🇱',RO:'🇷🇴',BG:'🇧🇬',GR:'🇬🇷',MK:'🇲🇰',
+  AL:'🇦🇱',ME:'🇲🇪',XK:'🇽🇰',LI:'🇱🇮',LU:'🇱🇺',BE:'🇧🇪',
+  NL:'🇳🇱',PT:'🇵🇹',SE:'🇸🇪',NO:'🇳🇴',FI:'🇫🇮',DK:'🇩🇰'
+};
+function getFlag(code){
+  if(!code) return '🌍';
+  const upper=code.trim().toUpperCase().slice(0,2);
+  return FLAG_MAP[upper]||'🌍';
+}
+function updateFlagPreview(){
+  const val=document.getElementById('poi-land')?.value||'';
+  document.getElementById('flag-preview').textContent=getFlag(val);
+}
+function setLand(code){
+  document.getElementById('poi-land').value=code;
+  updateFlagPreview();
+}
+
+// ══════════════════════════════════════════
+// CUSTOM POIs (localStorage)
+// ══════════════════════════════════════════
+let customPois = [];
+let editingPoiId = null;
+let selectedType = 'Camping';
+let customPoiMarkers = {}; // id -> leaflet marker
+
+function loadCustomPois(){
+  try{ customPois = JSON.parse(localStorage.getItem('bikepacking_custom_pois')||'[]'); }
+  catch(e){ customPois=[]; }
+}
+function saveCustomPois(){
+  try{ localStorage.setItem('bikepacking_custom_pois', JSON.stringify(customPois)); }
+  catch(e){}
+}
+loadCustomPois();
+
+// Add/update a single custom POI marker on the map
+function syncCustomPoiMarker(poi){
+  if(!mapObj||!mapInitialized){
+    // Map not ready yet – markers will be added via syncAllCustomPoiMarkers after init
+    return;
+  }
+  if(!poi.lat||!poi.lon) return;
+  if(customPoiMarkers[poi.id]) mapObj.removeLayer(customPoiMarkers[poi.id]);
+  const typeColors={Camping:'#1a9a5a',Ladestation:'#1a60c0',Restaurant:'#e07820',Sonstiges:'#7a5aa0'};
+  const typeIcons={Camping:'⛺',Ladestation:'⚡',Restaurant:'🍽️',Sonstiges:'📌'};
+  const col=typeColors[poi.t]||'#7a5aa0';
+  const ico=typeIcons[poi.t]||'📌';
+  const icon=L.divIcon({html:`<div style="background:${col};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${ico}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
+  const m=L.marker([poi.lat,poi.lon],{icon,zIndexOffset:200});
+  const flag=getFlag(poi.l);
+  m.bindTooltip(`<b>📌 ${poi.n}</b><br>${flag} ${poi.ort} · km ${poi.km}${poi.note?'<br><i>'+poi.note+'</i>':''}`,{direction:'top',offset:[0,-12]});
+  m.addTo(mapObj);
+  customPoiMarkers[poi.id]=m;
+}
+
+function removeCustomPoiMarker(id){
+  if(customPoiMarkers[id]&&mapObj){mapObj.removeLayer(customPoiMarkers[id]);delete customPoiMarkers[id];}
+}
+
+// Add all custom POI markers (called after map init)
+function syncAllCustomPoiMarkers(){
+  customPois.forEach(p=>syncCustomPoiMarker(p));
+}
+
+function openAddPoi(editId){
+  // Require login to add/edit POIs
+  if(!isAdmin){
+    pendingAfterLogin=()=>openAddPoi(editId);
+    openLoginModal();
+    return;
+  }
+  editingPoiId = editId||null;
+  selectedType = 'Camping';
+  const modal = document.getElementById('poi-modal');
+  // clear form
+  ['poi-name','poi-km','poi-ort','poi-addr','poi-phone','poi-hours','poi-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('poi-lat').value='';
+  document.getElementById('poi-lon').value='';
+  document.getElementById('poi-land').value='AT';
+  updateFlagPreview();
+  document.getElementById('poi-error').style.display='none';
+  document.getElementById('modal-title').textContent='📌 Eigenen POI erfassen';
+  document.getElementById('save-btn').textContent='💾 Speichern';
+
+  if(editId){
+    const p = customPois.find(x=>x.id===editId);
+    if(p){
+      document.getElementById('poi-name').value=p.n||'';
+      document.getElementById('poi-km').value=p.km||'';
+      document.getElementById('poi-ort').value=p.ort||'';
+      document.getElementById('poi-addr').value=p.addr||'';
+      document.getElementById('poi-phone').value=p.p||'';
+      document.getElementById('poi-hours').value=p.hours||'';
+      document.getElementById('poi-note').value=p.note||'';
+      document.getElementById('poi-lat').value=p.lat||'';
+      document.getElementById('poi-lon').value=p.lon||'';
+      document.getElementById('poi-land').value=p.l||'AT';
+      updateFlagPreview();
+      selectedType = p.t||'Camping';
+      document.getElementById('modal-title').textContent='✏️ POI bearbeiten';
+      document.getElementById('save-btn').textContent='💾 Aktualisieren';
+    }
+  }
+  selectType(selectedType);
+  modal.style.display='block';
+  document.body.style.overflow='hidden';
+}
+
+function closeAddPoi(){
+  document.getElementById('poi-modal').style.display='none';
+  document.body.style.overflow='';
+  editingPoiId=null;
+}
+
+function selectType(t){
+  selectedType=t;
+  ['Camping','Ladestation','Restaurant','Sonstiges'].forEach(type=>{
+    const map={Camping:'camp',Ladestation:'chg',Restaurant:'rest',Sonstiges:'other'};
+    const btn=document.getElementById('tb-'+map[type]);
+    if(btn) btn.className='type-btn'+(type===t?' active-type':'');
+  });
+  // update km hint based on nearby fixed POIs
+  updateKmHint();
+}
+
+function updateKmHint(){
+  const km=parseFloat(document.getElementById('poi-km').value);
+  if(isNaN(km)) { document.getElementById('km-hint').textContent=''; return; }
+  const all=[...E].sort((a,b)=>a.km-b.km);
+  const before=all.filter(x=>x.km<=km).slice(-1)[0];
+  const after=all.filter(x=>x.km>km)[0];
+  let hint='';
+  if(before&&after) hint=`📍 Zwischen "${before.n}" (km ${before.km}) und "${after.n}" (km ${after.km})`;
+  else if(before) hint=`📍 Nach "${before.n}" (km ${before.km})`;
+  else if(after) hint=`📍 Vor "${after.n}" (km ${after.km})`;
+  document.getElementById('km-hint').textContent=hint;
+}
+
+function useCurrentGpsForPoi(){
+  if(uLat&&uLon){
+    document.getElementById('poi-lat').value=uLat.toFixed(6);
+    document.getElementById('poi-lon').value=uLon.toFixed(6);
+  } else {
+    navigator.geolocation&&navigator.geolocation.getCurrentPosition(pos=>{
+      document.getElementById('poi-lat').value=pos.coords.latitude.toFixed(6);
+      document.getElementById('poi-lon').value=pos.coords.longitude.toFixed(6);
+    },()=>alert('GPS nicht verfügbar'));
+  }
+}
+
+function savePoi(){
+  const name=document.getElementById('poi-name').value.trim();
+  const km=parseFloat(document.getElementById('poi-km').value);
+  const err=document.getElementById('poi-error');
+  if(!name){err.textContent='Bitte einen Namen eingeben.';err.style.display='block';return;}
+  if(isNaN(km)||km<0||km>1400){err.textContent='Bitte eine gültige km-Angabe (0–1400) eingeben.';err.style.display='block';return;}
+  err.style.display='none';
+
+  const isOverride = editingPoiId && editingPoiId.startsWith('override_');
+  const poi={
+    id: editingPoiId || ('own_'+Date.now()),
+    n: name,
+    km: km,
+    d: 0, h: 0,
+    t: selectedType,
+    ort: document.getElementById('poi-ort').value.trim()||'',
+    l: document.getElementById('poi-land').value.trim()||'??',
+    addr: document.getElementById('poi-addr').value.trim()||'',
+    p: document.getElementById('poi-phone').value.trim()||'nicht verfügbar',
+    hours: document.getElementById('poi-hours').value.trim()||'',
+    note: document.getElementById('poi-note').value.trim()||'',
+    lat: parseFloat(document.getElementById('poi-lat').value)||0,
+    lon: parseFloat(document.getElementById('poi-lon').value)||0,
+    isOwn: !isOverride,
+    isOverride: isOverride
+  };
+
+  if(editingPoiId){
+    const idx=customPois.findIndex(x=>x.id===editingPoiId);
+    if(idx>=0) customPois[idx]=poi;
+  } else {
+    customPois.push(poi);
+  }
+  saveCustomPois();
+  syncCustomPoiMarker(poi); // update map marker
+  closeAddPoi();
+  renderList();
+  const hint=document.getElementById('gps-status-poi');
+  if(hint){const prev=hint.textContent,cls=hint.className;hint.textContent='✅ POI gespeichert!';hint.className='ok';setTimeout(()=>{hint.textContent=prev;hint.className=cls;},2500);}
+}
+
+function deletePoi(id){
+  if(!confirm('Diesen POI wirklich löschen?')) return;
+  removeCustomPoiMarker(id);
+  customPois=customPois.filter(x=>x.id!==id);
+  saveCustomPois();
+  renderList();
+}
+
+function deleteBuiltinPoi(e){
+  if(!isAdmin) return;
+  if(!confirm(`POI „${e.n}" ausblenden?\n\nEr wird in der Liste nicht mehr angezeigt. Rückgängig machen: im Filter „Eigene POIs" den versteckten Eintrag löschen.`)) return;
+  // Save a hidden marker in customPois so we can track it
+  const hideId='hidden_'+e.n.replace(/[^a-zA-Z0-9]/g,'_');
+  if(!customPois.find(x=>x.id===hideId)){
+    customPois.push({id:hideId,_hidden:true,n:e.n,km:e.km,t:e.t,l:e.l,ort:e.ort});
+    saveCustomPois();
+  }
+  renderList();
+}
+
+function deleteBuiltinOverride(overrideId){
+  if(!confirm('Bearbeitung zurücksetzen? Der Original-POI wird wiederhergestellt.')) return;
+  removeCustomPoiMarker(overrideId);
+  customPois=customPois.filter(x=>x.id!==overrideId);
+  saveCustomPois();
+  renderList();
+}
+
+function restoreBuiltinPoi(hiddenId){
+  customPois=customPois.filter(x=>x.id!==hiddenId);
+  saveCustomPois();
+  renderList();
+}
+
+function permanentDeleteHidden(hiddenId){
+  if(!confirm('Eintrag dauerhaft aus der Liste entfernen?')) return;
+  customPois=customPois.filter(x=>x.id!==hiddenId);
+  saveCustomPois();
+  renderList();
+}
+
+// Edit a built-in POI: opens modal pre-filled, saves as override in customPois
+function openEditBuiltin(e){
+  if(!isAdmin){pendingAfterLogin=()=>openEditBuiltin(e);openLoginModal();return;}
+  // Check if override already exists
+  const overrideId='override_'+e.n.replace(/[^a-zA-Z0-9]/g,'_');
+  const existing=customPois.find(x=>x.id===overrideId);
+  const src=existing||e;
+  editingPoiId=overrideId;
+  selectedType=src.t||e.t||'Camping';
+  const modal=document.getElementById('poi-modal');
+  document.getElementById('poi-name').value=src.n||e.n||'';
+  document.getElementById('poi-km').value=src.km||e.km||'';
+  document.getElementById('poi-ort').value=src.ort||e.ort||'';
+  document.getElementById('poi-land').value=src.l||e.l||'AT';
+  updateFlagPreview();
+  document.getElementById('poi-addr').value=src.addr||e.addr||'';
+  document.getElementById('poi-lat').value=src.lat||e.lat||'';
+  document.getElementById('poi-lon').value=src.lon||e.lon||'';
+  document.getElementById('poi-phone').value=(src.p||e.p||'').replace('nicht verfügbar','');
+  document.getElementById('poi-hours').value=src.hours||e.hours||'';
+  document.getElementById('poi-note').value=src.note||e.note||'';
+  document.getElementById('poi-error').style.display='none';
+  document.getElementById('modal-title').textContent='✏️ POI bearbeiten';
+  document.getElementById('save-btn').textContent='💾 Aktualisieren';
+  selectType(selectedType);
+  // Store original data for reference
+  modal._builtinOrig=e;
+  modal.style.display='block';
+  document.body.style.overflow='hidden';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('poi-km')?.addEventListener('input', updateKmHint);
+});
+
+let pendingAfterLogin=null;
+
+// ══════════════════════════════════════════
+// SHARED STATE
+// ══════════════════════════════════════════
+let uLat=null, uLon=null;
+let activeFilter='all';
+let currentView='poi'; // 'poi' or 'map'
+let mapInitialized=false;
+
+// ══════════════════════════════════════════
+// VIEW TOGGLE
+// ══════════════════════════════════════════
+function toggleView(){
+  if(currentView==='poi'){
+    currentView='map';
+    document.getElementById('view-map').style.display='flex';
+    document.getElementById('topbar').style.display='none';
+    document.getElementById('toggle-icon').textContent='📋';
+    document.getElementById('toggle-label').textContent='POI-Liste';
+    if(!mapInitialized) initMap();
+    else if(mapObj) setTimeout(()=>mapObj.invalidateSize(),150);
+  } else {
+    currentView='poi';
+    document.getElementById('view-map').style.display='none';
+    document.getElementById('topbar').style.display='';
+    document.getElementById('toggle-icon').textContent='🗺️';
+    document.getElementById('toggle-label').textContent='Karte';
+  }
+}
+
+// ══════════════════════════════════════════
+// HAVERSINE
+// ══════════════════════════════════════════
+function hav(a,b,c,d){
+  const R2=6371,r=Math.PI/180;
+  const dL=(c-a)*r,dO=(d-b)*r;
+  const x=Math.sin(dL/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dO/2)**2;
+  return R2*2*Math.asin(Math.sqrt(x));
+}
+function fmtDist(km){
+  if(km<1) return (km*1000).toFixed(0)+' m';
+  if(km<10) return km.toFixed(1)+' km';
+  return Math.round(km)+' km';
+}
+
+// ══════════════════════════════════════════════════════
+// POI VIEW
+// ══════════════════════════════════════════════════════
+let poiWatchId=null;
+let firstGpsFix=true;
+
+function scrollToNearest(){
+  const allPois=[...E,...R,...customPois];
+  if(!allPois.length) return;
+  const nearest=allPois
+    .filter(e=>e.lat&&e.lon)
+    .map(e=>({...e,dist:hav(uLat,uLon,e.lat,e.lon)}))
+    .sort((a,b)=>a.dist-b.dist)[0];
+  if(!nearest) return;
+  const poiId=(nearest.id||nearest.n).replace(/[^a-zA-Z0-9]/g,'_');
+  setTimeout(()=>{
+    const card=document.querySelector(`[data-poi-id="${poiId}"]`);
+    if(card){
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+      card.style.transition='box-shadow .4s';
+      card.style.boxShadow='0 0 0 3px #c85a0a, 0 4px 20px rgba(200,90,10,.3)';
+      setTimeout(()=>{card.style.boxShadow='';},2200);
+    }
+  },300);
+}
+
+function locateMePoi(){
+  const btn=document.getElementById('gps-btn-poi');
+  const st=document.getElementById('gps-status-poi');
+  if(!navigator.geolocation){st.textContent='GPS nicht verfügbar.';st.className='err';return;}
+  if(poiWatchId!==null){
+    navigator.geolocation.clearWatch(poiWatchId);poiWatchId=null;
+    btn.textContent='📡 Standort bestimmen';btn.className='';
+    st.textContent='GPS gestoppt.';st.className='';firstGpsFix=true;return;
+  }
+  btn.textContent='⏳ Ortung läuft…';btn.className='busy';
+  st.textContent='Warte auf GPS-Signal…';st.className='';
+  poiWatchId=navigator.geolocation.watchPosition(
+    pos=>{
+      uLat=pos.coords.latitude;uLon=pos.coords.longitude;
+      const acc=Math.round(pos.coords.accuracy);
+      btn.textContent='🧭 Aktiv – Tippen zum Stoppen';btn.className='ok';
+      st.textContent=`📍 ${uLat.toFixed(4)}°N  ${uLon.toFixed(4)}°E  ±${acc}m`;st.className='ok';
+      renderList();
+      if(firstGpsFix){firstGpsFix=false;scrollToNearest();}
+    },
+    err=>{
+      const msgs={1:'GPS-Zugriff verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};
+      st.textContent=msgs[err.code]||'GPS-Fehler';st.className='err';
+      btn.textContent='📡 Nochmals versuchen';btn.className='';poiWatchId=null;
+    },
+    {enableHighAccuracy:true,timeout:20000,maximumAge:5000}
+  );
+}
+
+function setFilter(f){
+  activeFilter=f;
+  document.getElementById('f-all').className='ftab'+(f==='all'?' active-all':'');
+  document.getElementById('f-camp').className='ftab'+(f==='camp'?' active-camp':'');
+  document.getElementById('f-chg').className='ftab'+(f==='chg'?' active-chg':'');
+  document.getElementById('f-rest').className='ftab'+(f==='rest'?' active-rest':'');
+  renderList();
+}
+
+function renderList(){
+  const hint=document.getElementById('no-gps-hint');
+  const list=document.getElementById('poi-list');
+  if(!uLat){hint.style.display='';list.innerHTML='';return;}
+  hint.style.display='none';
+
+  // ── OWN POIs filter ──
+  if(activeFilter==='own'){
+    const ownPois=customPois.filter(e=>e.isOwn||e.isOverride);
+    const hiddenPois=customPois.filter(e=>e._hidden);
+    if(ownPois.length===0&&hiddenPois.length===0){
+      list.innerHTML=`<div style="text-align:center;padding:36px 20px;color:#9ab0c8;font-size:.82rem;line-height:1.9"><span style="font-size:2.5rem;display:block;margin-bottom:10px">📌</span><b>Noch keine eigenen POIs erfasst.</b><br>Tippe das <b>➕</b> oben, um deinen ersten POI hinzuzufügen.</div>`;
+      return;
+    }
+    const ownItems=ownPois.map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.km-b.km);
+    const hiddenCards=hiddenPois.map(e=>`<div class="poi-card" style="border:2px dashed #dde4ec;opacity:.6" data-poi-id="hidden_${e.n.replace(/[^a-zA-Z0-9]/g,'_')}">
+      <div class="poi-header">
+        <div class="poi-icon" style="background:#f4f6f9">🚫</div>
+        <div class="poi-title-block">
+          <div class="poi-name" style="color:#9ab0c8">${e.n}</div>
+          <div class="poi-sub"><span class="poi-badge badge-sonstiges">Ausgeblendet</span>${getFlag(e.l)} ${e.ort}</div>
+        </div>
+        <div class="poi-dist">${e.km} km<small>ab Rebstein</small></div>
+      </div>
+      <div class="poi-actions">
+        <button class="btn-maps" onclick="restoreBuiltinPoi('${e.id}')" style="background:linear-gradient(135deg,#5a7a9a,#3a5a7a)">↩️ Wiederherstellen</button>
+        <button class="btn-call" onclick="permanentDeleteHidden('${e.id}')" style="cursor:pointer;color:#c04040">🗑️</button>
+      </div>
+    </div>`).join('');
+    list.innerHTML=ownItems.map(e=>renderPoiCard(e,true)).join('')+(hiddenPois.length?`<div class="section-lbl" style="padding:10px 2px 5px">Ausgeblendete POIs</div>${hiddenCards}`:'');
+    return;
+  }
+
+  if(activeFilter==='rest'){
+    const mapsSearchUrl=`https://www.google.com/maps/search/restaurant/@${uLat},${uLon},13z`;
+    const hiddenIds=new Set(customPois.filter(x=>x._hidden).map(x=>x.n));
+    const visibleR=R.filter(e=>!hiddenIds.has(e.n));
+    const nearestRest=visibleR.map(e=>({...e,dist:hav(uLat,uLon,e.lat,e.lon)})).sort((a,b)=>a.dist-b.dist)[0];
+    const restItems=visibleR.map(e=>({...e,dist:hav(uLat,uLon,e.lat,e.lon)})).sort((a,b)=>a.km-b.km);
+    const cards=restItems.map(e=>{
+      const isNearest=nearestRest&&e.n===nearestRest.n;
+      const overrideId='override_'+e.n.replace(/[^a-zA-Z0-9]/g,'_');
+      const ov=customPois.find(x=>x.id===overrideId);
+      const d=ov?{...ov,_wasBuiltin:true}:e;
+      const mapsUrl=`https://maps.google.com/?q=${d.lat},${d.lon}`;
+      const hasPhone=d.p&&d.p!=='nicht verfügbar';
+      const safeId=e.n.replace(/[^a-zA-Z0-9]/g,'_');
+      window['_poi_'+safeId]=d;
+      return `<div class="${isNearest?'poi-card nearest':'poi-card'}" data-poi-id="${safeId}">
+        <div class="poi-header">
+          <div class="poi-icon" style="background:#fff4e8">🍽️</div>
+          <div class="poi-title-block">
+            <div class="poi-name">${d.n}${d._wasBuiltin?'<span style="font-size:.6rem;color:#c85a0a;margin-left:5px">✏️ bearbeitet</span>':''}</div>
+            <div class="poi-sub"><span class="poi-badge badge-rest">Restaurant</span>${getFlag(d.l)} ${d.ort}${isNearest?'<span class="nearest-tag">⭐ Nächstes</span>':''}</div>
+          </div>
+          <div class="poi-dist">${d.km} km<small>ab Rebstein</small></div>
+        </div>
+        <div class="poi-details">
+          <div class="poi-detail-row"><span class="ico">📍</span><span>${d.addr}</span></div>
+          ${d.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${d.hours}</span></div>`:''}
+          ${d.rating?`<div class="poi-detail-row"><span class="ico">⭐</span><span>${d.rating} / 5</span></div>`:''}
+          ${hasPhone?`<div class="poi-detail-row"><span class="ico">📞</span><span>${d.p}</span></div>`:''}
+          ${d.note?`<div class="poi-detail-row"><span class="ico">📝</span><span>${d.note}</span></div>`:''}
+        </div>
+        <div class="poi-actions">
+          <a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps öffnen</a>
+          ${hasPhone?`<a class="btn-call" href="tel:${d.p}">📞 Anrufen</a>`:`<span class="btn-call disabled">📵 Kein Tel.</span>`}
+          ${isAdmin?`<button class="btn-call" onclick="openEditBuiltin(window['_poi_${safeId}'])" style="cursor:pointer;flex-shrink:0">✏️</button>`:''}
+          ${isAdmin&&ov?`<button class="btn-call" onclick="deleteBuiltinOverride('${overrideId}')" style="cursor:pointer;flex-shrink:0;color:#c04040" title="Bearbeitung zurücksetzen">↩️</button>`:''}
+          ${isAdmin&&!ov?`<button class="btn-call" onclick="deleteBuiltinPoi(window['_poi_${safeId}'])" style="cursor:pointer;flex-shrink:0;color:#c04040" title="POI ausblenden">🗑️</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    list.innerHTML=`<a class="btn-rest btn-rest-primary" href="${mapsSearchUrl}" target="_blank" style="display:flex;text-decoration:none;border-radius:12px;margin-bottom:10px">🔍 Weitere Restaurants im 10 km Umkreis</a>${cards}`;
+    return;
+  }
+
+  let items;
+  if(activeFilter==='camp') items=[...E.filter(e=>e.t==='Camping'),...customPois.filter(e=>e.t==='Camping'&&e.isOwn)];
+  else if(activeFilter==='chg') items=[...E.filter(e=>e.t==='Ladestation'),...customPois.filter(e=>e.t==='Ladestation'&&e.isOwn)];
+  else items=[...E,...R,...customPois.filter(e=>e.isOwn)];
+
+  // Filter out hidden built-in POIs
+  const hiddenIds=new Set(customPois.filter(x=>x._hidden).map(x=>x.n));
+  items=items.filter(e=>!hiddenIds.has(e.n));
+
+  // Apply overrides: replace builtin entries with their edited versions
+  items=items.map(e=>{
+    const overrideId='override_'+e.n.replace(/[^a-zA-Z0-9]/g,'_');
+    const ov=customPois.find(x=>x.id===overrideId);
+    return ov?{...ov,_wasBuiltin:true}:e;
+  });
+
+  items=items.map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.km-b.km);
+  const nearestCamp=[...E,...customPois].filter(e=>e.t==='Camping').map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.dist-b.dist)[0];
+  const nearestChg=[...E,...customPois].filter(e=>e.t==='Ladestation').map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.dist-b.dist)[0];
+
+    list.innerHTML=items.map(e=>{
+    if(e.isOwn) return renderPoiCard(e,true);
+    const isRest=e.t==='Restaurant',isCamp=e.t==='Camping';
+    const iconBg=isRest?'#fff4e8':isCamp?'#eaf5ee':'#e8f0fb';
+    const icon=isRest?'🍽️':isCamp?'⛺':'⚡';
+    const badgeCls=isRest?'badge-rest':isCamp?'badge-camp':'badge-chg';
+    const badgeLabel=isRest?'Restaurant':isCamp?'Camping':'Ladestation';
+    const hasPhone=e.p&&e.p!=='nicht verfügbar';
+    const isNearestCamp=isCamp&&nearestCamp&&e.n===nearestCamp.n;
+    const isNearestChg=!isCamp&&!isRest&&nearestChg&&e.n===nearestChg.n;
+    const cardClass=isNearestCamp?'poi-card nearest':isNearestChg?'poi-card nearest-chg':'poi-card';
+    const nearestTag=(isNearestCamp||isNearestChg)?`<span class="nearest-tag">⭐ Nächster</span>`:'';
+    const wasEdited=e._wasBuiltin||false;
+    const mapsUrl=`https://maps.google.com/?q=${e.lat},${e.lon}`;
+    // Store data on window for edit access
+    const safeId=e.n.replace(/[^a-zA-Z0-9]/g,'_');
+    window['_poi_'+safeId]=e;
+    return `<div class="${cardClass}" data-poi-id="${safeId}">
+      <div class="poi-header">
+        <div class="poi-icon" style="background:${iconBg}">${icon}</div>
+        <div class="poi-title-block">
+          <div class="poi-name">${e.n}${wasEdited?'<span style="font-size:.6rem;color:#c85a0a;margin-left:5px">✏️ bearbeitet</span>':''}</div>
+          <div class="poi-sub"><span class="poi-badge ${badgeCls}">${badgeLabel}</span>${getFlag(e.l)} ${e.ort}${nearestTag}</div>
+        </div>
+        <div class="poi-dist">${e.km} km<small>ab Rebstein</small></div>
+      </div>
+      <div class="poi-details">
+        <div class="poi-detail-row"><span class="ico">📍</span><span>${e.addr}</span></div>
+        ${e.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${e.hours}</span></div>`:''}
+        ${e.rating?`<div class="poi-detail-row"><span class="ico">⭐</span><span>${e.rating} / 5</span></div>`:''}
+        ${hasPhone?`<div class="poi-detail-row"><span class="ico">📞</span><span>${e.p}</span></div>`:''}
+        ${e.note?`<div class="poi-detail-row"><span class="ico">📝</span><span>${e.note}</span></div>`:''}
+      </div>
+      <div class="poi-actions">
+        <a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps öffnen</a>
+        ${hasPhone?`<a class="btn-call" href="tel:${e.p}">📞 Anrufen</a>`:`<span class="btn-call disabled">📵 Kein Tel.</span>`}
+        ${isAdmin?`<button class="btn-call" onclick="openEditBuiltin(window['_poi_${safeId}'])" style="cursor:pointer;flex-shrink:0">✏️</button>`:''}
+        ${isAdmin&&e._wasBuiltin?`<button class="btn-call" onclick="deleteBuiltinOverride('${e.id}')" style="cursor:pointer;flex-shrink:0;color:#c04040" title="Bearbeitung zurücksetzen">↩️</button>`:''}
+        ${isAdmin&&!e._wasBuiltin?`<button class="btn-call" onclick="deleteBuiltinPoi(window['_poi_${safeId}'])" style="cursor:pointer;flex-shrink:0;color:#c04040" title="POI ausblenden">🗑️</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPoiCard(e, isOwn){
+  const typeMap={Camping:{bg:'#eaf5ee',icon:'⛺',badge:'badge-camp'},Ladestation:{bg:'#e8f0fb',icon:'⚡',badge:'badge-chg'},Restaurant:{bg:'#fff4e8',icon:'🍽️',badge:'badge-rest'},Sonstiges:{bg:'#f0ecf8',icon:'📍',badge:'badge-sonstiges'}};
+  const tm=typeMap[e.t]||typeMap.Sonstiges;
+  const hasPhone=e.p&&e.p!=='nicht verfügbar';
+  const mapsUrl=e.lat&&e.lon?`https://maps.google.com/?q=${e.lat},${e.lon}`:`https://www.google.com/maps/search/${encodeURIComponent(e.n+' '+e.addr)}`;
+  const dist=uLat&&e.lat?hav(uLat,uLon,e.lat,e.lon):null;
+  return `<div class="poi-card own-poi" data-poi-id="${e.id||e.n.replace(/[^a-zA-Z0-9]/g,'_')}">
+    <div class="poi-header">
+      <div class="poi-icon" style="background:${tm.bg}">${tm.icon}</div>
+      <div class="poi-title-block">
+        <div class="poi-name">${e.n}</div>
+        <div class="poi-sub"><span class="poi-badge ${tm.badge}">${e.t}</span><span class="poi-badge badge-own">📌 Eigener POI</span>${getFlag(e.l)} ${e.ort}</div>
+      </div>
+      <div class="poi-dist">${e.km} km<small>ab Rebstein</small></div>
+    </div>
+    <div class="poi-details">
+      ${e.addr?`<div class="poi-detail-row"><span class="ico">📍</span><span>${e.addr}</span></div>`:''}
+      ${e.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${e.hours}</span></div>`:''}
+      ${hasPhone?`<div class="poi-detail-row"><span class="ico">📞</span><span>${e.p}</span></div>`:''}
+      ${e.note?`<div class="poi-detail-row"><span class="ico">📝</span><span>${e.note}</span></div>`:''}
+    </div>
+    <div class="poi-actions">
+      <a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps öffnen</a>
+      <button class="btn-call" onclick="openAddPoi('${e.id}')" style="cursor:pointer">✏️ Bearbeiten</button>
+      <button class="btn-call" onclick="deletePoi('${e.id}')" style="cursor:pointer;color:#c04040">🗑️</button>
+    </div>
+  </div>`;
+}
+
+renderList();
+setTimeout(()=>{const el=document.getElementById('poi-km');if(el)el.addEventListener('input',updateKmHint);},200);
+// ══════════════════════════════════════════════════════
+let mapObj=null;
+let campM=[],chargeM=[],showC=true,showH=true;
+let activeId=null;
+let mapWatchId=null,navMode=false,autoCenter=true;
+let uMark=null,uCircle=null,uHeading=null,prevLat=null,prevLon=null;
+let arrowMarkers=[];
+let lastArrowLat=null,lastArrowLon=null;
+
+const RC=[[47.37216,9.6138],[47.36238,9.6186],[47.32842,9.5903],[47.30361,9.56813],[47.29066,9.55781],[47.27318,9.56936],[47.25267,9.58223],[47.23779,9.59399],[47.23419,9.5992],[47.22554,9.60612],[47.2233,9.62711],[47.2194,9.63808],[47.20923,9.66096],[47.20072,9.67355],[47.19523,9.68956],[47.19414,9.70908],[47.18069,9.72794],[47.17388,9.76513],[47.16825,9.78893],[47.1576,9.80829],[47.1482,9.8209],[47.13753,9.83267],[47.13703,9.84198],[47.14153,9.86483],[47.14384,9.88149],[47.14393,9.90183],[47.14068,9.91916],[47.13653,9.937],[47.129,9.964],[47.12379,9.98466],[47.12291,9.99908],[47.12454,10.01676],[47.12726,10.03749],[47.12882,10.05459],[47.13032,10.07373],[47.13014,10.09971],[47.13159,10.1051],[47.1324,10.1189],[47.13367,10.12899],[47.13547,10.1442],[47.13706,10.15968],[47.13863,10.17413],[47.13783,10.18782],[47.13524,10.20477],[47.12559,10.21398],[47.11724,10.22526],[47.12248,10.2371],[47.12384,10.2534],[47.12696,10.26435],[47.13481,10.27632],[47.13953,10.29169],[47.14212,10.30848],[47.14425,10.32867],[47.14658,10.35019],[47.1505,10.37804],[47.1501,10.39355],[47.14431,10.4141],[47.13508,10.42331],[47.12989,10.44128],[47.1268,10.46027],[47.12163,10.47544],[47.12404,10.49541],[47.13169,10.50698],[47.13532,10.51111],[47.13777,10.52468],[47.13933,10.53411],[47.14102,10.55337],[47.14551,10.56564],[47.15204,10.57105],[47.16004,10.57925],[47.16152,10.58923],[47.17004,10.60469],[47.17706,10.61672],[47.18464,10.63808],[47.19519,10.65276],[47.20052,10.66699],[47.2073,10.67898],[47.2152,10.70532],[47.21836,10.75316],[47.21886,10.76484],[47.21034,10.79384],[47.21267,10.80435],[47.21637,10.8155],[47.2194,10.82286],[47.22552,10.82376],[47.22899,10.8352],[47.24067,10.8489],[47.25535,10.86608],[47.26325,10.88547],[47.27038,10.91538],[47.27341,10.94962],[47.27942,10.97074],[47.28711,10.99472],[47.2947,11.03346],[47.2974,11.05823],[47.30446,11.08688],[47.30988,11.11711],[47.28374,11.16603],[47.28214,11.18603],[47.27581,11.21563],[47.26407,11.23702],[47.26643,11.26193],[47.26458,11.31602],[47.26157,11.32745],[47.25301,11.34251],[47.25422,11.36525],[47.25626,11.37291],[47.25885,11.37945],[47.2603,11.39121],[47.25619,11.39779],[47.25244,11.40506],[47.24396,11.40348],[47.23698,11.40154],[47.22923,11.40468],[47.21131,11.40861],[47.20025,11.42002],[47.19394,11.42534],[47.18565,11.43362],[47.1816,11.43471],[47.1711,11.44141],[47.16315,11.45531],[47.15947,11.45213],[47.15014,11.45565],[47.14108,11.46033],[47.1356,11.45326],[47.1264,11.45364],[47.11387,11.4523],[47.1028,11.46394],[47.09115,11.46958],[47.08096,11.48012],[47.07368,11.48504],[47.06399,11.4883],[47.05263,11.48612],[47.03962,11.48091],[47.03228,11.48644],[47.02339,11.50167],[47.00758,11.50683],[46.99894,11.50147],[46.98133,11.48998],[46.9644,11.46462],[46.94715,11.44813],[46.95024,11.40454],[46.9489,11.40343],[46.94639,11.41591],[46.9444,11.42827],[46.93805,11.44516],[46.92575,11.44956],[46.91804,11.44571],[46.91059,11.43565],[46.89955,11.43087],[46.89051,11.43427],[46.86957,11.48098],[46.86278,11.48208],[46.85679,11.5033],[46.85019,11.50722],[46.84273,11.52351],[46.83302,11.53014],[46.81917,11.53559],[46.81327,11.54794],[46.80593,11.5726],[46.79832,11.59828],[46.78881,11.61059],[46.78427,11.61463],[46.7832,11.61978],[46.77715,11.6353],[46.77228,11.64662],[46.76937,11.65518],[46.77502,11.66384],[46.78362,11.6682],[46.79537,11.66523],[46.80207,11.67317],[46.8116,11.68488],[46.81596,11.70233],[46.81076,11.72571],[46.8098,11.74544],[46.80859,11.76779],[46.80771,11.78995],[46.80699,11.80559],[46.80528,11.82693],[46.80063,11.84039],[46.79225,11.85523],[46.78359,11.87466],[46.77602,11.87958],[46.78244,11.89263],[46.78359,11.9023],[46.79412,11.92595],[46.79534,11.94148],[46.78712,11.95166],[46.78675,11.96684],[46.78923,11.97997],[46.78597,11.99686],[46.78036,12.0134],[46.77022,12.017],[46.76842,12.01906],[46.76149,12.03295],[46.75738,12.04588],[46.75809,12.05683],[46.76098,12.07275],[46.75927,12.09243],[46.75644,12.10027],[46.75155,12.11039],[46.73967,12.13017],[46.73835,12.14057],[46.73816,12.16378],[46.74056,12.15494],[46.73902,12.16003],[46.73833,12.1722],[46.73546,12.18922],[46.72876,12.21007],[46.72504,12.22283],[46.72247,12.23657],[46.72628,12.25655],[46.73232,12.27206],[46.73396,12.28267],[46.73048,12.30615],[46.73265,12.3306],[46.7395,12.36175],[46.74361,12.37938],[46.74498,12.4106],[46.74615,12.44303],[46.74505,12.47246],[46.74576,12.4893],[46.75011,12.50928],[46.75462,12.5306],[46.75835,12.55265],[46.76192,12.56707],[46.76828,12.58941],[46.77257,12.61105],[46.7768,12.63121],[46.78088,12.65431],[46.78298,12.6735],[46.78695,12.6974],[46.79303,12.7211],[46.80183,12.74705],[46.81246,12.75638],[46.82697,12.76548],[46.83025,12.78158],[46.82232,12.78779],[46.81504,12.82409],[46.78565,12.88026],[46.76449,12.92586],[46.75019,12.93695],[46.74422,12.95496],[46.74773,12.97075],[46.7407,12.99442],[46.73893,13.02034],[46.73814,13.04208],[46.73543,13.07382],[46.73123,13.09188],[46.73265,13.10939],[46.73395,13.12544],[46.73196,13.14324],[46.73516,13.15618],[46.73559,13.17702],[46.74249,13.20401],[46.74915,13.22651],[46.74856,13.24635],[46.74996,13.27066],[46.75113,13.29154],[46.75326,13.31623],[46.75463,13.3342],[46.76273,13.34657],[46.77263,13.35753],[46.79653,13.36532],[46.82093,13.35322],[46.83193,13.35822],[46.8319,13.37968],[46.82686,13.39516],[46.82978,13.4232],[46.83094,13.44503],[46.82015,13.45295],[46.80667,13.47995],[46.79331,13.4906],[46.79138,13.50248],[46.77774,13.53085],[46.77161,13.55195],[46.7508,13.57514],[46.73924,13.61206],[46.72026,13.64521],[46.70852,13.67076],[46.69568,13.69546],[46.67596,13.7056],[46.6687,13.72659],[46.66166,13.75697],[46.65104,13.77288],[46.64686,13.79932],[46.63488,13.82785],[46.61595,13.83896],[46.609,13.85918],[46.61611,13.8802],[46.60873,13.89936],[46.61234,13.92],[46.60474,13.9428],[46.59437,13.97106],[46.58552,13.99321],[46.57978,14.01806],[46.56751,14.02593],[46.57326,14.04927],[46.56336,14.058],[46.55156,14.06715],[46.54998,14.07816],[46.53615,14.087],[46.5328,14.09541],[46.53642,14.11013],[46.53305,14.13424],[46.52985,14.16426],[46.53427,14.18116],[46.54278,14.2365],[46.54682,14.28228],[46.54508,14.30021],[46.54473,14.31739],[46.54491,14.33674],[46.55375,14.39721],[46.56267,14.47229],[46.57729,14.49484],[46.57499,14.508],[46.57041,14.5234],[46.56339,14.54537],[46.55766,14.56613],[46.54724,14.59779],[46.56448,14.62731],[46.58153,14.63962],[46.59015,14.65977],[46.60446,14.6719],[46.61583,14.67116],[46.61994,14.68394],[46.61191,14.70386],[46.60278,14.73165],[46.61515,14.74872],[46.61227,14.77807],[46.62224,14.79651],[46.62971,14.81417],[46.63196,14.81719],[46.63256,14.8255],[46.64378,14.8355],[46.64258,14.85962],[46.64377,14.88569],[46.64527,14.88821],[46.64634,14.90989],[46.64159,14.93829],[46.63642,14.95215],[46.62019,14.97454],[46.60478,14.98484],[46.58974,15.01599],[46.58875,15.02421],[46.58721,15.02819],[46.59579,15.04872],[46.60273,15.06739],[46.60016,15.08598],[46.6041,15.10254],[46.60616,15.12457],[46.60723,15.15682],[46.61241,15.16579],[46.61673,15.18214],[46.6094,15.19952],[46.60386,15.2171],[46.5964,15.23165],[46.59771,15.25147],[46.59099,15.26392],[46.58605,15.27288],[46.58708,15.2908],[46.58781,15.30237],[46.59136,15.3125],[46.58807,15.32403],[46.59277,15.34248],[46.58399,15.36779],[46.58437,15.3821],[46.57928,15.40534],[46.56466,15.43177],[46.58317,15.44198],[46.56661,15.45802],[46.55023,15.46164],[46.54366,15.47752],[46.54466,15.4956],[46.54425,15.51302],[46.55645,15.54874],[46.55866,15.57725],[46.56383,15.59204],[46.56453,15.60741],[46.55776,15.63188],[46.55466,15.65323],[46.55472,15.6672],[46.55156,15.68372],[46.54662,15.70669],[46.52923,15.70908],[46.5122,15.70921],[46.50471,15.72074],[46.49317,15.72773],[46.48325,15.74256],[46.47769,15.76719],[46.46664,15.77896],[46.45949,15.79811],[46.44949,15.81467],[46.42857,15.84104],[46.4162,15.87258],[46.41135,15.87708],[46.41418,15.88187],[46.41282,15.88622],[46.39766,15.91396],[46.39363,15.93023],[46.38913,15.95082],[46.38022,15.97726],[46.38882,16.00111],[46.39307,16.01012],[46.39965,16.02454],[46.403,16.03929],[46.39631,16.0708],[46.40178,16.10842],[46.41227,16.11802],[46.40764,16.14296],[46.40364,16.15444],[46.38772,16.15998],[46.37771,16.18573],[46.37116,16.22089],[46.36613,16.27414],[46.34523,16.32132],[46.32866,16.33976],[46.32072,16.35866],[46.31059,16.3828],[46.3056,16.45155],[46.30268,16.47291],[46.29075,16.49921],[46.26275,16.52683],[46.26376,16.56108],[46.26009,16.58687],[46.2538,16.61103],[46.24874,16.62163],[46.24343,16.62556],[46.23687,16.64188],[46.22374,16.67356],[46.2095,16.69665],[46.1902,16.74283],[46.18289,16.77072],[46.17757,16.79895],[46.1683,16.81846],[46.16492,16.826],[46.16132,16.83577],[46.15825,16.84728],[46.15309,16.88334],[46.13593,16.9103],[46.12945,16.93433],[46.13646,16.95445],[46.15043,16.96938],[46.14838,16.9877],[46.15535,17.01195],[46.14073,17.02825],[46.11361,17.03192],[46.09476,17.04537],[46.08268,17.07101],[46.05282,17.0796],[46.04004,17.08763],[46.02465,17.11335],[46.01364,17.13887],[46.00685,17.16559],[46.00179,17.20068],[45.98476,17.21398],[45.96851,17.22971],[45.96355,17.26591],[45.96006,17.30386],[45.93274,17.35867],[45.89074,17.36374],[45.89082,17.40184],[45.90898,17.44094],[45.94747,17.46291],[45.94487,17.46865],[45.94286,17.50345],[45.93949,17.55917],[45.95106,17.60406],[45.92515,17.64391],[45.88424,17.65452],[45.85709,17.68553],[45.83447,17.73796],[45.81878,17.8171],[45.79155,17.84786],[45.79316,17.92933],[45.79967,17.99708],[45.77035,18.08726],[45.789,18.10094],[45.80442,18.11811],[45.78798,18.16224],[45.78929,18.20747],[45.76865,18.24828],[45.76492,18.28162],[45.75541,18.32333],[45.74419,18.3513],[45.72197,18.40087],[45.70896,18.43883],[45.65323,18.5519],[45.57603,18.66733],[45.56272,18.67817],[45.56394,18.65681],[45.56496,18.63066],[45.56483,18.63957],[45.5643,18.66399],[45.56308,18.69152],[45.55602,18.71672],[45.55282,18.73052],[45.54485,18.74547],[45.53964,18.77658],[45.53451,18.81156],[45.52021,18.85023],[45.51795,18.91507],[45.49617,18.9701],[45.49495,18.98874],[45.50391,19.01644],[45.51476,19.03794],[45.50873,19.0493],[45.52398,19.08424],[45.53372,19.10311],[45.52883,19.13078],[45.50646,19.19021],[45.4802,19.24195],[45.42019,19.31131],[45.3704,19.33556],[45.32394,19.35849],[45.30095,19.37442],[45.28355,19.37663],[45.24271,19.3976],[45.22515,19.40048],[45.21688,19.40891],[45.20179,19.41749],[45.19329,19.43546],[45.17162,19.45067],[45.15774,19.46107],[45.14171,19.47038],[45.13152,19.4716],[45.11181,19.48182],[45.08677,19.5035],[45.07941,19.5155],[45.01624,19.54473],[44.99022,19.58078],[44.97667,19.59347],[44.96297,19.63128],[44.9384,19.64338],[44.88088,19.72502],[44.83066,19.69929],[44.77376,19.69667],[44.75741,19.69485],[44.751,19.70696],[44.73901,19.72962],[44.73604,19.74956],[44.72349,19.76508],[44.71167,19.79783],[44.69583,19.81153],[44.671,19.83125],[44.65843,19.85899],[44.66734,19.89885],[44.65196,19.90958],[44.63176,19.92271],[44.62662,19.95039],[44.62794,19.98851],[44.62663,20.01401],[44.62393,20.03296],[44.61485,20.04361],[44.60845,20.06477],[44.60387,20.09536],[44.58759,20.09554],[44.56604,20.10147],[44.55886,20.11914],[44.53554,20.13509],[44.52322,20.15115],[44.50965,20.16422],[44.49847,20.17035],[44.46885,20.17961],[44.44866,20.19999],[44.43529,20.20932],[44.42151,20.2157],[44.40547,20.21069],[44.39225,20.20636],[44.37158,20.19572],[44.36344,20.18895],[44.35635,20.18719],[44.34713,20.19577],[44.34261,20.2092],[44.3318,20.21953],[44.32575,20.22944],[44.32419,20.24142],[44.31626,20.24244],[44.30585,20.25489],[44.29207,20.26709],[44.28236,20.283],[44.27055,20.28246],[44.2519,20.28331],[44.241,20.29386],[44.23069,20.30023],[44.22184,20.31225],[44.21372,20.31887],[44.20848,20.33841],[44.20907,20.37126],[44.20094,20.36988],[44.19825,20.37466],[44.18629,20.37254],[44.17528,20.38033],[44.16779,20.38756],[44.16112,20.38915]];
+
+function initMap(){
+  mapInitialized=true;
+  mapObj=L.map('map',{center:[46.5,13.5],zoom:6,preferCanvas:true});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CartoDB',subdomains:'abcd',maxZoom:19
+  }).addTo(mapObj);
+
+  const routeLayer=L.polyline(RC,{color:'#c85a0a',weight:3.5,opacity:.75,smoothFactor:1}).addTo(mapObj);
+  const pin=(em,bg)=>L.divIcon({html:`<div style="background:${bg};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18)">${em}</div>`,iconSize:[32,32],iconAnchor:[16,16],className:''});
+  L.marker([47.3722,9.6138],{icon:pin('🏁','#1a8a5a')}).addTo(mapObj).bindTooltip('<b>START – Rebstein CH</b><br>km 0',{direction:'right'});
+  L.marker([44.1611,20.3892],{icon:pin('🏆','#b02818')}).addTo(mapObj).bindTooltip('<b>ZIEL – Serbien</b><br>km 1360',{direction:'left'});
+
+  const mkIco=t=>{const c=t==="Camping";return L.divIcon({html:`<div style="background:${c?CC:HC};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${c?"⛺":"⚡"}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''})};
+  E.forEach((e,i)=>{
+    const m=L.marker([e.lat,e.lon],{icon:mkIco(e.t)});
+    m.bindTooltip(`<b>${e.n}</b><br>${FL[e.l]} ${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
+    m.on('click',()=>showPanel(e,i));m.addTo(mapObj);
+    e.t==="Camping"?campM.push(m):chargeM.push(m);
+  });
+
+  // List
+  const el=document.getElementById('elist');
+  E.forEach((e,i)=>{
+    const d=document.createElement('div');d.className='li';d.id=`li${i}`;
+    d.innerHTML=`<div class="ldot" style="background:${e.t==='Camping'?CC:HC}"></div><span class="lkm">${e.km} km</span><span class="lname">${e.n}</span><span class="lflag">${FL[e.l]}</span>`;
+    d.onclick=()=>showPanel(e,i);el.appendChild(d);
+  });
+
+  addNorthUpBtn();
+  mapObj.fitBounds(routeLayer.getBounds(),{padding:[40,40]});
+  buildDynamicArrows(47.3722,9.6138);
+  mapObj.on('dragstart',()=>{autoCenter=false;document.getElementById('autocenter-btn').style.background='#fff';});
+  syncAllCustomPoiMarkers();
+  loadRiderPosition();
+  setInterval(loadRiderPosition, 30000);
+}
+
+function bearing(lat1,lon1,lat2,lon2){
+  const r=Math.PI/180,dL=(lon2-lon1)*r;
+  const y=Math.sin(dL)*Math.cos(lat2*r);
+  const x=Math.cos(lat1*r)*Math.sin(lat2*r)-Math.sin(lat1*r)*Math.cos(lat2*r)*Math.cos(dL);
+  return(Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function fmt(km){return km<1?(km*1000).toFixed(0)+' m':km.toFixed(1)+' km'}
+function nearest(type){
+  let best=null,bd=Infinity;
+  E.filter(e=>e.t===type).forEach(e=>{const d=hav(uLat,uLon,e.lat,e.lon);if(d<bd){bd=d;best=e;}});
+  return best?{e:best,d:bd}:null;
+}
+function routeKm(){
+  let bd=Infinity,bi=0;
+  RC.forEach(([la,lo],i)=>{const d=hav(uLat,uLon,la,lo);if(d<bd){bd=d;bi=i;}});
+  return Math.round(bi/RC.length*TOTAL);
+}
+
+function updateUserMarker(){
+  if(!uMark) return;
+  // Smiley-bike logo, doubled size (64px), arrow tip at bottom pointing to exact location
+  const smileySvg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="64" height="64">
+    <!-- Yellow circle -->
+    <circle cx="50" cy="50" r="47" fill="#f5c800" stroke="#1a1a1a" stroke-width="3"/>
+    <!-- Bike: wheels -->
+    <circle cx="30" cy="58" r="12" fill="none" stroke="#1a1a1a" stroke-width="3.5"/>
+    <circle cx="70" cy="58" r="12" fill="none" stroke="#1a1a1a" stroke-width="3.5"/>
+    <!-- Bike: frame -->
+    <line x1="30" y1="58" x2="50" y2="36" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="50" y1="36" x2="70" y2="58" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="50" y1="36" x2="50" y2="58" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="30" y1="58" x2="50" y2="58" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- Handlebar -->
+    <line x1="44" y1="36" x2="56" y2="36" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- Saddle -->
+    <line x1="46" y1="42" x2="54" y2="42" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- Smile -->
+    <path d="M32 72 Q50 86 68 72" fill="none" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/>
+  </svg>`;
+  uMark.setIcon(L.divIcon({
+    html:`<div style="display:flex;flex-direction:column;align-items:center;gap:0;filter:drop-shadow(0 3px 7px rgba(0,0,0,.4))">
+      ${smileySvg}
+      <div style="width:4px;height:8px;background:#e07820;"></div>
+      <svg width="20" height="13" viewBox="0 0 20 13"><polygon points="10,13 0,0 20,0" fill="#e07820" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </div>`,
+    iconSize:[64,93],iconAnchor:[32,93],className:''
+  }));
+}
+
+function refreshGPS(){
+  if(!uLat) return;
+  document.getElementById('g-pos').textContent=`${uLat.toFixed(4)}°N  ${uLon.toFixed(4)}°E`;
+  document.getElementById('g-acc').textContent=navMode?'🧭 Navigation aktiv':'✅ GPS aktiv';
+  const nc=nearest("Camping");
+  if(nc){document.getElementById('g-cn').textContent=nc.e.n;document.getElementById('g-cd').innerHTML=`<span class="dist-pill">${fmt(nc.d)} entfernt</span>  ${FL[nc.e.l]} km ${nc.e.km}`;}
+  const nh=nearest("Ladestation");
+  if(nh){document.getElementById('g-hn').textContent=nh.e.n;document.getElementById('g-hd').innerHTML=`<span class="dist-pill ch">${fmt(nh.d)} entfernt</span>  ${FL[nh.e.l]} km ${nh.e.km}`;}
+  const k=routeKm(),pct=Math.min(100,Math.round(k/TOTAL*100));
+  document.getElementById('g-prog').textContent=`~${k} km (${pct}%)`;
+  document.getElementById('g-rem').textContent=`noch ~${TOTAL-k} km`;
+}
+
+function onGpsUpdate(pos){
+  const lat=pos.coords.latitude,lon=pos.coords.longitude,acc=pos.coords.accuracy;
+  if(prevLat!==null){const moved=hav(prevLat,prevLon,lat,lon)*1000;if(moved>15)uHeading=bearing(prevLat,prevLon,lat,lon);}
+  if(pos.coords.heading!==null&&!isNaN(pos.coords.heading)) uHeading=pos.coords.heading;
+  prevLat=lat;prevLon=lon;uLat=lat;uLon=lon;
+  const btn=document.getElementById('gps-btn-map');
+  btn.textContent='🧭 Navigation aktiv';btn.className='ok';
+  if(uCircle) mapObj.removeLayer(uCircle);
+  uCircle=L.circle([lat,lon],{radius:acc,color:'#1a60c0',fillColor:'#4a90e0',fillOpacity:.1,weight:1}).addTo(mapObj);
+  if(!uMark){uMark=L.marker([lat,lon],{icon:L.divIcon({html:'',iconSize:[64,93],iconAnchor:[32,93],className:''})}).addTo(mapObj);}
+  else{uMark.setLatLng([lat,lon]);}
+  updateUserMarker();
+  if(autoCenter) mapObj.setView([lat,lon],mapObj.getZoom(),{animate:true,duration:0.5});
+  refreshGPS();
+  const movedKm=lastArrowLat?hav(lastArrowLat,lastArrowLon,lat,lon):999;
+  if(movedKm>0.3){buildDynamicArrows(lat,lon);lastArrowLat=lat;lastArrowLon=lon;}
+  // Also update POI view if it uses same GPS
+  if(!uLat) renderList();
+}
+
+function locateMeMap(){
+  const btn=document.getElementById('gps-btn-map');
+  if(!navigator.geolocation){alert('GPS nicht verfügbar.');return;}
+  if(navMode){
+    navigator.geolocation.clearWatch(mapWatchId);mapWatchId=null;navMode=false;autoCenter=true;uHeading=null;
+    btn.textContent='📡 Standort bestimmen';btn.className='';return;
+  }
+  btn.textContent='⏳ Ortung läuft…';btn.className='busy';navMode=true;
+  startCompass();
+  mapWatchId=navigator.geolocation.watchPosition(onGpsUpdate,
+    err=>{btn.textContent='❌ Fehler';btn.className='';navMode=false;
+      const msgs={1:'GPS-Zugriff verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};
+      document.getElementById('g-acc').textContent=msgs[err.code]||'GPS-Fehler';},
+    {enableHighAccuracy:true,timeout:20000,maximumAge:3000});
+}
+
+function startCompass(){
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(state=>{if(state==='granted')window.addEventListener('deviceorientation',onOrientation,true);}).catch(()=>{});
+  }else if(window.DeviceOrientationEvent){window.addEventListener('deviceorientation',onOrientation,true);}
+}
+function onOrientation(e){
+  const heading=e.webkitCompassHeading??(e.alpha?(360-e.alpha):null);
+  if(heading!==null&&uLat){uHeading=heading;updateUserMarker();}
+}
+
+function addNorthUpBtn(){
+  const div=document.createElement('div');div.id='navbtn';
+  div.style.cssText='position:absolute;bottom:60px;right:12px;z-index:1000;display:flex;flex-direction:column;gap:6px';
+  div.innerHTML=`<button onclick="toggleAutoCenter()" title="Auto-Zentrierung" id="autocenter-btn" style="width:38px;height:38px;border-radius:10px;border:1px solid #d0dce8;background:#eaf5f0;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)">📍</button>`;
+  document.getElementById('map').appendChild(div);
+}
+function toggleAutoCenter(){
+  autoCenter=!autoCenter;
+  document.getElementById('autocenter-btn').style.background=autoCenter?'#eaf5f0':'#fff';
+  if(autoCenter&&uLat) mapObj.setView([uLat,uLon],mapObj.getZoom(),{animate:true});
+}
+
+// Arrows
+function clearArrows(){arrowMarkers.forEach(m=>mapObj.removeLayer(m));arrowMarkers=[];}
+function nearestGpxIdxSimple(lat,lon){
+  let best=0,bd=Infinity;
+  for(let i=0;i<RC.length;i++){const d=hav(lat,lon,RC[i][0],RC[i][1]);if(d<bd){bd=d;best=i;}}
+  return best;
+}
+function makeArrowIcon(label){
+  return L.divIcon({html:`<div style="display:flex;flex-direction:column;align-items:center;gap:1px"><div style="background:#e07820;color:#fff;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3)">${label}</div><svg width="28" height="30" viewBox="0 0 28 30" style="filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))"><rect x="10" y="0" width="8" height="16" rx="2" fill="#e07820" stroke="#fff" stroke-width="1.5"/><polygon points="14,30 1,14 27,14" fill="#e07820" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>`,iconSize:[90,46],iconAnchor:[45,46],className:''});
+}
+function buildDynamicArrows(uLt,uLn){
+  clearArrows();
+  const userIdx=nearestGpxIdxSimple(uLt,uLn);
+  const step=Math.floor(RC.length/14);
+  const smileySvg2=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="64" height="64"><circle cx="50" cy="50" r="47" fill="#f5c800" stroke="#1a1a1a" stroke-width="3"/><circle cx="30" cy="58" r="12" fill="none" stroke="#1a1a1a" stroke-width="3.5"/><circle cx="70" cy="58" r="12" fill="none" stroke="#1a1a1a" stroke-width="3.5"/><line x1="30" y1="58" x2="50" y2="36" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><line x1="50" y1="36" x2="70" y2="58" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><line x1="50" y1="36" x2="50" y2="58" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><line x1="30" y1="58" x2="50" y2="58" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><line x1="44" y1="36" x2="56" y2="36" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><line x1="46" y1="42" x2="54" y2="42" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/><path d="M32 72 Q50 86 68 72" fill="none" stroke="#1a1a1a" stroke-width="3.5" stroke-linecap="round"/></svg>`;
+  const startIcon=L.divIcon({html:`<div style="display:flex;flex-direction:column;align-items:center;gap:0;filter:drop-shadow(0 3px 7px rgba(0,0,0,.4))">${smileySvg2}<div style="width:4px;height:8px;background:#e07820;"></div><svg width="20" height="13" viewBox="0 0 20 13"><polygon points="10,13 0,0 20,0" fill="#e07820" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg></div>`,iconSize:[64,93],iconAnchor:[32,93],className:''});
+  const sm=L.marker([uLt,uLn],{icon:startIcon,zIndexOffset:600}).addTo(mapObj);
+  arrowMarkers.push(sm);
+  let arrowNum=0;
+  for(let idx=userIdx+step;idx<RC.length;idx+=step){
+    arrowNum++;
+    const kmAhead=Math.round(arrowNum*100);
+    const m=L.marker([RC[idx][0],RC[idx][1]],{icon:makeArrowIcon('+'+kmAhead+' km'),zIndexOffset:500}).addTo(mapObj);
+    arrowMarkers.push(m);
+  }
+}
+
+function showPanel(e,i){
+  const iC=e.t==="Camping",pct=(e.km/TOTAL*100).toFixed(1);
+  const badge=iC?'<span class="badge camp">⛺ Campingplatz</span>':'<span class="badge chg">⚡ Ladestation</span>';
+  const distRow=uLat?`<div class="irow"><div class="iico" style="background:#fff4ec">🧭</div><div class="itxt"><div class="ilbl">Entfernung von dir</div><div class="ival"><b style="color:#c85a0a">${fmt(hav(uLat,uLon,e.lat,e.lon))}</b></div></div></div>`:'';
+  document.getElementById('ptitle').textContent=e.n;
+  document.getElementById('pbody').innerHTML=`${badge}<div class="kmbar"><div class="kmfill" style="width:${pct}%"></div></div>
+    <div class="irow"><div class="iico" style="background:#fff4ec">📍</div><div class="itxt"><div class="ilbl">Km vom Start (Rebstein)</div><div class="ival"><b style="color:#c85a0a">${e.km} km</b> · ${pct}% der Route</div></div></div>
+    ${distRow}
+    <div class="irow"><div class="iico" style="background:#e8f0fb">↔️</div><div class="itxt"><div class="ilbl">Seit letztem Eintrag</div><div class="ival">${e.d} km · +${e.h} Hm ↑</div></div></div>
+    <div class="irow"><div class="iico" style="background:#eaf5ee">🌍</div><div class="itxt"><div class="ilbl">Land / Ort</div><div class="ival">${FL[e.l]} ${e.l} · ${e.ort}</div></div></div>
+    <div class="irow"><div class="iico" style="background:#f0ecf8">🏠</div><div class="itxt"><div class="ilbl">Adresse</div><div class="ival">${e.addr}</div></div></div>
+    <div class="irow"><div class="iico" style="background:#fdf8ec">📞</div><div class="itxt"><div class="ilbl">Telefon</div><div class="ival">${e.p!=='nicht verfügbar'?`<a href="tel:${e.p}" style="color:#1a4a8a;text-decoration:none;font-weight:500">${e.p}</a>`:'<span style="color:#aab8c8">nicht verfügbar</span>'}</div></div></div>
+    <a class="mapbtn" href="https://maps.google.com/?q=${e.lat},${e.lon}" target="_blank">🗺️ In Google Maps öffnen</a>`;
+  document.getElementById('panel').classList.remove('hidden');
+  if(activeId) document.getElementById(activeId)?.classList.remove('act');
+  document.getElementById(`li${i}`)?.classList.add('act');activeId=`li${i}`;
+  mapObj.setView([e.lat,e.lon],Math.max(mapObj.getZoom(),12),{animate:true});
+}
+function closePanel(){document.getElementById('panel').classList.add('hidden');}
+
+let listPanelOpen=false;
+function toggleListPanel(){
+  listPanelOpen=!listPanelOpen;
+  const lp=document.getElementById('listpanel'),btn=document.getElementById('list-toggle-btn');
+  if(listPanelOpen){lp.classList.remove('hidden');btn.style.display='none';}
+  else{lp.classList.add('hidden');btn.style.display='';}
+}
+let listOn=true;
+function toggleList(){
+  listOn=!listOn;
+  document.getElementById('elist').style.display=listOn?'':'none';
+  document.getElementById('ltoggle').textContent=listOn?'▼ ausblenden':'▲ anzeigen';
+}
+
+// ══════════════════════════════════════════
+// RIDER LIVE POSITION (Admin only)
+// ══════════════════════════════════════════
+let isAdmin=false;
+let riderMarker=null;
+let riderWatchId=null;
+let riderUpdating=false;
+
+const RIDER_ICON=()=>L.divIcon({
+  html:`<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+    <div style="background:linear-gradient(135deg,#c85a0a,#e07820);color:#fff;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.4)">🚴 Mein Standort</div>
+    <div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));line-height:1">🚴</div>
+  </div>`,
+  iconSize:[100,52],iconAnchor:[50,52],className:''
+});
+
+async function loadRiderPosition(){
+  try{
+    const res=await window.storage.get('rider_position', true);
+    if(!res) return;
+    const data=JSON.parse(res.value);
+    if(!mapObj||!data.lat||!data.lon) return;
+    if(riderMarker) mapObj.removeLayer(riderMarker);
+    riderMarker=L.marker([data.lat,data.lon],{icon:RIDER_ICON(),zIndexOffset:1000}).addTo(mapObj);
+    const ts=new Date(data.ts);
+    const ago=Math.round((Date.now()-ts)/60000);
+    const agoTxt=ago<1?'gerade eben':ago<60?`vor ${ago} Min.`:`vor ${Math.round(ago/60)} Std.`;
+    riderMarker.bindTooltip(`<b>🚴 Rennfahrer-Standort</b><br>Aktualisiert: ${agoTxt}<br>km ${data.routeKm||'?'} ab Rebstein`,{direction:'top',offset:[0,-50],permanent:false});
+    // Show info bar
+    const bar=document.getElementById('rider-bar');
+    if(bar){bar.style.display='flex';document.getElementById('rider-bar-txt').textContent=`🚴 Letzter Standort: ${agoTxt} · km ${data.routeKm||'?'} ab Rebstein`;}
+  }catch(e){}
+}
+
+async function saveRiderPosition(lat,lon){
+  try{
+    const rKm=routeKm();
+    await window.storage.set('rider_position', JSON.stringify({lat,lon,ts:Date.now(),routeKm:rKm}), true);
+    const bar=document.getElementById('rider-bar');
+    if(bar){bar.style.display='flex';document.getElementById('rider-bar-txt').textContent=`🚴 Standort gespeichert · km ${rKm} ab Rebstein · gerade eben`;}
+  }catch(e){}
+}
+
+function openLoginModal(){
+  document.getElementById('login-modal').style.display='flex';
+  document.getElementById('login-pw').value='';
+  document.getElementById('login-err').style.display='none';
+  setTimeout(()=>document.getElementById('login-pw').focus(),100);
+}
+function closeLoginModal(){
+  document.getElementById('login-modal').style.display='none';
+  pendingAfterLogin=null;
+}
+function updateTopbarLoginBtn(){
+  const icon=document.getElementById('topbar-login-icon');
+  const label=document.getElementById('topbar-login-label');
+  if(!icon||!label) return;
+  if(isAdmin){icon.textContent='✅';label.textContent='Admin';}
+  else{icon.textContent='🔐';label.textContent='Login';}
+}
+function doLogout(){
+  stopRiderTracking();
+  isAdmin=false;
+  updateTopbarLoginBtn();
+  // update ➕ button hint
+  const st=document.getElementById('gps-status-poi');
+  if(st){st.textContent='Abgemeldet.';st.className='';setTimeout(()=>{st.textContent='';},2000);}
+}
+function doLogin(){
+  const u=document.getElementById('login-user').value.trim();
+  const p=document.getElementById('login-pw').value;
+  if(u.toLowerCase()==='admin'&&p==='880197'){
+    isAdmin=true;
+    updateTopbarLoginBtn();
+    closeLoginModal();
+    // execute pending action (e.g. openAddPoi)
+    if(pendingAfterLogin){const fn=pendingAfterLogin;pendingAfterLogin=null;setTimeout(fn,100);}
+  } else {
+    const err=document.getElementById('login-err');
+    err.textContent='❌ Falscher Benutzername oder Passwort';
+    err.style.display='block';
+    document.getElementById('login-pw').value='';
+  }
+}
+function startRiderTracking(){
+  if(riderWatchId) return;
+  const btn=document.getElementById('admin-btn');
+  if(btn){btn.textContent='🚴 Tracking aktiv';btn.style.background='linear-gradient(135deg,#c85a0a,#e07820)';}
+  riderWatchId=navigator.geolocation.watchPosition(pos=>{
+    const {latitude:lat,longitude:lon}=pos.coords;
+    if(riderMarker) mapObj.removeLayer(riderMarker);
+    riderMarker=L.marker([lat,lon],{icon:RIDER_ICON(),zIndexOffset:1000}).addTo(mapObj);
+    if(!riderUpdating){
+      riderUpdating=true;
+      saveRiderPosition(lat,lon).finally(()=>{
+        setTimeout(()=>{riderUpdating=false;},15000); // throttle saves to every 15s
+      });
+    }
+  },err=>{},{enableHighAccuracy:true,timeout:30000,maximumAge:10000});
+}
+function stopRiderTracking(){
+  if(riderWatchId){navigator.geolocation.clearWatch(riderWatchId);riderWatchId=null;}
+  const btn=document.getElementById('admin-btn');
+  if(btn){btn.textContent='🔐 Admin Login';btn.style.background='';}
+  isAdmin=false;
+}
+</script>
+<!-- ADD / EDIT POI MODAL – ausserhalb aller Views, direkt am body -->
+<div id="poi-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 0 40px">
+  <div style="background:#fff;margin:0 auto;border-radius:18px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.25);max-width:480px;width:calc(100% - 24px)">
+    <div style="background:linear-gradient(135deg,#1a6b4a,#1a5080);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1">
+      <div style="font-family:'Playfair Display',serif;color:#fff;font-size:1rem" id="modal-title">📌 Eigenen POI erfassen</div>
+      <button onclick="closeAddPoi()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Name *</label>
+        <input id="poi-name" type="text" placeholder="z.B. Grillplatz am See" style="width:100%;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+      </div>
+
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Typ *</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+          <button class="type-btn active-type" id="tb-camp" onclick="selectType('Camping')">⛺ Camping</button>
+          <button class="type-btn" id="tb-chg" onclick="selectType('Ladestation')">⚡ Ladestation</button>
+          <button class="type-btn" id="tb-rest" onclick="selectType('Restaurant')">🍽️ Restaurant</button>
+          <button class="type-btn" id="tb-other" onclick="selectType('Sonstiges')">📍 Sonstiges</button>
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Position auf Route (km ab Rebstein) *</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="poi-km" type="number" min="0" max="1400" step="0.1" placeholder="z.B. 450.5" style="flex:1;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;color:#1a2b3c;background:#f9fafb;-webkit-appearance:none;outline:none">
+          <span style="font-size:.75rem;color:#9ab0c8;flex-shrink:0">km</span>
+        </div>
+        <div id="km-hint" style="font-size:.63rem;color:#1a6b4a;margin-top:4px;min-height:16px"></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Ort</label>
+          <input id="poi-ort" type="text" placeholder="z.B. Innsbruck" style="width:100%;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+        </div>
+        <div>
+          <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Land <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0c0d0">(2-Buchstaben Code oder Name)</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="poi-land" type="text" placeholder="z.B. AT, DE, FR, BA …" maxlength="30" style="flex:1;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none" oninput="updateFlagPreview()">
+            <div id="flag-preview" style="font-size:1.6rem;width:36px;text-align:center">🌍</div>
+          </div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:5px">
+            <button type="button" onclick="setLand('CH')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇨🇭 Schweiz</button>
+            <button type="button" onclick="setLand('AT')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇦🇹 Österreich</button>
+            <button type="button" onclick="setLand('DE')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇩🇪 Deutschland</button>
+            <button type="button" onclick="setLand('IT')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇮🇹 Italien</button>
+            <button type="button" onclick="setLand('SI')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇸🇮 Slowenien</button>
+            <button type="button" onclick="setLand('HR')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇭🇷 Kroatien</button>
+            <button type="button" onclick="setLand('RS')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇷🇸 Serbien</button>
+            <button type="button" onclick="setLand('BA')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇧🇦 Bosnien</button>
+            <button type="button" onclick="setLand('HU')" style="padding:3px 8px;border:1px solid #dde4ec;border-radius:6px;background:#f4f6f9;font-size:.68rem;cursor:pointer;font-family:'DM Sans',sans-serif;-webkit-appearance:none">🇭🇺 Ungarn</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Adresse</label>
+        <input id="poi-addr" type="text" placeholder="Strassenname, PLZ Ort" style="width:100%;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+      </div>
+
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Koordinaten <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0c0d0">(optional, für Karte)</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <input id="poi-lat" type="number" step="0.0001" placeholder="Breitengrad" style="padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;-webkit-appearance:none;outline:none">
+          <input id="poi-lon" type="number" step="0.0001" placeholder="Längengrad" style="padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;-webkit-appearance:none;outline:none">
+        </div>
+        <button onclick="useCurrentGpsForPoi()" style="margin-top:6px;width:100%;padding:9px;background:#f0f7f4;border:1.5px solid #9ad8b0;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;color:#1a6a3a;cursor:pointer;-webkit-appearance:none">📡 Aktuellen GPS-Standort verwenden</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Telefon</label>
+          <input id="poi-phone" type="tel" placeholder="+41 …" style="width:100%;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+        </div>
+        <div>
+          <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Öffnungszeiten</label>
+          <input id="poi-hours" type="text" placeholder="Mo–Fr 9–18 Uhr" style="width:100%;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+        </div>
+      </div>
+
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Notiz</label>
+        <textarea id="poi-note" placeholder="Eigene Notizen…" rows="2" style="width:100%;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.82rem;color:#1a2b3c;background:#f9fafb;resize:none;box-sizing:border-box;-webkit-appearance:none;outline:none"></textarea>
+      </div>
+
+      <div id="poi-error" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040"></div>
+
+      <!-- SPEICHERN – sticky am unteren Rand des Modals -->
+      <div style="display:flex;gap:8px;padding-top:4px">
+        <button onclick="closeAddPoi()" style="flex:0 0 auto;padding:14px 18px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;color:#5a7a9a;cursor:pointer;-webkit-appearance:none">Abbrechen</button>
+        <button onclick="savePoi()" id="save-btn" style="flex:1;padding:14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,107,74,.3)">💾 Speichern</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- WEATHER MODAL -->
+<div id="weather-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(10,20,40,.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 0 40px">
+  <div style="background:#fff;margin:0 auto;border-radius:18px;overflow:hidden;box-shadow:0 12px 50px rgba(0,0,0,.25);max-width:440px;width:calc(100% - 24px)">
+    <div style="background:linear-gradient(135deg,#1a5080,#2a6aaa);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1">
+      <div>
+        <div style="font-family:'Playfair Display',serif;color:#fff;font-size:1rem">🌤️ Wettervorhersage</div>
+        <div id="weather-location" style="font-size:.68rem;color:rgba(255,255,255,.7);margin-top:2px">Standort wird ermittelt…</div>
+      </div>
+      <button onclick="closeWeather()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none">✕</button>
+    </div>
+    <div id="weather-body" style="padding:16px">
+      <div style="text-align:center;padding:30px;color:#9ab0c8;font-size:.85rem">⏳ Lade Wetterdaten…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// WEATHER
+// ══════════════════════════════════════════
+const WMO={
+  0:'Klar',1:'Überwiegend klar',2:'Teilweise bewölkt',3:'Bedeckt',
+  45:'Nebel',48:'Raureif',
+  51:'Leichter Niesel',53:'Niesel',55:'Starker Niesel',
+  61:'Leichter Regen',63:'Regen',65:'Starker Regen',
+  71:'Leichter Schnee',73:'Schnee',75:'Starker Schnee',
+  80:'Leichte Schauer',81:'Schauer',82:'Starke Schauer',
+  85:'Schneeschauer',86:'Starke Schneeschauer',
+  95:'Gewitter',96:'Gewitter mit Hagel',99:'Starkes Gewitter'
+};
+const WMO_ICON={
+  0:'☀️',1:'🌤️',2:'⛅',3:'☁️',
+  45:'🌫️',48:'🌫️',
+  51:'🌦️',53:'🌦️',55:'🌧️',
+  61:'🌧️',63:'🌧️',65:'🌧️',
+  71:'🌨️',73:'❄️',75:'❄️',
+  80:'🌦️',81:'🌧️',82:'⛈️',
+  85:'🌨️',86:'🌨️',
+  95:'⛈️',96:'⛈️',99:'⛈️'
+};
+const DAYS_DE=['So','Mo','Di','Mi','Do','Fr','Sa'];
+const MONTHS_DE=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+function openWeather(){
+  document.getElementById('weather-modal').style.display='block';
+  document.getElementById('weather-body').innerHTML='<div style="text-align:center;padding:30px;color:#9ab0c8;font-size:.85rem">📡 Standort wird ermittelt…</div>';
+  document.getElementById('weather-location').textContent='Standort wird ermittelt…';
+
+  // Use already known GPS if available
+  if(uLat&&uLon){
+    fetchWeather(uLat,uLon);
+  } else {
+    navigator.geolocation.getCurrentPosition(
+      pos=>fetchWeather(pos.coords.latitude,pos.coords.longitude),
+      ()=>{
+        // Fallback: use Rebstein start coords
+        fetchWeather(47.3722,9.6138,'Rebstein CH (Startpunkt)');
+      },
+      {enableHighAccuracy:true,timeout:8000,maximumAge:60000}
+    );
+  }
+}
+
+function closeWeather(){
+  document.getElementById('weather-modal').style.display='none';
+}
+
+async function fetchWeather(lat,lon,fallbackName){
+  try{
+    // Reverse geocode for location name
+    let locName=fallbackName||null;
+    if(!locName){
+      try{
+        const gc=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const gd=await gc.json();
+        const c=gd.address;
+        locName=[c.city||c.town||c.village||c.hamlet||'',c.country||''].filter(Boolean).join(', ');
+      }catch(e){locName=`${lat.toFixed(3)}°N ${lon.toFixed(3)}°E`;}
+    }
+    document.getElementById('weather-location').textContent=`📍 ${locName}`;
+
+    // Fetch 4-day forecast from Open-Meteo (free, no API key)
+    const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant,sunrise,sunset&hourly=temperature_2m,weathercode,windspeed_10m,precipitation_probability&current_weather=true&timezone=auto&forecast_days=5`;
+    const res=await fetch(url);
+    const data=await res.json();
+    renderWeather(data,locName);
+  }catch(e){
+    document.getElementById('weather-body').innerHTML='<div style="text-align:center;padding:30px;color:#c04040;font-size:.82rem">❌ Wetterdaten konnten nicht geladen werden.<br>Bitte Internetverbindung prüfen.</div>';
+  }
+}
+
+function renderWeather(data,locName){
+  const cur=data.current_weather;
+  const daily=data.daily;
+  const hourly=data.hourly;
+
+  // Current conditions
+  const curCode=cur.weathercode;
+  const curIcon=WMO_ICON[curCode]||'🌡️';
+  const curDesc=WMO[curCode]||'Unbekannt';
+  const windDir=['N','NO','O','SO','S','SW','W','NW'][Math.round(((cur.winddirection%360)/45))%8];
+
+  let html=`
+    <!-- Current weather card -->
+    <div style="background:linear-gradient(135deg,#e8f4ff,#d0e8ff);border-radius:14px;padding:16px;margin-bottom:16px;border:1px solid #b8d8f8">
+      <div style="font-size:.65rem;font-weight:700;color:#5a8aaa;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Aktuell</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:3rem;line-height:1">${curIcon}</div>
+        <div>
+          <div style="font-size:2rem;font-weight:700;color:#1a2b3c;line-height:1">${cur.temperature}°</div>
+          <div style="font-size:.8rem;color:#3a6a9a;margin-top:3px">${curDesc}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div style="font-size:.75rem;color:#4a7a9a">💨 ${cur.windspeed} km/h ${windDir}</div>
+          <div style="font-size:.65rem;color:#7a9ab8;margin-top:3px">${locName}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4-day forecast -->
+    <div style="font-size:.65rem;font-weight:700;color:#6a8aa4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px">4-Tage Vorhersage</div>
+    <div style="display:flex;flex-direction:column;gap:8px">`;
+
+  // Days 1-4 (skip today = index 0)
+  for(let i=1;i<=4;i++){
+    if(!daily.time[i]) continue;
+    const d=new Date(daily.time[i]+'T12:00:00');
+    const dayName=i===1?'Morgen':DAYS_DE[d.getDay()]+', '+d.getDate()+'. '+MONTHS_DE[d.getMonth()];
+    const code=daily.weathercode[i];
+    const icon=WMO_ICON[code]||'🌡️';
+    const desc=WMO[code]||'';
+    const tMax=Math.round(daily.temperature_2m_max[i]);
+    const tMin=Math.round(daily.temperature_2m_min[i]);
+    const rain=daily.precipitation_sum[i]?.toFixed(1)||'0';
+    const wind=Math.round(daily.windspeed_10m_max[i]);
+    const wdIdx=Math.round(((daily.winddirection_10m_dominant[i]%360)/45))%8;
+    const wDir=['N','NO','O','SO','S','SW','W','NW'][wdIdx];
+
+    // Sunrise/sunset
+    const sr=daily.sunrise[i]?.slice(11,16)||'';
+    const ss=daily.sunset[i]?.slice(11,16)||'';
+
+    // Hourly rain probability for this day (avg)
+    const dayStart=i*24, dayEnd=dayStart+24;
+    const probs=hourly.precipitation_probability?.slice(dayStart,dayEnd).filter(v=>v!=null)||[];
+    const maxProb=probs.length?Math.max(...probs):0;
+
+    // Temperature bar color
+    const tColor=tMax>=30?'#e03010':tMax>=20?'#e07820':tMax>=10?'#1a9a5a':'#1a60c0';
+
+    html+=`
+      <div style="background:#fff;border-radius:12px;border:1px solid #e4ecf4;padding:12px 14px;box-shadow:0 1px 6px rgba(0,0,0,.05)">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:1.8rem;width:40px;text-align:center;flex-shrink:0">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:4px">
+              <div style="font-size:.8rem;font-weight:700;color:#1a2b3c">${dayName}</div>
+              <div style="font-size:.9rem;font-weight:700;color:${tColor};white-space:nowrap">${tMax}° <span style="font-size:.72rem;font-weight:400;color:#9ab0c8">/ ${tMin}°</span></div>
+            </div>
+            <div style="font-size:.7rem;color:#5a7a9a;margin-top:2px">${desc}</div>
+            <div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">
+              ${parseFloat(rain)>0?`<span style="font-size:.65rem;background:#e8f0fb;color:#1a5080;padding:2px 7px;border-radius:8px;font-weight:600">🌧️ ${rain} mm</span>`:''}
+              ${maxProb>20?`<span style="font-size:.65rem;background:#e8f0fb;color:#1a5080;padding:2px 7px;border-radius:8px;font-weight:600">☔ ${maxProb}%</span>`:''}
+              <span style="font-size:.65rem;background:#f4f6f9;color:#4a6a84;padding:2px 7px;border-radius:8px">💨 ${wind} km/h ${wDir}</span>
+              ${sr?`<span style="font-size:.65rem;background:#fff8ec;color:#c87820;padding:2px 7px;border-radius:8px">🌅 ${sr}</span>`:''}
+              ${ss?`<span style="font-size:.65rem;background:#f0ecf8;color:#6a4a9a;padding:2px 7px;border-radius:8px">🌇 ${ss}</span>`:''}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  html+=`</div>
+    <div style="text-align:center;margin-top:12px;font-size:.6rem;color:#b0c0d0;font-family:'DM Sans',sans-serif">Daten: Open-Meteo.com · Aktualisiert: ${new Date().toLocaleTimeString('de-CH',{hour:'2-digit',minute:'2-digit'})}</div>`;
+
+  document.getElementById('weather-body').innerHTML=html;
+}
+</script>
+
+<!-- LOGIN MODAL -->
+<div id="login-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(10,20,40,.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 50px rgba(0,0,0,.3);max-width:340px;width:100%">
+    <div style="background:linear-gradient(135deg,#1a2b3c,#2a4060);padding:18px 20px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:1.8rem">🔐</div>
+      <div>
+        <div style="font-family:'Playfair Display',serif;color:#fff;font-size:1rem">Admin Login</div>
+        <div style="font-size:.7rem;color:rgba(255,255,255,.6);margin-top:2px">POIs erfassen · Standort-Tracking</div>
+      </div>
+      <button onclick="closeLoginModal()" style="margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Benutzer</label>
+        <input id="login-user" type="text" value="Admin" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+      </div>
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Passwort</label>
+        <input id="login-pw" type="password" placeholder="••••••••••" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040;font-family:'DM Sans',sans-serif"></div>
+      <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen</button>
+      <div style="background:#f8f9fb;border-radius:10px;padding:10px 12px;font-size:.68rem;color:#7a9ab8;font-family:'DM Sans',sans-serif;line-height:1.6">
+        <b style="color:#5a7a9a">🔑 Passwort vergessen?</b><br>
+        Wende dich an den Administrator der App.
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
