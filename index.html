@@ -464,15 +464,15 @@ loadCustomPois();
 // ══════════════════════════════════════════
 // GOOGLE MAPS FAVOURITES (Takeout JSON)
 // ══════════════════════════════════════════
-let googleFavs = [];
-let favMarkers = {};
+let googleFavs=[];
+let favMarkers={};
 
 function loadGoogleFavs(){
   try{ googleFavs=JSON.parse(localStorage.getItem('bikepacking_google_favs')||'[]'); }
   catch(e){ googleFavs=[]; }
 }
 function saveGoogleFavs(){
-  try{ localStorage.setItem('bikepacking_google_favs', JSON.stringify(googleFavs)); }
+  try{ localStorage.setItem('bikepacking_google_favs',JSON.stringify(googleFavs)); }
   catch(e){}
 }
 loadGoogleFavs();
@@ -485,7 +485,7 @@ function syncFavMarker(fav){
     iconSize:[32,32],iconAnchor:[16,16],className:''
   });
   const m=L.marker([fav.lat,fav.lon],{icon,zIndexOffset:300});
-  m.bindTooltip(`<b>❤️ ${fav.n}</b>${fav.addr?'<br><span style="font-size:.75rem">'+fav.addr+'</span>':''}`,{direction:'top',offset:[0,-14]});
+  m.bindTooltip(`<b>❤️ ${fav.n}</b>${fav.addr?'<br>'+fav.addr:''}`,{direction:'top',offset:[0,-14]});
   m.addTo(mapObj);
   favMarkers[fav.id]=m;
 }
@@ -505,66 +505,59 @@ function importFavJson(event){
     try{ data=JSON.parse(ev.target.result); }
     catch(e){ alert('❌ Ungültige JSON-Datei.'); return; }
 
-    // Google Takeout format: array of features with geometry
-    // Each entry: { title, geometry: { coordinates: [lon, lat] }, properties: { location: { address } } }
     let entries=[];
     if(Array.isArray(data)) entries=data;
-    else if(data.features) entries=data.features; // GeoJSON FeatureCollection
-    else if(data.type==='FeatureCollection') entries=data.features;
+    else if(data.features) entries=data.features;
 
-    if(!entries.length){ alert('❌ Keine Einträge gefunden.'); return; }
+    if(!entries.length){ alert('❌ Keine Einträge gefunden. Stelle sicher dass es die Datei "Gespeicherte Orte.json" ist.'); return; }
 
-    // Clear existing favs from map
+    // Remove old fav markers from map
     googleFavs.forEach(f=>removeFavMarker(f.id));
     googleFavs=[];
-
     let imported=0, skipped=0;
+
     entries.forEach((entry,i)=>{
-      // Support both raw Takeout JSON and GeoJSON format
       const title=entry.Title||entry.title||entry.properties?.Title||entry.properties?.name||'';
       if(!title){ skipped++; return; }
 
-      let lat=null,lon=null,addr='';
+      let lat=null, lon=null;
+      const addr=entry.properties?.location?.address||entry.Address||'';
 
-      // GeoJSON geometry
-      if(entry.geometry?.coordinates){
-        lon=entry.geometry.coordinates[0];
-        lat=entry.geometry.coordinates[1];
+      // GeoJSON Point geometry (most common in Takeout)
+      if(entry.geometry?.type==='Point'&&entry.geometry.coordinates?.length>=2){
+        lon=parseFloat(entry.geometry.coordinates[0]);
+        lat=parseFloat(entry.geometry.coordinates[1]);
       }
-      // Google Takeout direct format
-      if(!lat&&entry.geometry?.type==='Point'){
-        lon=entry.geometry.coordinates[0];
-        lat=entry.geometry.coordinates[1];
-      }
-      // Properties location
-      addr=entry.properties?.location?.address||entry.address||entry.Address||'';
+      // Nested geo coordinates
       if(!lat&&entry.properties?.location?.geo){
-        lat=entry.properties.location.geo.latitude||entry.properties.location.geo.lat;
-        lon=entry.properties.location.geo.longitude||entry.properties.location.geo.lng;
+        lat=parseFloat(entry.properties.location.geo.latitude||entry.properties.location.geo.lat||0);
+        lon=parseFloat(entry.properties.location.geo.longitude||entry.properties.location.geo.lng||0);
       }
       // URL fallback
-      const url=entry.Google_Maps_URL||entry.properties?.['Google Maps URL']||entry.url||'';
-      if(!lat&&url){
-        const m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-        if(m){lat=parseFloat(m[1]);lon=parseFloat(m[2]);}
+      if(!lat){
+        const url=entry['Google Maps URL']||entry.properties?.['Google Maps URL']||entry.url||'';
+        const m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if(m){ lat=parseFloat(m[1]); lon=parseFloat(m[2]); }
       }
 
-      if(!lat||!lon||isNaN(lat)||isNaN(lon)){ skipped++; return; }
+      if(!lat||!lon||isNaN(lat)||isNaN(lon)||lat===0){ skipped++; return; }
 
-      const fav={id:'fav_'+i+'_'+Date.now(),n:title,addr,lat:parseFloat(lat),lon:parseFloat(lon)};
+      const fav={id:'fav_'+i+'_'+Date.now(),n:title,addr,lat,lon};
       googleFavs.push(fav);
-      syncFavMarker(fav);
       imported++;
     });
 
     saveGoogleFavs();
-    renderList();
+    // Switch to map and sync markers
+    if(currentView==='poi') toggleView();
+    setTimeout(()=>{ syncAllFavMarkers(); }, 300);
     event.target.value='';
-    const msg=skipped>0?`✅ ${imported} Favoriten importiert.\n⚠️ ${skipped} Einträge ohne Koordinaten übersprungen.`:`✅ ${imported} Favoriten importiert!`;
-    alert(msg);
-    if(imported>0) setFilter('fav');
+    setTimeout(()=>{
+      const msg=skipped>0?`✅ ${imported} Favoriten importiert.\n⚠️ ${skipped} ohne Koordinaten übersprungen.`:`✅ ${imported} Favoriten importiert!`;
+      alert(msg);
+    }, 400);
   };
-  reader.readAsText(file);
+  reader.readAsText(file,'UTF-8');
 }
 
 function deleteFav(id){
@@ -931,25 +924,24 @@ function setFilter(f){
 function renderList(){
   const hint=document.getElementById('no-gps-hint');
   const list=document.getElementById('poi-list');
-  if(!uLat){hint.style.display='';list.innerHTML='';return;}
-  hint.style.display='none';
 
-  // ── FAVOURITES filter ──
+  // ── FAVOURITES filter — works without GPS ──
   if(activeFilter==='fav'){
+    hint.style.display='none';
     const importBtn=`<button onclick="document.getElementById('fav-json-input').click()" style="width:100%;padding:11px;background:linear-gradient(135deg,#e0305a,#a01030);border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;margin-bottom:10px;-webkit-appearance:none">📥 Google Takeout JSON importieren</button>`;
     if(googleFavs.length===0){
-      list.innerHTML=importBtn+`<div style="text-align:center;padding:20px;color:#9ab0c8;font-size:.8rem;line-height:1.8;background:#fff;border-radius:12px;border:1px solid #e8eef4">
+      list.innerHTML=importBtn+`<div style="text-align:center;padding:20px;color:#9ab0c8;font-size:.8rem;line-height:1.9;background:#fff;border-radius:12px;border:1px solid #e8eef4">
         <span style="font-size:2.2rem;display:block;margin-bottom:8px">❤️</span>
         <b>Noch keine Favoriten importiert.</b><br><br>
         So gehts:<br>
         1. <a href="https://takeout.google.com" target="_blank" style="color:#e0305a">takeout.google.com</a> öffnen<br>
         2. Nur <b>„Maps (Ihre Orte)"</b> auswählen<br>
         3. Export herunterladen &amp; entpacken<br>
-        4. Datei <b>„Gespeicherte Orte.json"</b> hier importieren
+        4. Datei <b>„Gespeicherte Orte.json"</b> importieren
       </div>`;
       return;
     }
-    const items=googleFavs.map(f=>({...f,dist:uLat&&f.lat?hav(uLat,uLon,f.lat,f.lon):null})).sort((a,b)=>(a.dist||999)-(b.dist||999));
+    const items=googleFavs.map(f=>({...f,dist:uLat&&f.lat?hav(uLat,uLon,f.lat,f.lon):null})).sort((a,b)=>(a.dist??999)-(b.dist??999));
     const deleteAllBtn=`<button onclick="deleteAllFavs()" style="width:100%;padding:8px;background:#fff0f3;border:1.5px solid #f0a0b8;border-radius:10px;color:#a0103a;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;margin-bottom:10px;-webkit-appearance:none">🗑️ Alle ${googleFavs.length} Favoriten löschen</button>`;
     const cards=items.map(f=>{
       const mapsUrl=`https://maps.google.com/?q=${f.lat},${f.lon}`;
@@ -972,6 +964,9 @@ function renderList(){
     list.innerHTML=importBtn+deleteAllBtn+cards;
     return;
   }
+
+  if(!uLat){hint.style.display='';list.innerHTML='';return;}
+  hint.style.display='none';
 
   // ── OWN POIs filter ──
   if(activeFilter==='own'){
