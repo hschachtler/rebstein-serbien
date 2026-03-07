@@ -155,23 +155,8 @@ body{
    MAP VIEW STYLES
 ══════════════════════════ */
 /* ── MAP BOTTOM TOOLBAR (iPhone-optimised) ── */
-#map-toolbar{
-  position:absolute;bottom:0;left:0;right:0;z-index:1000;
-  background:rgba(255,255,255,.96);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border-top:1px solid #e2e8f0;
-  padding:8px 12px;
-  padding-bottom:calc(8px + env(safe-area-inset-bottom));
-  display:flex;align-items:center;gap:8px;
-  box-shadow:0 -4px 20px rgba(0,0,0,.08);
-}
-.map-tb-btn{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;padding:6px 8px;border:none;border-radius:12px;
-  font-family:'DM Sans',sans-serif;font-size:.58rem;font-weight:600;
-  cursor:pointer;-webkit-appearance:none;transition:all .15s;
-  min-width:54px;min-height:50px;flex-shrink:0;
-}
+#map-toolbar{position:absolute;bottom:0;left:0;right:0;z-index:1000;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid #e2e8f0;padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;box-shadow:0 -4px 20px rgba(0,0,0,.08);}
+.map-tb-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 8px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.58rem;font-weight:600;cursor:pointer;-webkit-appearance:none;transition:all .15s;min-width:54px;min-height:50px;flex-shrink:0;}
 .map-tb-btn .tb-icon{font-size:1.3rem;line-height:1}
 .map-tb-btn:active{opacity:.7;transform:scale(.95)}
 .map-tb-btn-gps{background:linear-gradient(135deg,#1a6b4a,#1a5080);color:#fff;flex:1;max-width:none;min-width:0;}
@@ -182,8 +167,6 @@ body{
 #map-gps-status{font-size:.62rem;color:#6a8aa4;text-align:center;flex:1;min-width:0;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 #map-gps-status.ok{color:#1a7a4a;font-weight:500}
 #map-gps-status.err{color:#c04040}
-
-/* Legacy – keep for JS refs but hidden */
 #gpsbar{display:none}
 .gpssec,.gpsico,.gpstxt,.gpslbl,.gpsval,.gpssub{display:none}
 .dist-pill{display:inline-block;background:#fff4ec;color:#c85a0a;border:1px solid #f0c090;border-radius:10px;padding:1px 7px;font-size:.6rem;font-weight:600;margin-top:2px}
@@ -235,6 +218,23 @@ body{
 ::-webkit-scrollbar-thumb{background:#c8d4e0;border-radius:2px}
 a{color:inherit}
 
+/* ── POI RADIUS SETTINGS ── */
+#poi-settings-bar{
+  background:#fff;border-bottom:1px solid #e8eef4;
+  padding:8px 14px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;
+}
+#poi-settings-bar.hidden{display:none}
+.radius-row{display:flex;align-items:center;gap:8px}
+.radius-lbl{font-size:.65rem;color:#6a8aa4;font-weight:600;white-space:nowrap;min-width:0;flex:1}
+.radius-lbl span{color:#1a2b3c;font-weight:700}
+.radius-slider{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;background:#dde4ec;outline:none;cursor:pointer}
+.radius-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.2);cursor:pointer}
+.radius-slider.search-slider::-webkit-slider-thumb{background:linear-gradient(135deg,#1a5080,#2a6aaa)}
+.radius-val{font-size:.72rem;font-weight:700;color:#1a2b3c;min-width:42px;text-align:right}
+#settings-toggle-btn{font-size:.65rem;color:#6a8aa4;background:none;border:none;cursor:pointer;padding:2px 0;font-family:'DM Sans',sans-serif;text-align:left;text-decoration:underline;-webkit-appearance:none}
+#apply-radius-btn{width:100%;padding:9px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;-webkit-appearance:none;margin-top:2px}
+#apply-radius-btn:active{opacity:.85}
+
 /* GPX Upload */
 #gpx-upload-banner{background:linear-gradient(135deg,#1a5080,#1a6b4a);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;font-family:'DM Sans',sans-serif}
 #gpx-upload-banner.loaded{background:linear-gradient(135deg,#1a7a4a,#1a6b2a)}
@@ -275,8 +275,28 @@ a{color:inherit}
 <div id="gpx-upload-banner">
   <span id="gpx-status">📂 Noch keine GPX geladen – lade deine Route hoch</span>
   <button class="gpx-upload-btn" onclick="document.getElementById('gpx-file-input').click()">📤 GPX hochladen</button>
+  <button class="gpx-upload-btn" onclick="togglePoiSettings()" id="settings-btn" title="POI Radius einstellen" style="padding:6px 10px">⚙️</button>
   <input type="file" id="gpx-file-input" accept=".gpx" style="display:none" onchange="loadGpxFile(event)">
 </div>
+<!-- ── POI RADIUS SETTINGS BAR ── -->
+<div id="poi-settings-bar" class="hidden">
+  <div class="radius-row">
+    <div class="radius-lbl">🔍 Suchradius OSM: <span id="search-km-lbl">15 km</span></div>
+    <input type="range" class="radius-slider search-slider" id="search-radius-slider"
+      min="3" max="50" step="1" value="15"
+      oninput="document.getElementById('search-km-lbl').textContent=this.value+' km'">
+    <div class="radius-val" id="search-km-val">15 km</div>
+  </div>
+  <div class="radius-row">
+    <div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">8 km</span></div>
+    <input type="range" class="radius-slider" id="display-radius-slider"
+      min="1" max="30" step="1" value="8"
+      oninput="updateDisplaySlider(this.value)">
+    <div class="radius-val" id="display-km-val">8 km</div>
+  </div>
+  <button id="apply-radius-btn" onclick="applyRadiusSettings()">🔄 Neu suchen mit diesen Einstellungen</button>
+</div>
+
 <!-- ═══════════════════════════════
      POI VIEW
 ═══════════════════════════════ -->
@@ -316,8 +336,6 @@ a{color:inherit}
      MAP VIEW
 ═══════════════════════════════ -->
 <div id="view-map">
-
-  <!-- Hidden legacy GPS bar elements (referenced by JS) -->
   <div id="gpsbar" style="display:none">
     <button id="gps-btn-map"></button>
     <div class="gpssec"><div class="gpstxt">
@@ -327,24 +345,16 @@ a{color:inherit}
       <div id="g-prog"></div><div id="g-rem"></div>
     </div></div>
   </div>
-
-  <!-- Rider position info bar -->
   <div id="rider-bar" style="display:none;position:absolute;top:0;left:0;right:0;z-index:1001;background:linear-gradient(135deg,#fff4ec,#fff8f0);border-bottom:1px solid #f0c090;padding:6px 14px;align-items:center;gap:8px">
     <span id="rider-bar-txt" style="font-size:.72rem;color:#c85a0a;font-weight:600;font-family:'DM Sans',sans-serif"></span>
     <button onclick="if(riderMarker)mapObj.setView(riderMarker.getLatLng(),13,{animate:true})" style="margin-left:auto;background:#c85a0a;border:none;color:#fff;font-size:.65rem;font-weight:600;padding:3px 9px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0;-webkit-appearance:none">📍 Position</button>
   </div>
-
-  <!-- MAP (fills everything except toolbar) -->
   <div id="map" style="position:absolute;top:0;left:0;right:0;bottom:0"></div>
-
-  <!-- DETAIL PANEL -->
   <div id="panel" class="hidden">
     <div id="phdr"><h3 id="ptitle"></h3><button id="pclose" onclick="closePanel()">✕</button></div>
     <div id="pbody"></div>
   </div>
-
-  <!-- LIST PANEL (slides up from bottom-left above toolbar) -->
-  <div id="listpanel" class="hidden" style="bottom:calc(76px + env(safe-area-inset-bottom))">
+  <div id="listpanel" class="hidden">
     <div id="listhdr">
       <h4>📋 Stationen</h4>
       <button id="ltoggle" onclick="toggleList()">▼</button>
@@ -352,39 +362,21 @@ a{color:inherit}
     </div>
     <div id="elist"></div>
   </div>
-
-  <!-- ── BOTTOM TOOLBAR ── -->
   <div id="map-toolbar">
-
-    <!-- GPS button (main CTA) -->
     <button id="map-tb-gps" class="map-tb-btn map-tb-btn-gps" onclick="locateMeMap()">
-      <span class="tb-icon">📡</span>
-      <span id="map-tb-gps-lbl">Standort</span>
+      <span class="tb-icon">📡</span><span id="map-tb-gps-lbl">Standort</span>
     </button>
-
-    <!-- GPS status text -->
     <div id="map-gps-status">GPS nicht aktiv</div>
-
-    <!-- POI-Liste -->
     <button class="map-tb-btn map-tb-btn-secondary" onclick="toggleView()">
-      <span class="tb-icon">📋</span>
-      <span>POI-Liste</span>
+      <span class="tb-icon">📋</span><span>POI-Liste</span>
     </button>
-
-    <!-- Station list toggle -->
     <button class="map-tb-btn map-tb-btn-secondary" id="map-tb-list" onclick="toggleListPanel()">
-      <span class="tb-icon">🗺️</span>
-      <span>Stationen</span>
+      <span class="tb-icon">🗺️</span><span>Stationen</span>
     </button>
-
-    <!-- Admin -->
     <button id="admin-btn" class="map-tb-btn map-tb-btn-secondary" onclick="isAdmin?stopRiderTracking():openLoginModal()">
-      <span class="tb-icon" id="admin-tb-icon">🔐</span>
-      <span id="admin-tb-lbl">Admin</span>
+      <span class="tb-icon" id="admin-tb-icon">🔐</span><span id="admin-tb-lbl">Admin</span>
     </button>
-
   </div>
-
 </div>
 
 <script>
@@ -437,6 +429,54 @@ function saveCustomPois(){
   catch(e){}
 }
 loadCustomPois();
+
+// ══════════════════════════════════════════
+// POI RADIUS SETTINGS
+// ══════════════════════════════════════════
+let poiSearchRadiusKm  = parseFloat(localStorage.getItem('bp_search_radius')  || '15');
+let poiDisplayRadiusKm = parseFloat(localStorage.getItem('bp_display_radius') || '8');
+
+function initRadiusSliders(){
+  const ss = document.getElementById('search-radius-slider');
+  const ds = document.getElementById('display-radius-slider');
+  if(ss){ ss.value = poiSearchRadiusKm; document.getElementById('search-km-lbl').textContent = poiSearchRadiusKm+' km'; document.getElementById('search-km-val').textContent = poiSearchRadiusKm+' km'; }
+  if(ds){ ds.value = poiDisplayRadiusKm; document.getElementById('display-km-lbl').textContent = poiDisplayRadiusKm+' km'; document.getElementById('display-km-val').textContent = poiDisplayRadiusKm+' km'; }
+}
+function updateDisplaySlider(val){
+  document.getElementById('display-km-lbl').textContent = val+' km';
+  document.getElementById('display-km-val').textContent = val+' km';
+  // Ensure display ≤ search
+  const ss = document.getElementById('search-radius-slider');
+  if(ss && parseFloat(val) > parseFloat(ss.value)){
+    ss.value = val;
+    document.getElementById('search-km-lbl').textContent = val+' km';
+    document.getElementById('search-km-val').textContent = val+' km';
+  }
+}
+function togglePoiSettings(){
+  const bar = document.getElementById('poi-settings-bar');
+  const btn = document.getElementById('settings-btn');
+  const hidden = bar.classList.toggle('hidden');
+  btn.style.background = hidden ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.45)';
+  if(!hidden) initRadiusSliders();
+}
+async function applyRadiusSettings(){
+  const ss = parseFloat(document.getElementById('search-radius-slider').value);
+  const ds = parseFloat(document.getElementById('display-radius-slider').value);
+  if(ds > ss){ alert('⚠️ Anzeige-Radius kann nicht größer als Suchradius sein.'); return; }
+  poiSearchRadiusKm  = ss;
+  poiDisplayRadiusKm = ds;
+  localStorage.setItem('bp_search_radius',  ss);
+  localStorage.setItem('bp_display_radius', ds);
+  document.getElementById('poi-settings-bar').classList.add('hidden');
+  document.getElementById('settings-btn').style.background = 'rgba(255,255,255,.2)';
+  if(gpxRouteCoords.length >= 2){
+    await fetchOverpassPois();
+    renderList();
+  } else {
+    alert('📂 Bitte zuerst eine GPX-Datei hochladen.');
+  }
+}
 
 // ══════════════════════════════════════════
 // GPX + OVERPASS POI ENGINE
@@ -587,40 +627,99 @@ function kmAlongRoute(lat,lon){
 }
 
 async function fetchOverpassPois(){
-  const loading=document.getElementById('overpass-loading'),msg=document.getElementById('overpass-msg');
+  const loading = document.getElementById('overpass-loading');
+  const msg = document.getElementById('overpass-msg');
   loading.style.display='flex';
-  const CORRIDOR=8000,MAX_CHUNKS=12,chunkSize=Math.ceil(gpxRouteCoords.length/MAX_CHUNKS),PAD=0.08;
-  const bboxes=[];
-  for(let i=0;i<gpxRouteCoords.length;i+=chunkSize){
-    const chunk=gpxRouteCoords.slice(i,Math.min(i+chunkSize+1,gpxRouteCoords.length));
-    if(chunk.length>=2){const bb=routeBbox(chunk,PAD);bboxes.push(`${bb[0].toFixed(4)},${bb[1].toFixed(4)},${bb[2].toFixed(4)},${bb[3].toFixed(4)}`);}
+
+  const CORRIDOR = poiDisplayRadiusKm*1000; // dynamic display radius (increased from 5km)
+
+  // ── Segmented query: split route into chunks for better accuracy ──
+  // Each segment gets its own tight bounding box → less irrelevant data
+  const SEG_SIZE = 50; // points per segment
+  const segments = [];
+  for(let i=0; i<gpxRouteCoords.length; i+=SEG_SIZE){
+    const chunk = gpxRouteCoords.slice(i, Math.min(i+SEG_SIZE+1, gpxRouteCoords.length));
+    if(chunk.length >= 2) segments.push(chunk);
   }
-  let queryBody='';
-  for(const bb of bboxes){
-    queryBody+=`nwr["tourism"~"^(camp_site|caravan_site|hostel|guest_house|chalet)$"]["website"](${bb});\n`;
-    queryBody+=`nwr["tourism"~"^(camp_site|caravan_site|hostel|guest_house|chalet)$"]["contact:website"](${bb});\n`;
-    queryBody+=`nwr["amenity"~"^(camping|charging_station|restaurant|fast_food|cafe|bar|pub|biergarten)$"]["website"](${bb});\n`;
-    queryBody+=`nwr["amenity"~"^(camping|charging_station|restaurant|fast_food|cafe|bar|pub|biergarten)$"]["contact:website"](${bb});\n`;
-    queryBody+=`nwr["shop"~"^(supermarket|convenience|grocery|bakery|butcher|farm)$"]["website"](${bb});\n`;
-    queryBody+=`nwr["shop"~"^(supermarket|convenience|grocery|bakery|butcher|farm)$"]["contact:website"](${bb});\n`;
+
+  // Build union query across all segment bboxes
+  // Each segment bbox padded by ~8km (~0.072 degrees)
+  const PAD = poiSearchRadiusKm / 111.32; // dynamic search radius (~km per degree)
+  const bboxes = segments.map(seg=>{
+    const bb = routeBbox(seg, PAD);
+    return `${bb[0].toFixed(4)},${bb[1].toFixed(4)},${bb[2].toFixed(4)},${bb[3].toFixed(4)}`;
+  });
+
+  // Build expanded tag query — more POI types
+  const tags = [
+    // Camping
+    ['node','tourism','camp_site'],
+    ['node','tourism','caravan_site'],
+    ['node','tourism','hostel'],
+    ['node','tourism','guest_house'],
+    ['node','tourism','chalet'],
+    ['node','amenity','camping'],
+    ['way','tourism','camp_site'],
+    ['way','tourism','hostel'],
+    // Charging
+    ['node','amenity','charging_station'],
+    ['way','amenity','charging_station'],
+    // Food
+    ['node','amenity','restaurant'],
+    ['node','amenity','fast_food'],
+    ['node','amenity','cafe'],
+    ['node','amenity','bar'],
+    ['node','amenity','pub'],
+    ['node','amenity','biergarten'],
+    // Shops
+    ['node','shop','supermarket'],
+    ['node','shop','convenience'],
+    ['node','shop','grocery'],
+    ['node','shop','bakery'],
+    ['node','shop','butcher'],
+    ['node','shop','farm'],
+  ];
+
+  // Build full query: for each tag, add one line per bbox segment
+  let queryBody = '';
+  for(const [type, key, val] of tags){
+    for(const bb of bboxes){
+      queryBody += `${type}["${key}"="${val}"](${bb});\n`;
+    }
   }
-  const query=`[out:json][timeout:120];\n(\n${queryBody});\nout center;`;
-  const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter',`https://corsproxy.io/?${encodeURIComponent('https://overpass-api.de/api/interpreter')}`];
-  async function fetchWithTimeout(url,options,ms=60000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{...options,signal:c.signal});clearTimeout(t);return r;}catch(e){clearTimeout(t);throw e;}}
-  for(let i=0;i<ENDPOINTS.length;i++){
-    msg.textContent=`Server ${i+1}/${ENDPOINTS.length} wird abgefragt… (${bboxes.length} Abschnitte)`;
+  const query = `[out:json][timeout:90];\n(\n${queryBody});\nout center;`;
+
+  const ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    `https://corsproxy.io/?${encodeURIComponent('https://overpass-api.de/api/interpreter')}`,
+  ];
+
+  let lastErr = null;
+  for(let i=0; i<ENDPOINTS.length; i++){
+    msg.textContent = `Server ${i+1}/${ENDPOINTS.length} wird versucht… (${segments.length} Segmente)`;
     try{
-      const resp=await fetchWithTimeout(ENDPOINTS[i],{method:'POST',body:'data='+encodeURIComponent(query),headers:{'Content-Type':'application/x-www-form-urlencoded'}},60000);
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      msg.textContent='Daten werden verarbeitet…';
-      const data=await resp.json();
+      const resp = await fetch(ENDPOINTS[i], {
+        method: 'POST',
+        body: 'data=' + encodeURIComponent(query),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+      });
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      msg.textContent = 'Daten werden verarbeitet…';
+      const data = await resp.json();
       if(!data.elements) throw new Error('Ungültige Antwort');
-      processOverpassResults(data.elements,CORRIDOR);
-      loading.style.display='none';return;
-    }catch(err){const r=err.name==='AbortError'?'Timeout':err.message;console.warn(`Endpoint ${i+1} failed:`,r);msg.textContent=`Server ${i+1} fehlgeschlagen, versuche nächsten…`;}
+      processOverpassResults(data.elements, CORRIDOR);
+      loading.style.display='none';
+      return;
+    } catch(err){
+      console.warn(`Endpoint ${i+1} failed:`, err.message);
+      lastErr = err;
+    }
   }
+
   loading.style.display='none';
-  alert('⚠️ Alle Overpass-Server nicht erreichbar.\n\nBitte in ein paar Minuten nochmals versuchen.');
+  alert('⚠️ Alle Overpass-Server nicht erreichbar.\n\nMögliche Ursachen:\n• Kein Internetzugang\n• Firewall blockiert externe Anfragen\n• Server vorübergehend überlastet\n\nBitte in ein paar Minuten nochmals versuchen.');
 }
 
 function processOverpassResults(elements, corridorM){
@@ -1404,8 +1503,7 @@ function refreshGPS(){
   if(!uLat) return;
   const _pos=document.getElementById('g-pos'); if(_pos) _pos.textContent=`${uLat.toFixed(4)}°N  ${uLon.toFixed(4)}°E`;
   const _acc=document.getElementById('g-acc'); if(_acc) _acc.textContent=navMode?'🧭 Navigation aktiv':'✅ GPS aktiv';
-  const _st=document.getElementById('map-gps-status');
-  if(_st){ _st.textContent=`${uLat.toFixed(4)}°N ${uLon.toFixed(4)}°E`; _st.className='ok'; }
+  const _st=document.getElementById('map-gps-status'); if(_st){ _st.textContent=`${uLat.toFixed(4)}°N ${uLon.toFixed(4)}°E`; _st.className='ok'; }
   const nc=nearest("Camping");
   if(nc){document.getElementById('g-cn').textContent=nc.e.n;document.getElementById('g-cd').innerHTML=`<span class="dist-pill">${fmt(nc.d)} entfernt</span>  ${FL[nc.e.l]} km ${nc.e.km}`;}
   const nh=nearest("Ladestation");
@@ -1451,19 +1549,11 @@ function locateMeMap(){
   if(navMode){
     navigator.geolocation.clearWatch(mapWatchId);mapWatchId=null;navMode=false;autoCenter=true;uHeading=null;
     if(headingUp){ headingUp=false; mapObj.setBearing(0); const hb=document.getElementById('headingup-btn'); if(hb){hb.style.background='#fff';hb.style.borderColor='#d0dce8';} }
-    setMapTbGpsState('stop');
-    return;
+    setMapTbGpsState('stop'); return;
   }
-  setMapTbGpsState('busy');
-  navMode=true;
-  startCompass();
+  setMapTbGpsState('busy'); navMode=true; startCompass();
   mapWatchId=navigator.geolocation.watchPosition(onGpsUpdate,
-    err=>{
-      const msgs={1:'GPS-Zugriff verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};
-      setMapTbGpsState('err');
-      document.getElementById('map-gps-status').textContent=msgs[err.code]||'GPS-Fehler';
-      navMode=false;
-    },
+    err=>{ const msgs={1:'GPS-Zugriff verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'}; setMapTbGpsState('err'); document.getElementById('map-gps-status').textContent=msgs[err.code]||'GPS-Fehler'; navMode=false; },
     {enableHighAccuracy:true,timeout:20000,maximumAge:3000});
 }
 
