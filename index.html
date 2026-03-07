@@ -296,7 +296,7 @@ a{color:inherit}
 <!-- ── POI RADIUS SETTINGS BAR ── -->
 <div id="poi-settings-bar" class="hidden">
   <div class="radius-row"><div class="radius-lbl">🔍 Suchradius: <span id="search-km-lbl">15 km</span></div><input type="range" class="radius-slider" id="search-radius-slider" min="3" max="50" step="1" value="15" oninput="document.getElementById('search-km-lbl').textContent=this.value+' km'"><div class="radius-val">km</div></div>
-  <div class="radius-row"><div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">8 km</span></div><input type="range" class="radius-slider" id="display-radius-slider" min="1" max="30" step="1" value="8" oninput="updateDisplaySlider(this.value)"><div class="radius-val">km</div></div>
+  <div class="radius-row"><div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">5 km</span></div><input type="range" class="radius-slider" id="display-radius-slider" min="1" max="30" step="1" value="5" oninput="updateDisplaySlider(this.value)"><div class="radius-val">km</div></div>
   <button id="apply-radius-btn" onclick="applyRadiusSettings()">🔄 Neu suchen</button>
 </div>
 <!-- ═══════════════════════════════
@@ -416,7 +416,7 @@ loadCustomPois();
 // POI RADIUS SETTINGS
 // ══════════════════════════════════════════
 let poiSearchRadiusKm  = parseFloat(localStorage.getItem('bp_search_radius')  || '15');
-let poiDisplayRadiusKm = parseFloat(localStorage.getItem('bp_display_radius') || '8');
+let poiDisplayRadiusKm = parseFloat(localStorage.getItem('bp_display_radius') || '5');
 function initRadiusSliders(){const ss=document.getElementById('search-radius-slider'),ds=document.getElementById('display-radius-slider');if(ss){ss.value=poiSearchRadiusKm;document.getElementById('search-km-lbl').textContent=poiSearchRadiusKm+' km';}if(ds){ds.value=poiDisplayRadiusKm;document.getElementById('display-km-lbl').textContent=poiDisplayRadiusKm+' km';}}
 function updateDisplaySlider(val){document.getElementById('display-km-lbl').textContent=val+' km';const ss=document.getElementById('search-radius-slider');if(ss&&parseFloat(val)>parseFloat(ss.value)){ss.value=val;document.getElementById('search-km-lbl').textContent=val+' km';}}
 function togglePoiSettings(){const bar=document.getElementById('poi-settings-bar'),btn=document.getElementById('settings-btn');const hidden=bar.classList.toggle('hidden');btn.style.background=hidden?'rgba(255,255,255,.2)':'rgba(255,255,255,.45)';if(!hidden)initRadiusSliders();}
@@ -588,7 +588,7 @@ async function fetchOverpassPois(){
   const msg = document.getElementById('overpass-msg');
   loading.style.display='flex';
 
-  const CORRIDOR=(typeof poiDisplayRadiusKm!=='undefined'?poiDisplayRadiusKm:8)*1000;
+  const CORRIDOR=(typeof poiDisplayRadiusKm!=='undefined'?poiDisplayRadiusKm:5)*1000;
   const PAD=(typeof poiSearchRadiusKm!=='undefined'?poiSearchRadiusKm:15)/111.32;
   const step=Math.max(1,Math.floor(gpxRouteCoords.length/8));
   const bboxes=[];
@@ -616,8 +616,8 @@ out center;`;
   const ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-    `https://corsproxy.io/?${encodeURIComponent('https://overpass-api.de/api/interpreter')}`,
   ];
 
   let lastErr = null;
@@ -627,7 +627,9 @@ out center;`;
       const resp = await fetch(ENDPOINTS[i], {
         method: 'POST',
         body: 'data=' + encodeURIComponent(query),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        mode: 'cors',
+        cache: 'no-cache'
       });
       if(!resp.ok) throw new Error('HTTP ' + resp.status);
       msg.textContent = 'Daten werden verarbeitet…';
@@ -641,6 +643,28 @@ out center;`;
       console.warn(`Endpoint ${i+1} failed:`, err.message);
       lastErr = err;
     }
+  }
+
+  // Last resort: corsproxy.io (slower but works on iOS Safari)
+  msg.textContent = 'Alternativer Proxy wird versucht…';
+  try{
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://overpass-api.de/api/interpreter');
+    const resp = await fetch(proxyUrl, {
+      method: 'POST',
+      body: 'data=' + encodeURIComponent(query),
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+    });
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    msg.textContent = 'Daten werden verarbeitet…';
+    const data = await resp.json();
+    if(!data.elements) throw new Error('Ungültige Antwort');
+    processOverpassResults(data.elements, CORRIDOR);
+    if(ghToken) ghSavePois(true);
+    loading.style.display='none';
+    return;
+  } catch(err){
+    console.warn('Proxy failed:', err.message);
+    lastErr = err;
   }
 
   loading.style.display='none';
@@ -667,7 +691,7 @@ function processOverpassResults(elements, corridorM){
     const name = t.name||t['name:de']||t['name:en']||t['name:local']||t.operator||t.brand||t.ref||'';
 
     const addr   = [t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(' ');
-    const phone  = t.phone||t['contact:phone']||t['contact:mobile']||'nicht verfügbar';
+    const phone  = t.phone||t['contact:phone']||t['contact:mobile']||'';
     const hours  = t.opening_hours||'';
     const website= t.website||t['contact:website']||t['url']||'';
     const km     = kmAlongRoute(lat,lon);
@@ -680,22 +704,34 @@ function processOverpassResults(elements, corridorM){
     const isFood      = ['restaurant','fast_food','cafe','bar','pub','biergarten'].includes(t.amenity);
     const isShop      = ['supermarket','convenience','grocery','bakery','butcher','farm'].includes(t.shop);
 
+    // ── Nur POIs mit vollständigen Pflichtfeldern ──
+    // Camping/Hostel: Name + Adresse oder Öffnungszeiten
+    // Charging: Name
+    // Food/Shop: Name + Adresse + Öffnungszeiten
+    if(!name) return; // Name ist immer Pflicht
+    if(isFood || isShop){
+      if(!addr || !hours) return; // Essen/Shop brauchen Adresse UND Öffnungszeiten
+    }
+    if(isCamping || isHostel){
+      if(!addr && !hours && !website) return; // mind. ein Kontaktfeld
+    }
+
     if(isCamping){
-      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:name,addr,p:phone,hours,website,lat,lon,_osm:true});
+      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:name,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
     } else if(isHostel){
       // Hostels/Guesthouses go into Camping category with different icon hint
-      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone,hours,website,lat,lon,_osm:true,_hostel:true});
+      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true,_hostel:true});
     } else if(isCharging){
       const network = t.network||t.operator||'';
       const label = network ? `${name} (${network})` : name;
-      E.push({km,d:0,h:0,l,ort,t:'Ladestation',n:label,addr,p:phone,hours,website,lat,lon,_osm:true});
+      E.push({km,d:0,h:0,l,ort,t:'Ladestation',n:label,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
     } else if(isFood){
       const cuisine = t.cuisine ? ` · ${t.cuisine.replace(';',' / ')}` : '';
       const rating  = t.stars ? parseFloat(t.stars) : null;
-      R.push({km,l,ort,t:'Restaurant',n:name,addr,p:phone,lat,lon,hours:hours+cuisine,rating,website,_osm:true});
+      R.push({km,l,ort,t:'Restaurant',n:name,addr,p:phone||'nicht verfügbar',lat,lon,hours:hours+cuisine,rating,website,_osm:true});
     } else if(isShop){
       const shopType = t.shop==='bakery'?'🥖':t.shop==='butcher'?'🥩':t.shop==='farm'?'🌾':'🛒';
-      shopPois.push({km,l,ort,t:'Shop',n:`${shopType} ${name}`,addr,p:phone,lat,lon,hours,website,_osm:true});
+      shopPois.push({km,l,ort,t:'Shop',n:`${shopType} ${name}`,addr,p:phone||'nicht verfügbar',lat,lon,hours,website,_osm:true});
     }
   });
 
