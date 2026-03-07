@@ -679,8 +679,8 @@ function processOverpassResults(elements, corridorM){
     if(distToRoute(lat,lon) > corridorM) return;
 
     const t = el.tags||{};
-    const name = t.name||t['name:de']||t['name:en']||t['name:local']||'';
-    if(!name) return;
+    const name = t.name||t['name:de']||t['name:en']||t['name:local']
+      || t.operator || t.brand || t.ref || '';
 
     const addr   = [t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(' ');
     const phone  = t.phone||t['contact:phone']||t['contact:mobile']||'nicht verfügbar';
@@ -695,22 +695,30 @@ function processOverpassResults(elements, corridorM){
     const isFood      = ['restaurant','fast_food','cafe','bar','pub','biergarten'].includes(t.amenity);
     const isShop      = ['supermarket','convenience','grocery','bakery','butcher','farm'].includes(t.shop);
 
+    // Fallback name per POI type if OSM has no name tag
+    const typeLabel = isCamping ? (t.tourism==='caravan_site'?'Wohnmobilplatz':'Campingplatz')
+      : isHostel ? (t.tourism==='hostel'?'Hostel':t.tourism==='guest_house'?'Gästehaus':'Chalet')
+      : isCharging ? 'Ladestation'
+      : isFood ? (t.amenity==='restaurant'?'Restaurant':t.amenity==='fast_food'?'Imbiss':t.amenity==='cafe'?'Café':t.amenity==='bar'?'Bar':t.amenity==='pub'?'Pub':'Biergarten')
+      : isShop ? (t.shop==='bakery'?'Bäckerei':t.shop==='butcher'?'Metzgerei':t.shop==='farm'?'Hofladen':t.shop==='supermarket'?'Supermarkt':'Laden')
+      : 'POI';
+    const displayName = name || (ort ? `${typeLabel} (${ort})` : typeLabel);
+
     if(isCamping){
-      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:name,addr,p:phone,hours,lat,lon,_osm:true});
+      E.push({km,d:0,h:0,l,ort:ort||displayName,t:'Camping',n:displayName,addr,p:phone,hours,lat,lon,_osm:true});
     } else if(isHostel){
-      // Hostels/Guesthouses go into Camping category with different icon hint
-      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone,hours,lat,lon,_osm:true,_hostel:true});
+      E.push({km,d:0,h:0,l,ort:ort||displayName,t:'Camping',n:`🏠 ${displayName}`,addr,p:phone,hours,lat,lon,_osm:true,_hostel:true});
     } else if(isCharging){
       const network = t.network||t.operator||'';
-      const label = network ? `${name} (${network})` : name;
+      const label = network&&!displayName.includes(network) ? `${displayName} (${network})` : displayName;
       E.push({km,d:0,h:0,l,ort,t:'Ladestation',n:label,addr,p:phone,hours,lat,lon,_osm:true});
     } else if(isFood){
       const cuisine = t.cuisine ? ` · ${t.cuisine.replace(';',' / ')}` : '';
       const rating  = t.stars ? parseFloat(t.stars) : null;
-      R.push({km,l,ort,t:'Restaurant',n:name,addr,p:phone,lat,lon,hours:hours+cuisine,rating,_osm:true});
+      R.push({km,l,ort,t:'Restaurant',n:displayName,addr,p:phone,lat,lon,hours:hours+cuisine,rating,_osm:true});
     } else if(isShop){
       const shopType = t.shop==='bakery'?'🥖':t.shop==='butcher'?'🥩':t.shop==='farm'?'🌾':'🛒';
-      shopPois.push({km,l,ort,t:'Shop',n:`${shopType} ${name}`,addr,p:phone,lat,lon,hours,_osm:true});
+      shopPois.push({km,l,ort,t:'Shop',n:`${shopType} ${displayName}`,addr,p:phone,lat,lon,hours,_osm:true});
     }
   });
 
