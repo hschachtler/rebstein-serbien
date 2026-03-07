@@ -504,8 +504,12 @@ function loadGpxFile(event){
     // If pois.json was loaded from GitHub, skip Overpass search
     if(ghPoisLoaded){
       renderList();
-      addBuiltinMarkersToMap();
-      syncAllCustomPoiMarkers();
+      // Draw on map only if map is already initialized
+      if(mapInitialized && mapObj){
+        addBuiltinMarkersToMap();
+        syncAllCustomPoiMarkers();
+        drawGpxRoute();
+      }
       const status = document.getElementById('gpx-status');
       if(status) status.textContent = `✅ ${gpxRouteName} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants`;
     } else {
