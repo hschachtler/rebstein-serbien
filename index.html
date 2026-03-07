@@ -501,8 +501,8 @@ function loadGpxFile(event){
       mapObj.fitBounds(routeLayerRef.getBounds(),{padding:[40,40]});
     }
     event.target.value='';
-    // If pois.json was loaded from GitHub, skip Overpass search
-    if(ghPoisLoaded){
+    // If pois.json was loaded from GitHub AND has POIs, skip Overpass search
+    if(ghPoisLoaded && (E.length > 0 || R.length > 0)){
       renderList();
       // Draw on map only if map is already initialized
       if(mapInitialized && mapObj){
