@@ -622,7 +622,7 @@ out center;`;
 
   let lastErr = null;
   for(let i=0; i<ENDPOINTS.length; i++){
-    msg.textContent = `Server ${i+1}/${ENDPOINTS.length} wird versucht… (${segments.length} Segmente)`;
+    msg.textContent = `Server ${i+1}/${ENDPOINTS.length} wird versucht… (${nBoxes} Abschnitte)`;
     try{
       const resp = await fetch(ENDPOINTS[i], {
         method: 'POST',
