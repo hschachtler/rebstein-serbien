@@ -1568,14 +1568,18 @@ let ghFileSha = ''; // needed for updates
 
 async function ghLoadPois(){
   try{
-    const resp = await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`,{
-      headers: ghToken ? {Authorization:`token ${ghToken}`} : {}
-    });
+    // Use raw URL for reading (no CORS issues, no token needed)
+    const rawUrl = `https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}/${GH_FILE}?_=${Date.now()}`;
+    const resp = await fetch(rawUrl);
     if(!resp.ok) return false;
-    const meta = await resp.json();
-    ghFileSha = meta.sha || '';
-    const d = JSON.parse(atob(meta.content.replace(/
-/g,'')));
+    const d = await resp.json();
+    // Also fetch SHA via API if we have a token (needed for writing)
+    if(ghToken){
+      try{
+        const meta = await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`,{headers:{Authorization:`token ${ghToken}`}});
+        if(meta.ok){ const m=await meta.json(); ghFileSha=m.sha||''; }
+      }catch(e){}
+    }
     if(d.E&&d.E.length) E=d.E;
     if(d.R&&d.R.length) R=d.R;
     if(d.shop&&d.shop.length) shopPois=d.shop;
@@ -1590,8 +1594,7 @@ async function ghLoadPois(){
 }
 
 async function ghSavePois(silent=false){
-  if(!ghToken){ if(!silent) alert('⚠️ Kein GitHub Token gesetzt.
-Im Admin-Bereich unter ⚙️ eingeben.'); return false; }
+  if(!ghToken){ if(!silent) alert('⚠️ Kein GitHub Token gesetzt. Im Admin-Bereich unter ⚙️ eingeben.'); return false; }
   try{
     const data = {E,R,shop:shopPois,custom:customPois,gpxCoords:gpxRouteCoords,gpxName:gpxRouteName,savedAt:new Date().toISOString()};
     const content = btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2))));
