@@ -261,6 +261,9 @@ a{color:inherit}
       <svg width="15" height="15" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
       <span>Komoot</span>
     </a>
+    <button id="topbar-save-btn" class="topbar-btn" onclick="saveAppToFile()" title="App mit allen POIs als HTML speichern" style="display:none;background:linear-gradient(135deg,#1a6b4a,#0a4a2a)">
+      <span>💾</span><span>Speichern</span>
+    </button>
     <button id="topbar-login-btn" class="topbar-btn topbar-btn-login" onclick="isAdmin?doLogout():openLoginModal()">
       <span id="topbar-login-icon">🔐</span><span id="topbar-login-label">Login</span>
     </button>
@@ -650,7 +653,6 @@ async function fetchOverpassPois(){
   }
   const query = `[out:json][timeout:90];\n(\n${queryBody});\nout center;`;
 
-  // All known public Overpass API endpoints
   const DIRECT_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
@@ -660,40 +662,28 @@ async function fetchOverpassPois(){
     'https://overpass.osm.ch/api/interpreter',
     'https://overpass.openstreetmap.fr/api/interpreter',
   ];
-  // CORS proxy wrappers as last resort
   const PROXY_ENDPOINTS = [
     url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
     url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     url => `https://thingproxy.freeboard.io/fetch/${url}`,
   ];
-  // Build full list: all direct + proxied versions of the two most reliable
   const ENDPOINTS = [
     ...DIRECT_ENDPOINTS,
     ...PROXY_ENDPOINTS.map(px => px('https://overpass-api.de/api/interpreter')),
     ...PROXY_ENDPOINTS.slice(0,2).map(px => px('https://overpass.kumi.systems/api/interpreter')),
   ];
-
   async function tryEndpoint(url, body) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 55000);
     try {
-      const resp = await fetch(url, {
-        method: 'POST',
-        body,
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        signal: controller.signal
-      });
+      const resp = await fetch(url, {method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:controller.signal});
       clearTimeout(timer);
       if(!resp.ok) throw new Error('HTTP ' + resp.status);
       const data = await resp.json();
       if(!data.elements) throw new Error('Leere Antwort');
       return data;
-    } catch(e) {
-      clearTimeout(timer);
-      throw e;
-    }
+    } catch(e) { clearTimeout(timer); throw e; }
   }
-
   const body = 'data=' + encodeURIComponent(query);
   for(let i=0; i<ENDPOINTS.length; i++){
     const label = i < DIRECT_ENDPOINTS.length ? `Direkt ${i+1}/${DIRECT_ENDPOINTS.length}` : `Proxy ${i-DIRECT_ENDPOINTS.length+1}`;
@@ -710,7 +700,6 @@ async function fetchOverpassPois(){
       msg.textContent = `❌ ${label} fehlgeschlagen (${reason}), weiter…`;
     }
   }
-
   loading.style.display='none';
   alert('⚠️ Alle ' + ENDPOINTS.length + ' Overpass-Server nicht erreichbar.\n\nBitte Internetverbindung prüfen und nochmals versuchen.');
 }
@@ -1683,6 +1672,73 @@ async function saveRiderPosition(lat,lon){
   }catch(e){}
 }
 
+// ══════════════════════════════════════════
+// SAVE APP TO FILE (embed all POIs into HTML)
+// ══════════════════════════════════════════
+function saveAppToFile(){
+  // Grab current page HTML
+  let html = document.documentElement.outerHTML;
+
+  // Helper: safely escape data for embedding in a JS string
+  function jsEscape(obj){
+    return JSON.stringify(obj)
+      .replace(/\\/g,'\\\\')
+      .replace(/`/g,'\\`')
+      .replace(/\$\{/g,'\\${');
+  }
+
+  // 1. Embed customPois — replace the loadCustomPois() call block
+  const cpJson = JSON.stringify(customPois, null, 2);
+  // Replace: let customPois = []; ... loadCustomPois();
+  html = html.replace(
+    /let customPois\s*=\s*\[\];[\s\S]*?loadCustomPois\(\);/,
+    `let customPois = ${cpJson};\nlet editingPoiId = null;\nlet selectedType = 'Camping';\nlet customPoiMarkers = {};\nfunction loadCustomPois(){ /* embedded */ }\nfunction saveCustomPois(){\n  try{ localStorage.setItem('bikepacking_custom_pois', JSON.stringify(customPois)); }catch(e){}\n}\nloadCustomPois();`
+  );
+
+  // 2. Embed E, R, shopPois — replace the let E=[]; R=[]; block
+  const eJson  = JSON.stringify(E,  null, 2);
+  const rJson  = JSON.stringify(R,  null, 2);
+  const spJson = JSON.stringify(shopPois, null, 2);
+  html = html.replace(
+    /let E\s*=\s*\[\];\s*\nlet R\s*=\s*\[\];/,
+    `let E = ${eJson};\nlet R = ${rJson};\n// shopPois embedded below`
+  );
+  // Embed shopPois — find declaration
+  html = html.replace(
+    /let shopPois\s*=\s*\[\];/,
+    `let shopPois = ${spJson};`
+  );
+
+  // 3. Embed GPX route coords + name
+  if(gpxRouteCoords.length > 0){
+    const coordsJson = JSON.stringify(gpxRouteCoords);
+    const nameJson   = JSON.stringify(gpxRouteName);
+    html = html.replace(
+      /let gpxRouteCoords\s*=\s*\[\];/,
+      `let gpxRouteCoords = ${coordsJson};`
+    );
+    html = html.replace(
+      /let gpxRouteName\s*=\s*'';/,
+      `let gpxRouteName = ${nameJson};`
+    );
+  }
+
+  // Download
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  const date = new Date().toISOString().slice(0,10);
+  a.download = `bikepacking_${date}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000);
+
+  // Feedback
+  const btn = document.getElementById('topbar-save-btn');
+  if(btn){ const orig=btn.innerHTML; btn.innerHTML='<span>✅</span><span>Gespeichert</span>'; setTimeout(()=>btn.innerHTML=orig, 2000); }
+}
+
 function openLoginModal(){
   document.getElementById('login-modal').style.display='flex';
   document.getElementById('login-pw').value='';
@@ -1697,13 +1753,14 @@ function updateTopbarLoginBtn(){
   const icon=document.getElementById('topbar-login-icon');
   const label=document.getElementById('topbar-login-label');
   if(!icon||!label) return;
-  if(isAdmin){icon.textContent='✅';label.textContent='Admin';}
+  if(isAdmin){icon.textContent='✅';label.textContent='Admin';const sb=document.getElementById('topbar-save-btn');if(sb)sb.style.display='flex';}
   else{icon.textContent='🔐';label.textContent='Login';}
 }
 function doLogout(){
   stopRiderTracking();
   isAdmin=false;
   updateTopbarLoginBtn();
+  const _sb=document.getElementById('topbar-save-btn');if(_sb)_sb.style.display='none';
   // update ➕ button hint
   const st=document.getElementById('gps-status-poi');
   if(st){st.textContent='Abgemeldet.';st.className='';setTimeout(()=>{st.textContent='';},2000);}
