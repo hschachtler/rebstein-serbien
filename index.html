@@ -219,19 +219,18 @@ body{
 ::-webkit-scrollbar-thumb{background:#c8d4e0;border-radius:2px}
 a{color:inherit}
 
-/* ── MARKER CLUSTER ── */
+/* ── CLUSTER + TOOLBAR ── */
 .marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:rgba(26,80,160,.18)!important}
 .marker-cluster-small div,.marker-cluster-medium div,.marker-cluster-large div{background:linear-gradient(135deg,#1a6b4a,#1a5080)!important;color:#fff!important;font-family:'DM Sans',sans-serif!important;font-weight:700!important;font-size:.75rem!important}
-/* ── MAP BOTTOM TOOLBAR ── */
 #map-toolbar{position:absolute;bottom:0;left:0;right:0;z-index:1000;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid #e2e8f0;padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;box-shadow:0 -4px 20px rgba(0,0,0,.08);}
-.map-tb-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 8px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.58rem;font-weight:600;cursor:pointer;-webkit-appearance:none;transition:all .15s;min-width:54px;min-height:50px;flex-shrink:0;}
+.map-tb-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 8px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.58rem;font-weight:600;cursor:pointer;-webkit-appearance:none;min-width:54px;min-height:50px;flex-shrink:0;}
 .map-tb-btn .tb-icon{font-size:1.3rem;line-height:1}
-.map-tb-btn:active{opacity:.7;transform:scale(.95)}
-.map-tb-btn-gps{background:linear-gradient(135deg,#1a6b4a,#1a5080);color:#fff;flex:1;max-width:none;min-width:0;}
+.map-tb-btn:active{opacity:.7}
+.map-tb-btn-gps{background:linear-gradient(135deg,#1a6b4a,#1a5080);color:#fff;flex:1;}
 .map-tb-btn-gps.busy{background:linear-gradient(135deg,#7a6a1a,#5a4a1a)}
 .map-tb-btn-gps.ok{background:linear-gradient(135deg,#1a7a4a,#1a6a3a)}
 .map-tb-btn-secondary{background:#f0f4f8;color:#1a2b3c;border:1px solid #dde4ec;}
-#map-gps-status{font-size:.62rem;color:#6a8aa4;text-align:center;flex:1;min-width:0;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+#map-gps-status{font-size:.62rem;color:#6a8aa4;text-align:center;flex:1;min-width:0;line-height:1.35;overflow:hidden;}
 #map-gps-status.ok{color:#1a7a4a;font-weight:500}
 #map-gps-status.err{color:#c04040}
 #gpsbar{display:none}
@@ -280,7 +279,7 @@ a{color:inherit}
       <svg width="15" height="15" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
       <span>Komoot</span>
     </a>
-    <button id="topbar-save-btn" class="topbar-btn" onclick="saveAppToFile()" style="display:none;background:linear-gradient(135deg,#1a6b4a,#0a4a2a)"><span>💾</span><span>Speichern</span></button>
+    <button id="topbar-save-btn" class="topbar-btn" onclick="saveAppToFile()" style="display:none;background:linear-gradient(135deg,#1a6b4a,#0a4a2a)" title="POIs auf GitHub speichern"><span>💾</span><span>Sync</span></button>
     <button id="topbar-login-btn" class="topbar-btn topbar-btn-login" onclick="isAdmin?doLogout():openLoginModal()">
       <span id="topbar-login-icon">🔐</span><span id="topbar-login-label">Login</span>
     </button>
@@ -291,13 +290,13 @@ a{color:inherit}
 <div id="gpx-upload-banner">
   <span id="gpx-status">📂 Noch keine GPX geladen – lade deine Route hoch</span>
   <button class="gpx-upload-btn" onclick="document.getElementById('gpx-file-input').click()">📤 GPX hochladen</button>
-  <button class="gpx-upload-btn" onclick="togglePoiSettings()" id="settings-btn" title="POI Radius einstellen" style="padding:6px 10px">⚙️</button>
+  <button class="gpx-upload-btn" onclick="togglePoiSettings()" id="settings-btn" title="POI Radius" style="padding:6px 10px">⚙️</button>
   <input type="file" id="gpx-file-input" accept=".gpx" style="display:none" onchange="loadGpxFile(event)">
 </div>
 <!-- ── POI RADIUS SETTINGS BAR ── -->
 <div id="poi-settings-bar" class="hidden">
-  <div class="radius-row"><div class="radius-lbl">🔍 Suchradius OSM: <span id="search-km-lbl">15 km</span></div><input type="range" class="radius-slider search-slider" id="search-radius-slider" min="3" max="50" step="1" value="15" oninput="document.getElementById('search-km-lbl').textContent=this.value+' km'"><div class="radius-val">15 km</div></div>
-  <div class="radius-row"><div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">8 km</span></div><input type="range" class="radius-slider" id="display-radius-slider" min="1" max="30" step="1" value="8" oninput="updateDisplaySlider(this.value)"><div class="radius-val">8 km</div></div>
+  <div class="radius-row"><div class="radius-lbl">🔍 Suchradius: <span id="search-km-lbl">15 km</span></div><input type="range" class="radius-slider" id="search-radius-slider" min="3" max="50" step="1" value="15" oninput="document.getElementById('search-km-lbl').textContent=this.value+' km'"><div class="radius-val">km</div></div>
+  <div class="radius-row"><div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">8 km</span></div><input type="range" class="radius-slider" id="display-radius-slider" min="1" max="30" step="1" value="8" oninput="updateDisplaySlider(this.value)"><div class="radius-val">km</div></div>
   <button id="apply-radius-btn" onclick="applyRadiusSettings()">🔄 Neu suchen</button>
 </div>
 <!-- ═══════════════════════════════
@@ -408,8 +407,8 @@ function loadCustomPois(){
   catch(e){ customPois=[]; }
 }
 function saveCustomPois(){
-  try{ localStorage.setItem('bikepacking_custom_pois', JSON.stringify(customPois)); }
-  catch(e){}
+  try{ localStorage.setItem('bikepacking_custom_pois', JSON.stringify(customPois)); } catch(e){}
+  if(ghToken && isAdmin) ghSavePois(true); // auto-sync to GitHub
 }
 loadCustomPois();
 
@@ -421,7 +420,7 @@ let poiDisplayRadiusKm = parseFloat(localStorage.getItem('bp_display_radius') ||
 function initRadiusSliders(){const ss=document.getElementById('search-radius-slider'),ds=document.getElementById('display-radius-slider');if(ss){ss.value=poiSearchRadiusKm;document.getElementById('search-km-lbl').textContent=poiSearchRadiusKm+' km';}if(ds){ds.value=poiDisplayRadiusKm;document.getElementById('display-km-lbl').textContent=poiDisplayRadiusKm+' km';}}
 function updateDisplaySlider(val){document.getElementById('display-km-lbl').textContent=val+' km';const ss=document.getElementById('search-radius-slider');if(ss&&parseFloat(val)>parseFloat(ss.value)){ss.value=val;document.getElementById('search-km-lbl').textContent=val+' km';}}
 function togglePoiSettings(){const bar=document.getElementById('poi-settings-bar'),btn=document.getElementById('settings-btn');const hidden=bar.classList.toggle('hidden');btn.style.background=hidden?'rgba(255,255,255,.2)':'rgba(255,255,255,.45)';if(!hidden)initRadiusSliders();}
-async function applyRadiusSettings(){const ss=parseFloat(document.getElementById('search-radius-slider').value);const ds=parseFloat(document.getElementById('display-radius-slider').value);if(ds>ss){alert('⚠️ Anzeige-Radius kann nicht größer als Suchradius sein.');return;}poiSearchRadiusKm=ss;poiDisplayRadiusKm=ds;localStorage.setItem('bp_search_radius',ss);localStorage.setItem('bp_display_radius',ds);document.getElementById('poi-settings-bar').classList.add('hidden');if(gpxRouteCoords.length>=2){await fetchOverpassPois();renderList();}else alert('📂 Bitte zuerst eine GPX-Datei hochladen.');}
+async function applyRadiusSettings(){const ss=parseFloat(document.getElementById('search-radius-slider').value);const ds=parseFloat(document.getElementById('display-radius-slider').value);if(ds>ss){alert('⚠️ Anzeige-Radius kann nicht größer als Suchradius sein.');return;}poiSearchRadiusKm=ss;poiDisplayRadiusKm=ds;localStorage.setItem('bp_search_radius',ss);localStorage.setItem('bp_display_radius',ds);document.getElementById('poi-settings-bar').classList.add('hidden');if(gpxRouteCoords.length>=2){await fetchOverpassPois();renderList();}else alert('📂 Bitte zuerst GPX hochladen.');}
 
 // ══════════════════════════════════════════
 // GPX + OVERPASS POI ENGINE
@@ -601,19 +600,38 @@ async function fetchOverpassPois(){
 ${queryBody});
 out center;`;
 
-  const DIRECT=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter','https://overpass.openstreetmap.ru/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.osm.ch/api/interpreter','https://overpass.openstreetmap.fr/api/interpreter'];
-  const PFN=[u=>`https://corsproxy.io/?${encodeURIComponent(u)}`,u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`];
-  const ENDPOINTS=[...DIRECT,...PFN.map(f=>f('https://overpass-api.de/api/interpreter')),...PFN.map(f=>f('https://overpass.kumi.systems/api/interpreter'))];
-  async function tryEP(url,body){const c=new AbortController();const t=setTimeout(()=>c.abort(),55000);try{const r=await fetch(url,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:c.signal});clearTimeout(t);if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();if(!d.elements)throw new Error('Leer');return d;}catch(e){clearTimeout(t);throw e;}}
-  const body='data='+encodeURIComponent(query);
-  for(let i=0;i<ENDPOINTS.length;i++){
-    const lbl=i<DIRECT.length?`Direkt ${i+1}/${DIRECT.length}`:`Proxy ${i-DIRECT.length+1}`;
-    msg.textContent=`⏳ ${lbl}… (${nBoxes} Abschnitte)`;
-    try{const data=await tryEP(ENDPOINTS[i],body);msg.textContent='Verarbeite…';processOverpassResults(data.elements,CORRIDOR);loading.style.display='none';return;}
-    catch(err){console.warn(`EP${i+1}:`,err.name==='AbortError'?'Timeout':err.message);}
+  const ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    `https://corsproxy.io/?${encodeURIComponent('https://overpass-api.de/api/interpreter')}`,
+  ];
+
+  let lastErr = null;
+  for(let i=0; i<ENDPOINTS.length; i++){
+    msg.textContent = `Server ${i+1}/${ENDPOINTS.length} wird versucht… (${segments.length} Segmente)`;
+    try{
+      const resp = await fetch(ENDPOINTS[i], {
+        method: 'POST',
+        body: 'data=' + encodeURIComponent(query),
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+      });
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      msg.textContent = 'Daten werden verarbeitet…';
+      const data = await resp.json();
+      if(!data.elements) throw new Error('Ungültige Antwort');
+      processOverpassResults(data.elements, CORRIDOR);
+      if(ghToken) ghSavePois(true); // auto-save to GitHub
+      loading.style.display='none';
+      return;
+    } catch(err){
+      console.warn(`Endpoint ${i+1} failed:`, err.message);
+      lastErr = err;
+    }
   }
+
   loading.style.display='none';
-  alert('⚠️ Alle Server nicht erreichbar. Bitte Internetverbindung prüfen.');
+  alert('⚠️ Alle Overpass-Server nicht erreichbar.\n\nMögliche Ursachen:\n• Kein Internetzugang\n• Firewall blockiert externe Anfragen\n• Server vorübergehend überlastet\n\nBitte in ein paar Minuten nochmals versuchen.');
 }
 
 function processOverpassResults(elements, corridorM){
@@ -1540,6 +1558,92 @@ function toggleList(){
 // ══════════════════════════════════════════
 // RIDER LIVE POSITION (Admin only)
 // ══════════════════════════════════════════
+// ── GitHub Sync Config ──
+const GH_USER   = 'hschachtler';
+const GH_REPO   = 'rebstein-serbien';
+const GH_FILE   = 'pois.json';
+const GH_BRANCH = 'main';
+let ghToken = localStorage.getItem('bp_gh_token') || '';
+let ghFileSha = ''; // needed for updates
+
+async function ghLoadPois(){
+  try{
+    const resp = await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`,{
+      headers: ghToken ? {Authorization:`token ${ghToken}`} : {}
+    });
+    if(!resp.ok) return false;
+    const meta = await resp.json();
+    ghFileSha = meta.sha || '';
+    const d = JSON.parse(atob(meta.content.replace(/
+/g,'')));
+    if(d.E&&d.E.length) E=d.E;
+    if(d.R&&d.R.length) R=d.R;
+    if(d.shop&&d.shop.length) shopPois=d.shop;
+    if(d.custom&&d.custom.length){customPois=d.custom;saveCustomPois();}
+    if(d.gpxCoords&&d.gpxCoords.length){gpxRouteCoords=d.gpxCoords;RC=gpxRouteCoords;}
+    if(d.gpxName) gpxRouteName=d.gpxName;
+    const status=document.getElementById('gpx-status');
+    if(status) status.textContent=`✅ ${gpxRouteName||'Route'} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants · 🛒 ${shopPois.length} Shops (GitHub ✓)`;
+    console.log('GitHub pois.json geladen:', E.length+R.length+shopPois.length, 'POIs, SHA:', ghFileSha);
+    return true;
+  } catch(e){ console.warn('ghLoadPois:', e); return false; }
+}
+
+async function ghSavePois(silent=false){
+  if(!ghToken){ if(!silent) alert('⚠️ Kein GitHub Token gesetzt.
+Im Admin-Bereich unter ⚙️ eingeben.'); return false; }
+  try{
+    const data = {E,R,shop:shopPois,custom:customPois,gpxCoords:gpxRouteCoords,gpxName:gpxRouteName,savedAt:new Date().toISOString()};
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(data,null,2))));
+    const body = {message:`POI update ${new Date().toISOString().slice(0,16)}`,content,branch:GH_BRANCH};
+    if(ghFileSha) body.sha = ghFileSha;
+    const resp = await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_FILE}`,{
+      method:'PUT',
+      headers:{Authorization:`token ${ghToken}`,'Content-Type':'application/json'},
+      body: JSON.stringify(body)
+    });
+    if(!resp.ok){ const e=await resp.json(); throw new Error(e.message||resp.status); }
+    const result = await resp.json();
+    ghFileSha = result.content?.sha || ghFileSha;
+    if(!silent) showGhStatus('✅ GitHub gespeichert!', '#1a7a4a');
+    console.log('GitHub saved, new SHA:', ghFileSha);
+    return true;
+  } catch(e){ console.error('ghSavePois:', e); if(!silent) showGhStatus('❌ GitHub Fehler: '+e.message, '#c04040'); return false; }
+}
+
+function showGhStatus(msg, color='#1a7a4a'){
+  const btn=document.getElementById('topbar-save-btn');
+  if(btn){ const orig=btn.innerHTML; btn.innerHTML=`<span>💾</span><span style="font-size:.5rem">${msg.slice(0,12)}</span>`; setTimeout(()=>btn.innerHTML=orig,3000); }
+  const el=document.getElementById('gh-status-msg');
+  if(el){ el.textContent=msg; el.style.color=color; setTimeout(()=>el.textContent='',4000); }
+}
+
+function saveAppToFile(){
+  // Save to GitHub if token available, else download pois.json
+  if(ghToken){
+    ghSavePois(false);
+  } else {
+    const data={E,R,shop:shopPois,custom:customPois,gpxCoords:gpxRouteCoords,gpxName:gpxRouteName,savedAt:new Date().toISOString()};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='pois.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+    setTimeout(()=>alert('✅ pois.json heruntergeladen!\n\nAuf GitHub hochladen (neben index.html).\nOder Token im Admin-Bereich eingeben für automatischen Sync.'),300);
+  }
+}
+
+window.addEventListener('load', async ()=>{
+  await new Promise(r=>setTimeout(r,500));
+  const ok = await ghLoadPois();
+  if(ok && typeof mapInitialized!=='undefined' && mapInitialized){
+    addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
+  } else if(ok){
+    const iv=setInterval(()=>{if(typeof mapInitialized!=='undefined'&&mapInitialized){clearInterval(iv);addBuiltinMarkersToMap();syncAllCustomPoiMarkers();drawGpxRoute();}},200);
+  }
+});
+
 let isAdmin=false;
 let riderMarker=null;
 let riderWatchId=null;
@@ -1580,42 +1684,12 @@ async function saveRiderPosition(lat,lon){
   }catch(e){}
 }
 
-function saveAppToFile(){
-  const data={E,R,shop:shopPois,custom:customPois,gpxCoords:gpxRouteCoords,gpxName:gpxRouteName,savedAt:new Date().toISOString()};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url; a.download='pois.json';
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
-  const btn=document.getElementById('topbar-save-btn');
-  if(btn){const orig=btn.innerHTML;btn.innerHTML='<span>✅</span><span>Gespeichert</span>';setTimeout(()=>btn.innerHTML=orig,2500);}
-  setTimeout(()=>alert('✅ pois.json heruntergeladen!\n\nAuf GitHub hochladen (neben index.html).\nBeim nächsten Öffnen werden POIs automatisch geladen.'),300);
-}
-
-// ── Auto-load pois.json from GitHub Pages on startup ──
-async function loadPoisJson(){
-  try{
-    const resp=await fetch('./pois.json?_='+Date.now());
-    if(!resp.ok) return;
-    const d=await resp.json();
-    if(d.E&&d.E.length) E=d.E;
-    if(d.R&&d.R.length) R=d.R;
-    if(d.shop&&d.shop.length) shopPois=d.shop;
-    if(d.custom&&d.custom.length){customPois=d.custom;saveCustomPois();}
-    if(d.gpxCoords&&d.gpxCoords.length){gpxRouteCoords=d.gpxCoords;RC=gpxRouteCoords;}
-    if(d.gpxName) gpxRouteName=d.gpxName;
-    const status=document.getElementById('gpx-status');
-    if(status) status.textContent=`✅ ${gpxRouteName||'Route'} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants · 🛒 ${shopPois.length} Shops`;
-    console.log('pois.json geladen:',E.length+R.length+shopPois.length,'POIs');
-    // Draw on map once it's ready
-    if(typeof mapInitialized!=='undefined'&&mapInitialized){addBuiltinMarkersToMap();syncAllCustomPoiMarkers();drawGpxRoute();}
-    else{const iv=setInterval(()=>{if(typeof mapInitialized!=='undefined'&&mapInitialized){clearInterval(iv);addBuiltinMarkersToMap();syncAllCustomPoiMarkers();drawGpxRoute();}},200);}
-  }catch(e){console.log('pois.json nicht gefunden (beim ersten Start normal)');}
-}
-window.addEventListener('load',()=>setTimeout(loadPoisJson,500));
-
 function openLoginModal(){
+  // Pre-fill token field if stored
+  setTimeout(()=>{
+    const tf=document.getElementById('gh-token-input');
+    if(tf) tf.value=ghToken||'';
+  },50);
   document.getElementById('login-modal').style.display='flex';
   document.getElementById('login-pw').value='';
   document.getElementById('login-err').style.display='none';
@@ -1646,6 +1720,8 @@ function doLogin(){
   const p=document.getElementById('login-pw').value;
   if(u.toLowerCase()==='admin'&&p==='880197'){
     isAdmin=true;
+    const tf=document.getElementById('gh-token-input');
+    if(tf&&tf.value.trim()){ghToken=tf.value.trim();localStorage.setItem('bp_gh_token',ghToken);}
     updateTopbarLoginBtn();
     closeLoginModal();
     // execute pending action (e.g. openAddPoi)
@@ -1978,6 +2054,11 @@ function renderWeather(data,locName){
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Passwort</label>
         <input id="login-pw" type="password" placeholder="••••••••••" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div>
+        <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">GitHub Token (für Auto-Sync)</label>
+        <input id="gh-token-input" type="password" placeholder="ghp_..." style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:monospace;font-size:.78rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+        <div id="gh-status-msg" style="font-size:.65rem;color:#1a7a4a;margin-top:4px;min-height:16px"></div>
       </div>
       <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040;font-family:'DM Sans',sans-serif"></div>
       <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen</button>
