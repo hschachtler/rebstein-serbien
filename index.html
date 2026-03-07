@@ -294,7 +294,7 @@ a{color:inherit}
   <input type="file" id="gpx-file-input" accept=".gpx" style="display:none" onchange="loadGpxFile(event)">
 </div>
 <!-- ── POI RADIUS SETTINGS BAR ── -->
-<div id="poi-settings-bar" class="hidden">
+<div id="poi-settings-bar" class="hidden" style="display:none!important">
   <div class="radius-row"><div class="radius-lbl">🔍 Suchradius: <span id="search-km-lbl">15 km</span></div><input type="range" class="radius-slider" id="search-radius-slider" min="3" max="50" step="1" value="15" oninput="document.getElementById('search-km-lbl').textContent=this.value+' km'"><div class="radius-val">km</div></div>
   <div class="radius-row"><div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">5 km</span></div><input type="range" class="radius-slider" id="display-radius-slider" min="1" max="30" step="1" value="5" oninput="updateDisplaySlider(this.value)"><div class="radius-val">km</div></div>
   <button id="apply-radius-btn" onclick="applyRadiusSettings()">🔄 Neu suchen</button>
@@ -604,8 +604,10 @@ async function fetchOverpassPois(){
   loading.style.display='flex';
 
   const CORRIDOR=(typeof poiDisplayRadiusKm!=='undefined'?poiDisplayRadiusKm:5)*1000;
-  const PAD=(typeof poiSearchRadiusKm!=='undefined'?poiSearchRadiusKm:15)/111.32;
-  const step=Math.max(1,Math.floor(gpxRouteCoords.length/8));
+  // Suchradius fix 5km um die Route – keine User-Einstellung mehr nötig
+  const PAD = 5 / 111.32; // 5 km in Grad
+  // Route in 6 Abschnitte teilen → kompakte Bounding Boxes
+  const step=Math.max(1,Math.floor(gpxRouteCoords.length/6));
   const bboxes=[];
   for(let i=0;i<gpxRouteCoords.length;i+=step){
     const chunk=gpxRouteCoords.slice(i,Math.min(i+step+1,gpxRouteCoords.length));
@@ -616,17 +618,19 @@ async function fetchOverpassPois(){
   const nBoxes=bboxes.length;
   let queryBody='';
   for(const bb of bboxes){
-    queryBody+=`nwr["tourism"~"^(camp_site|caravan_site|hostel|guest_house|chalet)$"](${bb});
+    // Nur "node" (nicht way/relation) – viel weniger Daten
+    // Nur die wichtigsten Kategorien
+    queryBody+=`node["tourism"~"^(camp_site|caravan_site)$"](${bb});
 `;
-    queryBody+=`nwr["amenity"~"^(camping|charging_station|restaurant|fast_food|cafe|bar|pub|biergarten)$"](${bb});
+    queryBody+=`node["amenity"~"^(camping|charging_station|restaurant|supermarket)$"](${bb});
 `;
-    queryBody+=`nwr["shop"~"^(supermarket|convenience|grocery|bakery|butcher|farm)$"](${bb});
+    queryBody+=`node["shop"~"^(supermarket|convenience|bakery)$"](${bb});
 `;
   }
-  const query=`[out:json][timeout:120];
+  const query=`[out:json][timeout:60];
 (
 ${queryBody});
-out center;`;
+out;`;
 
   const ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
@@ -706,10 +710,10 @@ function processOverpassResults(elements, corridorM){
     const l      = '??';
 
     const isCamping   = t.tourism==='camp_site'||t.tourism==='caravan_site'||t.amenity==='camping';
-    const isHostel    = t.tourism==='hostel'||t.tourism==='guest_house'||t.tourism==='chalet';
+    const isHostel    = false; // deaktiviert – zu viele Treffer
     const isCharging  = t.amenity==='charging_station';
-    const isFood      = ['restaurant','fast_food','cafe','bar','pub','biergarten'].includes(t.amenity);
-    const isShop      = ['supermarket','convenience','grocery','bakery','butcher','farm'].includes(t.shop);
+    const isFood      = t.amenity==='restaurant'; // nur echte Restaurants
+    const isShop      = ['supermarket','convenience','bakery'].includes(t.shop);
 
     // Vollständigkeitsfilter: nur POIs mit ausreichenden Daten
     if(!name) return;
