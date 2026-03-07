@@ -501,10 +501,9 @@ function loadGpxFile(event){
       mapObj.fitBounds(routeLayerRef.getBounds(),{padding:[40,40]});
     }
     event.target.value='';
-    // If pois.json was loaded from GitHub AND has POIs, skip Overpass search
-    if(ghPoisLoaded && (E.length > 0 || R.length > 0)){
+    // Skip Overpass only if we already have POIs (from GitHub or localStorage)
+    if(E.length > 0 || R.length > 0){
       renderList();
-      // Draw on map only if map is already initialized
       if(mapInitialized && mapObj){
         addBuiltinMarkersToMap();
         syncAllCustomPoiMarkers();
@@ -513,6 +512,7 @@ function loadGpxFile(event){
       const status = document.getElementById('gpx-status');
       if(status) status.textContent = `✅ ${gpxRouteName} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants`;
     } else {
+      // No POIs yet — search via Overpass
       await fetchOverpassPois();
       renderList();
     }
