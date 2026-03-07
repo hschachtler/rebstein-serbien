@@ -636,7 +636,7 @@ out center;`;
       const data = await resp.json();
       if(!data.elements) throw new Error('Ungültige Antwort');
       processOverpassResults(data.elements, CORRIDOR);
-      if(ghToken) ghSavePois(true); // auto-save to GitHub
+      if(ghToken) ghSavePois(true);
       loading.style.display='none';
       return;
     } catch(err){
@@ -645,7 +645,7 @@ out center;`;
     }
   }
 
-  // Last resort: corsproxy.io (slower but works on iOS Safari)
+  // Letzter Ausweg: corsproxy.io
   msg.textContent = 'Alternativer Proxy wird versucht…';
   try{
     const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://overpass-api.de/api/interpreter');
@@ -704,22 +704,18 @@ function processOverpassResults(elements, corridorM){
     const isFood      = ['restaurant','fast_food','cafe','bar','pub','biergarten'].includes(t.amenity);
     const isShop      = ['supermarket','convenience','grocery','bakery','butcher','farm'].includes(t.shop);
 
-    // ── Nur POIs mit vollständigen Pflichtfeldern ──
-    // Camping/Hostel: Name + Adresse oder Öffnungszeiten
-    // Charging: Name
-    // Food/Shop: Name + Adresse + Öffnungszeiten
-    if(!name) return; // Name ist immer Pflicht
+    // Nur POIs mit vollständigen Pflichtfeldern
+    if(!name) return;
     if(isFood || isShop){
-      if(!addr || !hours) return; // Essen/Shop brauchen Adresse UND Öffnungszeiten
+      if(!addr || !hours) return;
     }
     if(isCamping || isHostel){
-      if(!addr && !hours && !website) return; // mind. ein Kontaktfeld
+      if(!addr && !hours && !website) return;
     }
 
     if(isCamping){
       E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:name,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
     } else if(isHostel){
-      // Hostels/Guesthouses go into Camping category with different icon hint
       E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true,_hostel:true});
     } else if(isCharging){
       const network = t.network||t.operator||'';
@@ -1732,6 +1728,7 @@ const RIDER_ICON=()=>L.divIcon({
 
 async function loadRiderPosition(){
   try{
+    if(!window.storage) return;
     const res=await window.storage.get('rider_position', true);
     if(!res) return;
     const data=JSON.parse(res.value);
@@ -1750,6 +1747,7 @@ async function loadRiderPosition(){
 
 async function saveRiderPosition(lat,lon){
   try{
+    if(!window.storage) return;
     const rKm=routeKm();
     await window.storage.set('rider_position', JSON.stringify({lat,lon,ts:Date.now(),routeKm:rKm}), true);
     const bar=document.getElementById('rider-bar');
