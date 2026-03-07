@@ -571,63 +571,32 @@ async function fetchOverpassPois(){
   const msg = document.getElementById('overpass-msg');
   loading.style.display='flex';
 
-  const CORRIDOR = 8000; // 8km corridor (increased from 5km)
+  const CORRIDOR = 8000; // 8km corridor
 
-  // ── Segmented query: split route into chunks for better accuracy ──
-  // Each segment gets its own tight bounding box → less irrelevant data
-  const SEG_SIZE = 50; // points per segment
-  const segments = [];
-  for(let i=0; i<gpxRouteCoords.length; i+=SEG_SIZE){
-    const chunk = gpxRouteCoords.slice(i, Math.min(i+SEG_SIZE+1, gpxRouteCoords.length));
-    if(chunk.length >= 2) segments.push(chunk);
-  }
-
-  // Build union query across all segment bboxes
-  // Each segment bbox padded by ~8km (~0.072 degrees)
-  const PAD = 0.072;
-  const bboxes = segments.map(seg=>{
-    const bb = routeBbox(seg, PAD);
-    return `${bb[0].toFixed(4)},${bb[1].toFixed(4)},${bb[2].toFixed(4)},${bb[3].toFixed(4)}`;
-  });
-
-  // Build expanded tag query — more POI types
-  const tags = [
-    // Camping
-    ['node','tourism','camp_site'],
-    ['node','tourism','caravan_site'],
-    ['node','tourism','hostel'],
-    ['node','tourism','guest_house'],
-    ['node','tourism','chalet'],
-    ['node','amenity','camping'],
-    ['way','tourism','camp_site'],
-    ['way','tourism','hostel'],
-    // Charging
-    ['node','amenity','charging_station'],
-    ['way','amenity','charging_station'],
-    // Food
-    ['node','amenity','restaurant'],
-    ['node','amenity','fast_food'],
-    ['node','amenity','cafe'],
-    ['node','amenity','bar'],
-    ['node','amenity','pub'],
-    ['node','amenity','biergarten'],
-    // Shops
-    ['node','shop','supermarket'],
-    ['node','shop','convenience'],
-    ['node','shop','grocery'],
-    ['node','shop','bakery'],
-    ['node','shop','butcher'],
-    ['node','shop','farm'],
-  ];
-
-  // Build full query: for each tag, add one line per bbox segment
-  let queryBody = '';
-  for(const [type, key, val] of tags){
-    for(const bb of bboxes){
-      queryBody += `${type}["${key}"="${val}"](${bb});\n`;
+  // ── Strategy: use a small number of bboxes covering the whole route ──
+  // Max 12 bbox chunks to keep query size manageable for any route length
+  const MAX_CHUNKS = 12;
+  const chunkSize = Math.ceil(gpxRouteCoords.length / MAX_CHUNKS);
+  const PAD = 0.08; // ~9km padding
+  const bboxes = [];
+  for(let i=0; i<gpxRouteCoords.length; i+=chunkSize){
+    const chunk = gpxRouteCoords.slice(i, Math.min(i+chunkSize+1, gpxRouteCoords.length));
+    if(chunk.length >= 2){
+      const bb = routeBbox(chunk, PAD);
+      bboxes.push(`${bb[0].toFixed(4)},${bb[1].toFixed(4)},${bb[2].toFixed(4)},${bb[3].toFixed(4)}`);
     }
   }
-  const query = `[out:json][timeout:90];\n(\n${queryBody});\nout center;`;
+
+  // Use Overpass union filter syntax to keep query compact:
+  // nwr["tourism"~"camp_site|caravan_site|hostel|guest_house|chalet"](bbox)
+  // This replaces dozens of individual lines with just a few.
+  let queryBody = '';
+  for(const bb of bboxes){
+    queryBody += `nwr["tourism"~"^(camp_site|caravan_site|hostel|guest_house|chalet)$"](${bb});\n`;
+    queryBody += `nwr["amenity"~"^(camping|charging_station|restaurant|fast_food|cafe|bar|pub|biergarten)$"](${bb});\n`;
+    queryBody += `nwr["shop"~"^(supermarket|convenience|grocery|bakery|butcher|farm)$"](${bb});\n`;
+  }
+  const query = `[out:json][timeout:120];\n(\n${queryBody});\nout center;`;
 
   const ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
@@ -636,15 +605,29 @@ async function fetchOverpassPois(){
     `https://corsproxy.io/?${encodeURIComponent('https://overpass-api.de/api/interpreter')}`,
   ];
 
+  // Fetch with explicit timeout so the spinner doesn't hang forever
+  async function fetchWithTimeout(url, options, timeoutMs=55000){
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort(), timeoutMs);
+    try{
+      const r = await fetch(url, {...options, signal: ctrl.signal});
+      clearTimeout(tid);
+      return r;
+    } catch(e){
+      clearTimeout(tid);
+      throw e;
+    }
+  }
+
   let lastErr = null;
   for(let i=0; i<ENDPOINTS.length; i++){
-    msg.textContent = `Server ${i+1}/${ENDPOINTS.length} wird versucht… (${segments.length} Segmente)`;
+    msg.textContent = `Server ${i+1}/${ENDPOINTS.length} wird abgefragt… (${bboxes.length} Abschnitte)`;
     try{
-      const resp = await fetch(ENDPOINTS[i], {
+      const resp = await fetchWithTimeout(ENDPOINTS[i], {
         method: 'POST',
         body: 'data=' + encodeURIComponent(query),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-      });
+      }, 60000);
       if(!resp.ok) throw new Error('HTTP ' + resp.status);
       msg.textContent = 'Daten werden verarbeitet…';
       const data = await resp.json();
@@ -653,13 +636,15 @@ async function fetchOverpassPois(){
       loading.style.display='none';
       return;
     } catch(err){
-      console.warn(`Endpoint ${i+1} failed:`, err.message);
+      const reason = err.name==='AbortError' ? 'Timeout (>60s)' : err.message;
+      console.warn(`Endpoint ${i+1} failed:`, reason);
+      msg.textContent = `Server ${i+1} fehlgeschlagen (${reason}), versuche nächsten…`;
       lastErr = err;
     }
   }
 
   loading.style.display='none';
-  alert('⚠️ Alle Overpass-Server nicht erreichbar.\n\nMögliche Ursachen:\n• Kein Internetzugang\n• Firewall blockiert externe Anfragen\n• Server vorübergehend überlastet\n\nBitte in ein paar Minuten nochmals versuchen.');
+  alert('⚠️ Alle Overpass-Server nicht erreichbar.\n\nMögliche Ursachen:\n• Kein Internetzugang\n• Server vorübergehend überlastet\n• Route zu lang (versuche es in ein paar Minuten)\n\nTipp: Browser-Konsole (F12) zeigt Details.');
 }
 
 function processOverpassResults(elements, corridorM){
@@ -679,8 +664,7 @@ function processOverpassResults(elements, corridorM){
     if(distToRoute(lat,lon) > corridorM) return;
 
     const t = el.tags||{};
-    const name = t.name||t['name:de']||t['name:en']||t['name:local']
-      || t.operator || t.brand || t.ref || '';
+    const name = t.name||t['name:de']||t['name:en']||t['name:local']||t.operator||t.brand||t.ref||'';
 
     const addr   = [t['addr:street'],t['addr:housenumber'],t['addr:city']].filter(Boolean).join(' ');
     const phone  = t.phone||t['contact:phone']||t['contact:mobile']||'nicht verfügbar';
@@ -695,7 +679,6 @@ function processOverpassResults(elements, corridorM){
     const isFood      = ['restaurant','fast_food','cafe','bar','pub','biergarten'].includes(t.amenity);
     const isShop      = ['supermarket','convenience','grocery','bakery','butcher','farm'].includes(t.shop);
 
-    // Fallback name per POI type if OSM has no name tag
     const typeLabel = isCamping ? (t.tourism==='caravan_site'?'Wohnmobilplatz':'Campingplatz')
       : isHostel ? (t.tourism==='hostel'?'Hostel':t.tourism==='guest_house'?'Gästehaus':'Chalet')
       : isCharging ? 'Ladestation'
