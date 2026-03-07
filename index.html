@@ -1661,10 +1661,23 @@ function saveAppToFile(){
 window.addEventListener('load', async ()=>{
   await new Promise(r=>setTimeout(r,500));
   const ok = await ghLoadPois();
-  if(ok && typeof mapInitialized!=='undefined' && mapInitialized){
-    addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
-  } else if(ok){
-    const iv=setInterval(()=>{if(typeof mapInitialized!=='undefined'&&mapInitialized){clearInterval(iv);addBuiltinMarkersToMap();syncAllCustomPoiMarkers();drawGpxRoute();}},200);
+  if(ok && (E.length>0||R.length>0)){
+    // Update the banner
+    const banner=document.getElementById('gpx-upload-banner');
+    if(banner) banner.classList.add('loaded');
+    // Render the POI list immediately
+    renderList();
+    // Add markers to map once it's open
+    if(mapInitialized && mapObj){
+      addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
+    } else {
+      const iv=setInterval(()=>{
+        if(mapInitialized && mapObj){
+          clearInterval(iv);
+          addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
+        }
+      },300);
+    }
   }
 });
 
