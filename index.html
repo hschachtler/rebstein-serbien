@@ -154,7 +154,7 @@ body{
 /* ══════════════════════════
    MAP VIEW STYLES
 ══════════════════════════ */
-/* ── MAP BOTTOM TOOLBAR (iPhone-optimised) ── */
+/* ── MAP BOTTOM TOOLBAR ── */
 #map-toolbar{position:absolute;bottom:0;left:0;right:0;z-index:1000;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid #e2e8f0;padding:8px 12px;padding-bottom:calc(8px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;box-shadow:0 -4px 20px rgba(0,0,0,.08);}
 .map-tb-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 8px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.58rem;font-weight:600;cursor:pointer;-webkit-appearance:none;transition:all .15s;min-width:54px;min-height:50px;flex-shrink:0;}
 .map-tb-btn .tb-icon{font-size:1.3rem;line-height:1}
@@ -219,19 +219,15 @@ body{
 a{color:inherit}
 
 /* ── POI RADIUS SETTINGS ── */
-#poi-settings-bar{
-  background:#fff;border-bottom:1px solid #e8eef4;
-  padding:8px 14px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;
-}
+#poi-settings-bar{background:#fff;border-bottom:1px solid #e8eef4;padding:8px 14px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;}
 #poi-settings-bar.hidden{display:none}
 .radius-row{display:flex;align-items:center;gap:8px}
-.radius-lbl{font-size:.65rem;color:#6a8aa4;font-weight:600;white-space:nowrap;min-width:0;flex:1}
+.radius-lbl{font-size:.65rem;color:#6a8aa4;font-weight:600;white-space:nowrap;flex:1}
 .radius-lbl span{color:#1a2b3c;font-weight:700}
 .radius-slider{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:2px;background:#dde4ec;outline:none;cursor:pointer}
 .radius-slider::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.2);cursor:pointer}
 .radius-slider.search-slider::-webkit-slider-thumb{background:linear-gradient(135deg,#1a5080,#2a6aaa)}
 .radius-val{font-size:.72rem;font-weight:700;color:#1a2b3c;min-width:42px;text-align:right}
-#settings-toggle-btn{font-size:.65rem;color:#6a8aa4;background:none;border:none;cursor:pointer;padding:2px 0;font-family:'DM Sans',sans-serif;text-align:left;text-decoration:underline;-webkit-appearance:none}
 #apply-radius-btn{width:100%;padding:9px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;cursor:pointer;-webkit-appearance:none;margin-top:2px}
 #apply-radius-btn:active{opacity:.85}
 
@@ -278,25 +274,6 @@ a{color:inherit}
   <button class="gpx-upload-btn" onclick="togglePoiSettings()" id="settings-btn" title="POI Radius einstellen" style="padding:6px 10px">⚙️</button>
   <input type="file" id="gpx-file-input" accept=".gpx" style="display:none" onchange="loadGpxFile(event)">
 </div>
-<!-- ── POI RADIUS SETTINGS BAR ── -->
-<div id="poi-settings-bar" class="hidden">
-  <div class="radius-row">
-    <div class="radius-lbl">🔍 Suchradius OSM: <span id="search-km-lbl">15 km</span></div>
-    <input type="range" class="radius-slider search-slider" id="search-radius-slider"
-      min="3" max="50" step="1" value="15"
-      oninput="document.getElementById('search-km-lbl').textContent=this.value+' km'">
-    <div class="radius-val" id="search-km-val">15 km</div>
-  </div>
-  <div class="radius-row">
-    <div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">8 km</span></div>
-    <input type="range" class="radius-slider" id="display-radius-slider"
-      min="1" max="30" step="1" value="8"
-      oninput="updateDisplaySlider(this.value)">
-    <div class="radius-val" id="display-km-val">8 km</div>
-  </div>
-  <button id="apply-radius-btn" onclick="applyRadiusSettings()">🔄 Neu suchen mit diesen Einstellungen</button>
-</div>
-
 <!-- ═══════════════════════════════
      POI VIEW
 ═══════════════════════════════ -->
@@ -339,10 +316,8 @@ a{color:inherit}
   <div id="gpsbar" style="display:none">
     <button id="gps-btn-map"></button>
     <div class="gpssec"><div class="gpstxt">
-      <div id="g-pos"></div><div id="g-acc"></div>
-      <div id="g-cn"></div><div id="g-cd"></div>
-      <div id="g-hn"></div><div id="g-hd"></div>
-      <div id="g-prog"></div><div id="g-rem"></div>
+      <div id="g-pos"></div><div id="g-acc"></div><div id="g-cn"></div><div id="g-cd"></div>
+      <div id="g-hn"></div><div id="g-hd"></div><div id="g-prog"></div><div id="g-rem"></div>
     </div></div>
   </div>
   <div id="rider-bar" style="display:none;position:absolute;top:0;left:0;right:0;z-index:1001;background:linear-gradient(135deg,#fff4ec,#fff8f0);border-bottom:1px solid #f0c090;padding:6px 14px;align-items:center;gap:8px">
@@ -435,47 +410,33 @@ loadCustomPois();
 // ══════════════════════════════════════════
 let poiSearchRadiusKm  = parseFloat(localStorage.getItem('bp_search_radius')  || '15');
 let poiDisplayRadiusKm = parseFloat(localStorage.getItem('bp_display_radius') || '8');
-
 function initRadiusSliders(){
-  const ss = document.getElementById('search-radius-slider');
-  const ds = document.getElementById('display-radius-slider');
-  if(ss){ ss.value = poiSearchRadiusKm; document.getElementById('search-km-lbl').textContent = poiSearchRadiusKm+' km'; document.getElementById('search-km-val').textContent = poiSearchRadiusKm+' km'; }
-  if(ds){ ds.value = poiDisplayRadiusKm; document.getElementById('display-km-lbl').textContent = poiDisplayRadiusKm+' km'; document.getElementById('display-km-val').textContent = poiDisplayRadiusKm+' km'; }
+  const ss=document.getElementById('search-radius-slider'),ds=document.getElementById('display-radius-slider');
+  if(ss){ss.value=poiSearchRadiusKm;document.getElementById('search-km-lbl').textContent=poiSearchRadiusKm+' km';document.getElementById('search-km-val').textContent=poiSearchRadiusKm+' km';}
+  if(ds){ds.value=poiDisplayRadiusKm;document.getElementById('display-km-lbl').textContent=poiDisplayRadiusKm+' km';document.getElementById('display-km-val').textContent=poiDisplayRadiusKm+' km';}
 }
 function updateDisplaySlider(val){
-  document.getElementById('display-km-lbl').textContent = val+' km';
-  document.getElementById('display-km-val').textContent = val+' km';
-  // Ensure display ≤ search
-  const ss = document.getElementById('search-radius-slider');
-  if(ss && parseFloat(val) > parseFloat(ss.value)){
-    ss.value = val;
-    document.getElementById('search-km-lbl').textContent = val+' km';
-    document.getElementById('search-km-val').textContent = val+' km';
-  }
+  document.getElementById('display-km-lbl').textContent=val+' km';
+  document.getElementById('display-km-val').textContent=val+' km';
+  const ss=document.getElementById('search-radius-slider');
+  if(ss&&parseFloat(val)>parseFloat(ss.value)){ss.value=val;document.getElementById('search-km-lbl').textContent=val+' km';document.getElementById('search-km-val').textContent=val+' km';}
 }
 function togglePoiSettings(){
-  const bar = document.getElementById('poi-settings-bar');
-  const btn = document.getElementById('settings-btn');
-  const hidden = bar.classList.toggle('hidden');
-  btn.style.background = hidden ? 'rgba(255,255,255,.2)' : 'rgba(255,255,255,.45)';
+  const bar=document.getElementById('poi-settings-bar'),btn=document.getElementById('settings-btn');
+  const hidden=bar.classList.toggle('hidden');
+  btn.style.background=hidden?'rgba(255,255,255,.2)':'rgba(255,255,255,.45)';
   if(!hidden) initRadiusSliders();
 }
 async function applyRadiusSettings(){
-  const ss = parseFloat(document.getElementById('search-radius-slider').value);
-  const ds = parseFloat(document.getElementById('display-radius-slider').value);
-  if(ds > ss){ alert('⚠️ Anzeige-Radius kann nicht größer als Suchradius sein.'); return; }
-  poiSearchRadiusKm  = ss;
-  poiDisplayRadiusKm = ds;
-  localStorage.setItem('bp_search_radius',  ss);
-  localStorage.setItem('bp_display_radius', ds);
+  const ss=parseFloat(document.getElementById('search-radius-slider').value);
+  const ds=parseFloat(document.getElementById('display-radius-slider').value);
+  if(ds>ss){alert('⚠️ Anzeige-Radius kann nicht größer als Suchradius sein.');return;}
+  poiSearchRadiusKm=ss; poiDisplayRadiusKm=ds;
+  localStorage.setItem('bp_search_radius',ss); localStorage.setItem('bp_display_radius',ds);
   document.getElementById('poi-settings-bar').classList.add('hidden');
-  document.getElementById('settings-btn').style.background = 'rgba(255,255,255,.2)';
-  if(gpxRouteCoords.length >= 2){
-    await fetchOverpassPois();
-    renderList();
-  } else {
-    alert('📂 Bitte zuerst eine GPX-Datei hochladen.');
-  }
+  document.getElementById('settings-btn').style.background='rgba(255,255,255,.2)';
+  if(gpxRouteCoords.length>=2){await fetchOverpassPois();renderList();}
+  else alert('📂 Bitte zuerst eine GPX-Datei hochladen.');
 }
 
 // ══════════════════════════════════════════
@@ -631,7 +592,7 @@ async function fetchOverpassPois(){
   const msg = document.getElementById('overpass-msg');
   loading.style.display='flex';
 
-  const CORRIDOR = poiDisplayRadiusKm*1000; // dynamic display radius (increased from 5km)
+  const CORRIDOR = (typeof poiDisplayRadiusKm!=='undefined'?poiDisplayRadiusKm:8)*1000;
 
   // ── Segmented query: split route into chunks for better accuracy ──
   // Each segment gets its own tight bounding box → less irrelevant data
@@ -644,7 +605,7 @@ async function fetchOverpassPois(){
 
   // Build union query across all segment bboxes
   // Each segment bbox padded by ~8km (~0.072 degrees)
-  const PAD = poiSearchRadiusKm / 111.32; // dynamic search radius (~km per degree)
+  const PAD = (typeof poiSearchRadiusKm!=='undefined'?poiSearchRadiusKm:15)/111.32;
   const bboxes = segments.map(seg=>{
     const bb = routeBbox(seg, PAD);
     return `${bb[0].toFixed(4)},${bb[1].toFixed(4)},${bb[2].toFixed(4)},${bb[3].toFixed(4)}`;
@@ -689,37 +650,69 @@ async function fetchOverpassPois(){
   }
   const query = `[out:json][timeout:90];\n(\n${queryBody});\nout center;`;
 
-  const ENDPOINTS = [
+  // All known public Overpass API endpoints
+  const DIRECT_ENDPOINTS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
-    `https://corsproxy.io/?${encodeURIComponent('https://overpass-api.de/api/interpreter')}`,
+    'https://overpass.openstreetmap.ru/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+    'https://overpass.osm.ch/api/interpreter',
+    'https://overpass.openstreetmap.fr/api/interpreter',
+  ];
+  // CORS proxy wrappers as last resort
+  const PROXY_ENDPOINTS = [
+    url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => `https://thingproxy.freeboard.io/fetch/${url}`,
+  ];
+  // Build full list: all direct + proxied versions of the two most reliable
+  const ENDPOINTS = [
+    ...DIRECT_ENDPOINTS,
+    ...PROXY_ENDPOINTS.map(px => px('https://overpass-api.de/api/interpreter')),
+    ...PROXY_ENDPOINTS.slice(0,2).map(px => px('https://overpass.kumi.systems/api/interpreter')),
   ];
 
-  let lastErr = null;
-  for(let i=0; i<ENDPOINTS.length; i++){
-    msg.textContent = `Server ${i+1}/${ENDPOINTS.length} wird versucht… (${segments.length} Segmente)`;
-    try{
-      const resp = await fetch(ENDPOINTS[i], {
+  async function tryEndpoint(url, body) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 55000);
+    try {
+      const resp = await fetch(url, {
         method: 'POST',
-        body: 'data=' + encodeURIComponent(query),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+        body,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        signal: controller.signal
       });
+      clearTimeout(timer);
       if(!resp.ok) throw new Error('HTTP ' + resp.status);
-      msg.textContent = 'Daten werden verarbeitet…';
       const data = await resp.json();
-      if(!data.elements) throw new Error('Ungültige Antwort');
+      if(!data.elements) throw new Error('Leere Antwort');
+      return data;
+    } catch(e) {
+      clearTimeout(timer);
+      throw e;
+    }
+  }
+
+  const body = 'data=' + encodeURIComponent(query);
+  for(let i=0; i<ENDPOINTS.length; i++){
+    const label = i < DIRECT_ENDPOINTS.length ? `Direkt ${i+1}/${DIRECT_ENDPOINTS.length}` : `Proxy ${i-DIRECT_ENDPOINTS.length+1}`;
+    msg.textContent = `⏳ ${label} wird versucht… (${segments.length} Segmente)`;
+    try{
+      const data = await tryEndpoint(ENDPOINTS[i], body);
+      msg.textContent = 'Daten werden verarbeitet…';
       processOverpassResults(data.elements, CORRIDOR);
       loading.style.display='none';
       return;
     } catch(err){
-      console.warn(`Endpoint ${i+1} failed:`, err.message);
-      lastErr = err;
+      const reason = err.name === 'AbortError' ? 'Timeout' : err.message;
+      console.warn(`Endpoint ${i+1} (${label}) failed:`, reason);
+      msg.textContent = `❌ ${label} fehlgeschlagen (${reason}), weiter…`;
     }
   }
 
   loading.style.display='none';
-  alert('⚠️ Alle Overpass-Server nicht erreichbar.\n\nMögliche Ursachen:\n• Kein Internetzugang\n• Firewall blockiert externe Anfragen\n• Server vorübergehend überlastet\n\nBitte in ein paar Minuten nochmals versuchen.');
+  alert('⚠️ Alle ' + ENDPOINTS.length + ' Overpass-Server nicht erreichbar.\n\nBitte Internetverbindung prüfen und nochmals versuchen.');
 }
 
 function processOverpassResults(elements, corridorM){
@@ -1501,9 +1494,9 @@ function updateUserMarker(){
 
 function refreshGPS(){
   if(!uLat) return;
-  const _pos=document.getElementById('g-pos'); if(_pos) _pos.textContent=`${uLat.toFixed(4)}°N  ${uLon.toFixed(4)}°E`;
-  const _acc=document.getElementById('g-acc'); if(_acc) _acc.textContent=navMode?'🧭 Navigation aktiv':'✅ GPS aktiv';
-  const _st=document.getElementById('map-gps-status'); if(_st){ _st.textContent=`${uLat.toFixed(4)}°N ${uLon.toFixed(4)}°E`; _st.className='ok'; }
+  const _pos=document.getElementById('g-pos');if(_pos)_pos.textContent=`${uLat.toFixed(4)}°N  ${uLon.toFixed(4)}°E`;
+  const _acc=document.getElementById('g-acc');if(_acc)_acc.textContent=navMode?'🧭 Navigation aktiv':'✅ GPS aktiv';
+  const _st=document.getElementById('map-gps-status');if(_st){_st.textContent=`${uLat.toFixed(4)}°N ${uLon.toFixed(4)}°E`;_st.className='ok';}
   const nc=nearest("Camping");
   if(nc){document.getElementById('g-cn').textContent=nc.e.n;document.getElementById('g-cd').innerHTML=`<span class="dist-pill">${fmt(nc.d)} entfernt</span>  ${FL[nc.e.l]} km ${nc.e.km}`;}
   const nh=nearest("Ladestation");
@@ -1534,9 +1527,7 @@ function onGpsUpdate(pos){
 }
 
 function setMapTbGpsState(state){
-  const btn=document.getElementById('map-tb-gps');
-  const lbl=document.getElementById('map-tb-gps-lbl');
-  const st=document.getElementById('map-gps-status');
+  const btn=document.getElementById('map-tb-gps'),lbl=document.getElementById('map-tb-gps-lbl'),st=document.getElementById('map-gps-status');
   if(!btn) return;
   btn.className='map-tb-btn map-tb-btn-gps';
   if(state==='busy'){btn.classList.add('busy');lbl.textContent='Suche…';st.textContent='Warte auf GPS…';st.className='';}
@@ -1548,12 +1539,12 @@ function locateMeMap(){
   if(!navigator.geolocation){alert('GPS nicht verfügbar.');return;}
   if(navMode){
     navigator.geolocation.clearWatch(mapWatchId);mapWatchId=null;navMode=false;autoCenter=true;uHeading=null;
-    if(headingUp){ headingUp=false; mapObj.setBearing(0); const hb=document.getElementById('headingup-btn'); if(hb){hb.style.background='#fff';hb.style.borderColor='#d0dce8';} }
-    setMapTbGpsState('stop'); return;
+    if(headingUp){headingUp=false;mapObj.setBearing(0);const hb=document.getElementById('headingup-btn');if(hb){hb.style.background='#fff';hb.style.borderColor='#d0dce8';}}
+    setMapTbGpsState('stop');return;
   }
-  setMapTbGpsState('busy'); navMode=true; startCompass();
+  setMapTbGpsState('busy');navMode=true;startCompass();
   mapWatchId=navigator.geolocation.watchPosition(onGpsUpdate,
-    err=>{ const msgs={1:'GPS-Zugriff verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'}; setMapTbGpsState('err'); document.getElementById('map-gps-status').textContent=msgs[err.code]||'GPS-Fehler'; navMode=false; },
+    err=>{const msgs={1:'GPS-Zugriff verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};setMapTbGpsState('err');document.getElementById('map-gps-status').textContent=msgs[err.code]||'GPS-Fehler';navMode=false;},
     {enableHighAccuracy:true,timeout:20000,maximumAge:3000});
 }
 
