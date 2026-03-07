@@ -363,6 +363,20 @@ a{color:inherit}
 
 <script>
 // ══════════════════════════════════════════
+// EARLY DECLARATIONS (must come before any function calls)
+// ══════════════════════════════════════════
+let isAdmin = false;
+let pendingAfterLogin = null;
+const GH_USER   = 'hschachtler';
+const GH_REPO   = 'rebstein-serbien';
+const GH_FILE   = 'pois.json';
+const GH_BRANCH = 'main';
+let ghToken = '';
+let ghFileSha = '';
+let ghPoisLoaded = false;
+try { ghToken = localStorage.getItem('bp_gh_token') || ''; } catch(e){}
+
+// ══════════════════════════════════════════
 // SHARED DATA
 // ══════════════════════════════════════════
 let E=[];
@@ -408,7 +422,8 @@ function loadCustomPois(){
 }
 function saveCustomPois(){
   try{ localStorage.setItem('bikepacking_custom_pois', JSON.stringify(customPois)); } catch(e){}
-  if(ghToken && isAdmin) ghSavePois(true); // auto-sync to GitHub
+  // ghSavePois called after full init only
+  if(typeof _ghSavePoisReal === 'function' && ghToken && isAdmin) _ghSavePoisReal(true);
 }
 loadCustomPois();
 
@@ -636,7 +651,7 @@ out center;`;
       const data = await resp.json();
       if(!data.elements) throw new Error('Ungültige Antwort');
       processOverpassResults(data.elements, CORRIDOR);
-      if(ghToken) ghSavePois(true);
+      if(ghToken) _ghSavePoisReal(true);
       loading.style.display='none';
       return;
     } catch(err){
@@ -645,27 +660,19 @@ out center;`;
     }
   }
 
-  // Letzter Ausweg: corsproxy.io
+  // Last resort: corsproxy
   msg.textContent = 'Alternativer Proxy wird versucht…';
   try{
     const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://overpass-api.de/api/interpreter');
-    const resp = await fetch(proxyUrl, {
-      method: 'POST',
-      body: 'data=' + encodeURIComponent(query),
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'}
-    });
-    if(!resp.ok) throw new Error('HTTP ' + resp.status);
-    msg.textContent = 'Daten werden verarbeitet…';
+    const resp = await fetch(proxyUrl, {method:'POST',body:'data='+encodeURIComponent(query),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
     const data = await resp.json();
     if(!data.elements) throw new Error('Ungültige Antwort');
     processOverpassResults(data.elements, CORRIDOR);
-    if(ghToken) ghSavePois(true);
+    if(ghToken) _ghSavePoisReal(true);
     loading.style.display='none';
     return;
-  } catch(err){
-    console.warn('Proxy failed:', err.message);
-    lastErr = err;
-  }
+  } catch(err){ console.warn('Proxy failed:', err.message); }
 
   loading.style.display='none';
   alert('⚠️ Alle Overpass-Server nicht erreichbar.\n\nMögliche Ursachen:\n• Kein Internetzugang\n• Firewall blockiert externe Anfragen\n• Server vorübergehend überlastet\n\nBitte in ein paar Minuten nochmals versuchen.');
@@ -704,19 +711,16 @@ function processOverpassResults(elements, corridorM){
     const isFood      = ['restaurant','fast_food','cafe','bar','pub','biergarten'].includes(t.amenity);
     const isShop      = ['supermarket','convenience','grocery','bakery','butcher','farm'].includes(t.shop);
 
-    // Nur POIs mit vollständigen Pflichtfeldern
+    // Vollständigkeitsfilter: nur POIs mit ausreichenden Daten
     if(!name) return;
-    if(isFood || isShop){
-      if(!addr || !hours) return;
-    }
-    if(isCamping || isHostel){
-      if(!addr && !hours && !website) return;
-    }
+    if(isFood || isShop){ if(!addr || !hours) return; }
+    if(isCamping || isHostel){ if(!addr && !hours && !website) return; }
 
     if(isCamping){
       E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:name,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
     } else if(isHostel){
-      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true,_hostel:true});
+      // Hostels/Guesthouses go into Camping category with different icon hint
+      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone,hours,website,lat,lon,_osm:true,_hostel:true});
     } else if(isCharging){
       const network = t.network||t.operator||'';
       const label = network ? `${name} (${network})` : name;
@@ -1048,7 +1052,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('poi-km')?.addEventListener('input', updateKmHint);
 });
 
-let pendingAfterLogin=null;
+// pendingAfterLogin declared early above
 
 // ══════════════════════════════════════════
 // SHARED STATE
@@ -1609,14 +1613,7 @@ function toggleList(){
 // ══════════════════════════════════════════
 // RIDER LIVE POSITION (Admin only)
 // ══════════════════════════════════════════
-// ── GitHub Sync Config ──
-const GH_USER   = 'hschachtler';
-const GH_REPO   = 'rebstein-serbien';
-const GH_FILE   = 'pois.json';
-const GH_BRANCH = 'main';
-let ghToken = localStorage.getItem('bp_gh_token') || '';
-let ghFileSha = ''; // needed for updates
-let ghPoisLoaded = false; // true once pois.json fetched successfully
+// ── GitHub Sync Config (declared early above) ──
 
 async function ghLoadPois(){
   try{
@@ -1646,7 +1643,8 @@ async function ghLoadPois(){
   } catch(e){ console.warn('ghLoadPois:', e); return false; }
 }
 
-async function ghSavePois(silent=false){
+async function _ghSavePoisReal(silent=false){
+  // real impl
   if(!ghToken){ if(!silent) alert('⚠️ Kein GitHub Token gesetzt. Im Admin-Bereich unter ⚙️ eingeben.'); return false; }
   try{
     const data = {E,R,shop:shopPois,custom:customPois,gpxCoords:gpxRouteCoords,gpxName:gpxRouteName,savedAt:new Date().toISOString()};
@@ -1667,6 +1665,9 @@ async function ghSavePois(silent=false){
   } catch(e){ console.error('ghSavePois:', e); if(!silent) showGhStatus('❌ GitHub Fehler: '+e.message, '#c04040'); return false; }
 }
 
+// Now that real implementation is defined, replace stub
+const ghSavePois = _ghSavePoisReal;
+
 function showGhStatus(msg, color='#1a7a4a'){
   const btn=document.getElementById('topbar-save-btn');
   if(btn){ const orig=btn.innerHTML; btn.innerHTML=`<span>💾</span><span style="font-size:.5rem">${msg.slice(0,12)}</span>`; setTimeout(()=>btn.innerHTML=orig,3000); }
@@ -1677,7 +1678,7 @@ function showGhStatus(msg, color='#1a7a4a'){
 function saveAppToFile(){
   // Save to GitHub if token available, else download pois.json
   if(ghToken){
-    ghSavePois(false);
+    _ghSavePoisReal(false);
   } else {
     const data={E,R,shop:shopPois,custom:customPois,gpxCoords:gpxRouteCoords,gpxName:gpxRouteName,savedAt:new Date().toISOString()};
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -1692,29 +1693,30 @@ function saveAppToFile(){
 
 window.addEventListener('load', async ()=>{
   try{
-    await new Promise(r=>setTimeout(r,500));
-    const ok = await ghLoadPois();
-    if(ok && (E.length>0||R.length>0)){
-      const banner=document.getElementById('gpx-upload-banner');
-      if(banner) banner.classList.add('loaded');
-      renderList();
-      if(mapInitialized && mapObj){
-        addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
-      } else {
-        const iv=setInterval(()=>{
-          if(mapInitialized && mapObj){
-            clearInterval(iv);
-            addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
-          }
-        },300);
-      }
+  await new Promise(r=>setTimeout(r,500));
+  const ok = await ghLoadPois();
+  if(ok && (E.length>0||R.length>0)){
+    // Update the banner
+    const banner=document.getElementById('gpx-upload-banner');
+    if(banner) banner.classList.add('loaded');
+    // Render the POI list immediately
+    renderList();
+    // Add markers to map once it's open
+    if(mapInitialized && mapObj){
+      addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
+    } else {
+      const iv=setInterval(()=>{
+        if(mapInitialized && mapObj){
+          clearInterval(iv);
+          addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
+        }
+      },300);
     }
-  } catch(e){
-    console.warn('Startup error (non-fatal):', e);
   }
+  } catch(e){ console.warn('Startup error:', e); }
 });
 
-let isAdmin=false;
+// isAdmin declared early above
 let riderMarker=null;
 let riderWatchId=null;
 let riderUpdating=false;
@@ -1757,18 +1759,15 @@ async function saveRiderPosition(lat,lon){
 }
 
 function openLoginModal(){
-  const modal=document.getElementById('login-modal');
-  if(!modal) return;
-  modal.style.display='flex';
-  const pw=document.getElementById('login-pw');
-  if(pw) pw.value='';
-  const err=document.getElementById('login-err');
-  if(err) err.style.display='none';
+  // Pre-fill token field if stored
   setTimeout(()=>{
     const tf=document.getElementById('gh-token-input');
     if(tf) tf.value=ghToken||'';
-    if(pw) pw.focus();
-  },100);
+  },50);
+  document.getElementById('login-modal').style.display='flex';
+  document.getElementById('login-pw').value='';
+  document.getElementById('login-err').style.display='none';
+  setTimeout(()=>document.getElementById('login-pw').focus(),100);
 }
 function closeLoginModal(){
   document.getElementById('login-modal').style.display='none';
@@ -1789,12 +1788,6 @@ function doLogout(){
   // update ➕ button hint
   const st=document.getElementById('gps-status-poi');
   if(st){st.textContent='Abgemeldet.';st.className='';setTimeout(()=>{st.textContent='';},2000);}
-}
-function togglePwVisibility(){
-  const f=document.getElementById('login-pw');
-  const b=document.getElementById('pw-eye-btn');
-  if(f.type==='password'){f.type='text';if(b)b.textContent='🙈';}
-  else{f.type='password';if(b)b.textContent='👁️';}
 }
 function doLogin(){
   const u=document.getElementById('login-user').value.trim();
@@ -2130,11 +2123,11 @@ function renderWeather(data,locName){
     <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Benutzer</label>
-        <input id="login-user" type="text" value="Admin" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+        <input id="login-user" type="text" value="Admin" autocomplete="off" autocorrect="off" autocapitalize="none" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
       </div>
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Passwort</label>
-        <div style="position:relative"><input id="login-pw" type="password" placeholder="··········" autocomplete="new-password" style="width:100%;padding:11px 42px 11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" id="pw-eye-btn" onclick="togglePwVisibility()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#e8eef4;border:1px solid #c8d4e0;border-radius:6px;cursor:pointer;font-size:.85rem;padding:3px 7px;-webkit-appearance:none;color:#1a2b3c;line-height:1">👁️</button></div>
+        <input id="login-pw" type="password" placeholder="••••••••••" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">GitHub Token (für Auto-Sync)</label>
@@ -2142,7 +2135,7 @@ function renderWeather(data,locName){
         <div id="gh-status-msg" style="font-size:.65rem;color:#1a7a4a;margin-top:4px;min-height:16px"></div>
       </div>
       <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040;font-family:'DM Sans',sans-serif"></div>
-      <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 14px rgba(26,80,128,.35);transition:opacity .15s" onmousedown="this.style.opacity='.8'" onmouseup="this.style.opacity='1'" ontouchstart="this.style.opacity='.8'" ontouchend="this.style.opacity='1'">🔐 Einloggen</button>
+      <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 14px rgba(26,80,128,.35)">🔐 Einloggen</button>
       <div style="background:#f8f9fb;border-radius:10px;padding:10px 12px;font-size:.68rem;color:#7a9ab8;font-family:'DM Sans',sans-serif;line-height:1.6">
         <b style="color:#5a7a9a">🔑 Passwort vergessen?</b><br>
         Wende dich an den Administrator der App.
