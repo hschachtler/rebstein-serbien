@@ -500,13 +500,13 @@ function loadGpxFile(event){
       mapObj.fitBounds(routeLayerRef.getBounds(),{padding:[40,40]});
     }
     event.target.value='';
-    // If POIs already loaded from GitHub, skip Overpass search
-    if(E.length > 0 || R.length > 0){
+    // If pois.json was loaded from GitHub, skip Overpass search
+    if(ghPoisLoaded){
       renderList();
       addBuiltinMarkersToMap();
       syncAllCustomPoiMarkers();
       const status = document.getElementById('gpx-status');
-      if(status) status.textContent = `✅ ${gpxRouteName} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants (aus pois.json)`;
+      if(status) status.textContent = `✅ ${gpxRouteName} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants`;
     } else {
       await fetchOverpassPois();
       renderList();
@@ -1573,6 +1573,7 @@ const GH_FILE   = 'pois.json';
 const GH_BRANCH = 'main';
 let ghToken = localStorage.getItem('bp_gh_token') || '';
 let ghFileSha = ''; // needed for updates
+let ghPoisLoaded = false; // true once pois.json fetched successfully
 
 async function ghLoadPois(){
   try{
@@ -1597,6 +1598,7 @@ async function ghLoadPois(){
     const status=document.getElementById('gpx-status');
     if(status) status.textContent=`✅ ${gpxRouteName||'Route'} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants · 🛒 ${shopPois.length} Shops (GitHub ✓)`;
     console.log('GitHub pois.json geladen:', E.length+R.length+shopPois.length, 'POIs, SHA:', ghFileSha);
+    ghPoisLoaded = true;
     return true;
   } catch(e){ console.warn('ghLoadPois:', e); return false; }
 }
