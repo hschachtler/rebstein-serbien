@@ -500,9 +500,17 @@ function loadGpxFile(event){
       mapObj.fitBounds(routeLayerRef.getBounds(),{padding:[40,40]});
     }
     event.target.value='';
-    // Fetch POIs from Overpass
-    await fetchOverpassPois();
-    renderList();
+    // If POIs already loaded from GitHub, skip Overpass search
+    if(E.length > 0 || R.length > 0){
+      renderList();
+      addBuiltinMarkersToMap();
+      syncAllCustomPoiMarkers();
+      const status = document.getElementById('gpx-status');
+      if(status) status.textContent = `✅ ${gpxRouteName} · ⛺ ${E.filter(e=>e.t==='Camping').length} Camp · ⚡ ${E.filter(e=>e.t==='Ladestation').length} Laden · 🍽️ ${R.length} Restaurants (aus pois.json)`;
+    } else {
+      await fetchOverpassPois();
+      renderList();
+    }
   };
   reader.readAsText(file,'UTF-8');
 }
