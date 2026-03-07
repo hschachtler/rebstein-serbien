@@ -1131,8 +1131,8 @@ function setFilter(f){
 function renderList(){
   const hint=document.getElementById('no-gps-hint');
   const list=document.getElementById('poi-list');
-  if(!uLat){hint.style.display='';list.innerHTML='';return;}
   hint.style.display='none';
+  // Without GPS: show all POIs sorted by route-km instead of distance
 
   // ── FAVOURITES — works without GPS ──
   if(activeFilter==='fav'){
@@ -1195,11 +1195,11 @@ function renderList(){
   }
 
   if(activeFilter==='rest'){
-    const mapsSearchUrl=`https://www.google.com/maps/search/restaurant/@${uLat},${uLon},13z`;
+    const mapsSearchUrl=uLat?`https://www.google.com/maps/search/restaurant/@${uLat},${uLon},13z`:'https://www.google.com/maps/search/restaurant';
     const hiddenIds=new Set(customPois.filter(x=>x._hidden).map(x=>x.n));
     const visibleR=R.filter(e=>!hiddenIds.has(e.n));
-    const nearestRest=visibleR.map(e=>({...e,dist:hav(uLat,uLon,e.lat,e.lon)})).sort((a,b)=>a.dist-b.dist)[0];
-    const restItems=visibleR.map(e=>({...e,dist:hav(uLat,uLon,e.lat,e.lon)})).sort((a,b)=>a.km-b.km);
+    const nearestRest=uLat?visibleR.map(e=>({...e,dist:hav(uLat,uLon,e.lat,e.lon)})).sort((a,b)=>a.dist-b.dist)[0]:null;
+    const restItems=visibleR.map(e=>({...e,dist:uLat?hav(uLat,uLon,e.lat,e.lon):null})).sort((a,b)=>a.km-b.km);
     const cards=restItems.map(e=>{
       const isNearest=nearestRest&&e.n===nearestRest.n;
       const overrideId='override_'+e.n.replace(/[^a-zA-Z0-9]/g,'_');
@@ -1254,9 +1254,9 @@ function renderList(){
     return ov?{...ov,_wasBuiltin:true}:e;
   });
 
-  items=items.map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.km-b.km);
-  const nearestCamp=[...E,...customPois].filter(e=>e.t==='Camping').map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.dist-b.dist)[0];
-  const nearestChg=[...E,...customPois].filter(e=>e.t==='Ladestation').map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.dist-b.dist)[0];
+  items=items.map(e=>({...e,dist:uLat?hav(uLat,uLon,e.lat||0,e.lon||0):null})).sort((a,b)=>a.km-b.km);
+  const nearestCamp=uLat?[...E,...customPois].filter(e=>e.t==='Camping').map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.dist-b.dist)[0]:null;
+  const nearestChg=uLat?[...E,...customPois].filter(e=>e.t==='Ladestation').map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.dist-b.dist)[0]:null;
 
     list.innerHTML=items.map(e=>{
     if(e.isOwn) return renderPoiCard(e,true);
