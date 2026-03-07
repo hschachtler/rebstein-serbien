@@ -1786,9 +1786,15 @@ function doLogout(){
   const st=document.getElementById('gps-status-poi');
   if(st){st.textContent='Abgemeldet.';st.className='';setTimeout(()=>{st.textContent='';},2000);}
 }
+function togglePwVisibility(){
+  const f=document.getElementById('login-pw');
+  const b=document.getElementById('pw-eye-btn');
+  if(f.type==='password'){f.type='text';if(b)b.textContent='🙈';}
+  else{f.type='password';if(b)b.textContent='👁️';}
+}
 function doLogin(){
   const u=document.getElementById('login-user').value.trim();
-  const p=document.getElementById('login-pw').value;
+  const p=document.getElementById('login-pw').value.trim();
   if(u.toLowerCase()==='admin'&&p==='880197'){
     isAdmin=true;
     const tf=document.getElementById('gh-token-input');
@@ -2120,11 +2126,11 @@ function renderWeather(data,locName){
     <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Benutzer</label>
-        <input id="login-user" type="text" value="Admin" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
+        <input id="login-user" type="text" value="Admin" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none">
       </div>
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">Passwort</label>
-        <input id="login-pw" type="password" placeholder="••••••••••" style="width:100%;padding:11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none" onkeydown="if(event.key==='Enter')doLogin()">
+        <div style="position:relative"><input id="login-pw" type="password" placeholder="··········" autocomplete="new-password" style="width:100%;padding:11px 42px 11px 13px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.88rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;-webkit-appearance:none;outline:none" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" id="pw-eye-btn" onclick="togglePwVisibility()" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#e8eef4;border:1px solid #c8d4e0;border-radius:6px;cursor:pointer;font-size:.85rem;padding:3px 7px;-webkit-appearance:none;color:#1a2b3c;line-height:1">👁️</button></div>
       </div>
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:4px">GitHub Token (für Auto-Sync)</label>
@@ -2132,7 +2138,7 @@ function renderWeather(data,locName){
         <div id="gh-status-msg" style="font-size:.65rem;color:#1a7a4a;margin-top:4px;min-height:16px"></div>
       </div>
       <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040;font-family:'DM Sans',sans-serif"></div>
-      <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen</button>
+      <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 14px rgba(26,80,128,.35);transition:opacity .15s" onmousedown="this.style.opacity='.8'" onmouseup="this.style.opacity='1'" ontouchstart="this.style.opacity='.8'" ontouchend="this.style.opacity='1'">🔐 Einloggen</button>
       <div style="background:#f8f9fb;border-radius:10px;padding:10px 12px;font-size:.68rem;color:#7a9ab8;font-family:'DM Sans',sans-serif;line-height:1.6">
         <b style="color:#5a7a9a">🔑 Passwort vergessen?</b><br>
         Wende dich an den Administrator der App.
