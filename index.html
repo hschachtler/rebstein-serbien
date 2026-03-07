@@ -50,17 +50,13 @@ body{
 
 /* ── VIEW TOGGLE BUTTON ── */
 #view-toggle-btn:active{opacity:.75}
-/* Hide topbar when map is fullscreen */
-#view-map.active-map ~ * #view-toggle-btn{display:none}
 
 /* ── VIEW CONTAINERS ── */
 #view-poi{display:flex;flex-direction:column;flex:1;overflow:hidden}
-#view-map{display:none;flex-direction:column;flex:1;overflow:hidden;position:relative}
-#view-map.active{display:flex}
 #view-poi.active{display:flex}
 
 /* ── MAP VIEW – fullscreen ── */
-#view-map{position:fixed;top:0;left:0;right:0;bottom:0;z-index:500;display:none;flex-direction:column}
+#view-map{position:fixed;top:0;left:0;right:0;bottom:0;z-index:500;display:none;flex-direction:column;overflow:hidden}
 
 /* ══════════════════════════
    POI VIEW STYLES
@@ -101,8 +97,6 @@ body{
 .ftab.active-chg{background:#e8f0fb;border-color:#1a60c0;color:#1a4a8a}
 .ftab.active-all{background:#f0ecf8;border-color:#7a5aa0;color:#4a2a7a}
 .ftab.active-rest{background:#fff4e8;border-color:#e07820;color:#a04010}
-.ftab.active-fav{background:#fff0f3;border-color:#e0305a;color:#a0103a}
-.badge-fav{background:#fff0f3;color:#a0103a;border:1px solid #f0a0b8}
 .ftab.active-shop{background:#f0f8e8;border-color:#5a9a2a;color:#2a5a0a}
 .badge-shop{background:#f0f8e8;color:#2a5a0a;border:1px solid #a0d070}
 
@@ -235,8 +229,6 @@ a{color:inherit}
 #map-gps-status.err{color:#c04040}
 #gpsbar{display:none}
 .gpssec,.gpsico,.gpstxt,.gpslbl,.gpsval,.gpssub{display:none}
-.dist-pill{display:inline-block;background:#fff4ec;color:#c85a0a;border:1px solid #f0c090;border-radius:10px;padding:1px 7px;font-size:.6rem;font-weight:600;margin-top:2px}
-.dist-pill.ch{background:#ecf2ff;color:#1a50aa;border-color:#a8c4f0}
 #gps-btn-map{display:none}
 /* ── POI RADIUS SETTINGS ── */
 #poi-settings-bar{background:#fff;border-bottom:1px solid #e8eef4;padding:8px 14px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;}
@@ -258,8 +250,6 @@ a{color:inherit}
 #overpass-loading{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px;font-family:'DM Sans',sans-serif;color:#fff;font-size:.9rem;font-weight:600}
 #overpass-loading .spinner{width:44px;height:44px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.ftab.active-shop{background:#f0f8e8;border-color:#5a9a2a;color:#2a5a0a}
-.badge-shop{background:#f0f8e8;color:#2a5a0a;border:1px solid #a0d070}
 </style>
 </head>
 <body>
@@ -294,7 +284,7 @@ a{color:inherit}
   <input type="file" id="gpx-file-input" accept=".gpx" style="display:none" onchange="loadGpxFile(event)">
 </div>
 <!-- ── POI RADIUS SETTINGS BAR ── -->
-<div id="poi-settings-bar" class="hidden" style="display:none!important">
+<div id="poi-settings-bar" class="hidden">
   <div class="radius-row"><div class="radius-lbl">🔍 Suchradius: <span id="search-km-lbl">15 km</span></div><input type="range" class="radius-slider" id="search-radius-slider" min="3" max="50" step="1" value="15" oninput="document.getElementById('search-km-lbl').textContent=this.value+' km'"><div class="radius-val">km</div></div>
   <div class="radius-row"><div class="radius-lbl">📍 Anzeige-Radius: <span id="display-km-lbl">5 km</span></div><input type="range" class="radius-slider" id="display-radius-slider" min="1" max="30" step="1" value="5" oninput="updateDisplaySlider(this.value)"><div class="radius-val">km</div></div>
   <button id="apply-radius-btn" onclick="applyRadiusSettings()">🔄 Neu suchen</button>
@@ -314,13 +304,11 @@ a{color:inherit}
   <div id="filters">
     <button class="ftab active-all" id="f-all" onclick="setFilter('all')">🗂 Alle</button>
     <button class="ftab" id="f-camp" onclick="setFilter('camp')">⛺ Camp</button>
-    <button class="ftab" id="f-chg" onclick="setFilter('chg')">⚡ Laden</button>
+    <button class="ftab" id="f-chg" onclick="setFilter('chg')">🔋 E-Bike</button>
     <button class="ftab" id="f-rest" onclick="setFilter('rest')">🍽️ Essen</button>
-    <button class="ftab" id="f-fav" onclick="setFilter('fav')">❤️ Favs</button>
     <button class="ftab" id="f-shop" onclick="setFilter('shop')">🛒 Shop</button>
     <button class="ftab" id="f-add" onclick="openAddPoi()" style="flex:0 0 auto;padding:7px 10px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border-color:transparent;color:#fff">➕</button>
   </div>
-  <input type="file" id="fav-json-input" accept=".json" style="display:none" onchange="importFavJson(event)">
 
   <!-- LIST -->
   <div id="listarea">
@@ -357,7 +345,7 @@ a{color:inherit}
     <div id="map-gps-status">GPS nicht aktiv</div>
     <button class="map-tb-btn map-tb-btn-secondary" onclick="toggleView()"><span class="tb-icon">📋</span><span>POI-Liste</span></button>
     <button class="map-tb-btn map-tb-btn-secondary" onclick="toggleListPanel()"><span class="tb-icon">🗺️</span><span>Stationen</span></button>
-    <button id="admin-btn" class="map-tb-btn map-tb-btn-secondary" onclick="isAdmin?stopRiderTracking():openLoginModal()"><span class="tb-icon">🔐</span><span>Admin</span></button>
+    <button id="admin-btn" class="map-tb-btn map-tb-btn-secondary" onclick="isAdmin?(riderWatchId?stopRiderTracking():startRiderTracking()):openLoginModal()"><span class="tb-icon">🔐</span><span>Admin</span></button>
   </div>
 </div>
 
@@ -445,6 +433,119 @@ let gpxRouteName   = '';
 let overpassPois   = [];
 let shopPois       = [];
 
+// ══════════════════════════════════════════
+// ELEVATION ENGINE (Höhenmeter-Berechnung)
+// ══════════════════════════════════════════
+let routeElevations = []; // parallel array to RC: elevation in meters for each route point
+let elevationReady = false;
+let _elevSampleIdx = []; // indices of sampled points (for interpolation)
+
+async function fetchRouteElevations(){
+  if(!RC||RC.length<2) return;
+  // Try to restore from localStorage first
+  try{
+    const cached=JSON.parse(localStorage.getItem('bp_elevations')||'[]');
+    if(cached.length===RC.length && cached.length>0 && cached[0]!==null){
+      routeElevations=cached; elevationReady=true;
+      console.log('Elevation aus Cache geladen:', cached.length, 'Punkte');
+      return;
+    }
+  }catch(e){}
+
+  // Sample route to max ~150 points (reduces API calls from 6+ to 1-2)
+  const MAX_SAMPLE=150;
+  const step=RC.length<=MAX_SAMPLE?1:Math.ceil(RC.length/MAX_SAMPLE);
+  _elevSampleIdx=[];
+  for(let i=0;i<RC.length;i+=step) _elevSampleIdx.push(i);
+  // Always include last point
+  if(_elevSampleIdx[_elevSampleIdx.length-1]!==RC.length-1) _elevSampleIdx.push(RC.length-1);
+
+  const sampled=_elevSampleIdx.map(i=>RC[i]);
+  const sampleElevs=new Array(sampled.length).fill(null);
+  const BATCH=80; // smaller batches = less likely to hit URL limits
+  let allOk=true;
+
+  for(let b=0;b<sampled.length;b+=BATCH){
+    const chunk=sampled.slice(b,b+BATCH);
+    const lats=chunk.map(c=>c[0].toFixed(4)).join(',');
+    const lons=chunk.map(c=>c[1].toFixed(4)).join(',');
+    const url=`https://api.open-meteo.com/v1/elevation?latitude=${lats}&longitude=${lons}`;
+
+    let success=false;
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        if(attempt>0||b>0) await new Promise(r=>setTimeout(r,600+attempt*800));
+        const resp=await fetch(url);
+        if(!resp.ok) throw new Error('HTTP '+resp.status);
+        const data=await resp.json();
+        if(data.elevation&&data.elevation.length===chunk.length){
+          data.elevation.forEach((ele,j)=>{sampleElevs[b+j]=ele;});
+          success=true;
+          break;
+        } else throw new Error('Ungültige Antwort');
+      }catch(e){
+        console.warn(`Elevation Batch ${b}, Versuch ${attempt+1}/3:`,e.message);
+      }
+    }
+    if(!success) allOk=false;
+  }
+
+  // Check if we got enough data
+  const filled=sampleElevs.filter(e=>e!==null).length;
+  if(filled<_elevSampleIdx.length*0.5){
+    console.warn('Elevation: zu wenig Daten erhalten (',filled,'/',_elevSampleIdx.length,')');
+    return;
+  }
+
+  // Interpolate to full route
+  routeElevations=new Array(RC.length).fill(null);
+  for(let s=0;s<_elevSampleIdx.length;s++){
+    routeElevations[_elevSampleIdx[s]]=sampleElevs[s];
+  }
+  // Linear interpolation between sampled points
+  for(let s=0;s<_elevSampleIdx.length-1;s++){
+    const iA=_elevSampleIdx[s], iB=_elevSampleIdx[s+1];
+    const eA=routeElevations[iA], eB=routeElevations[iB];
+    if(eA==null||eB==null) continue;
+    for(let i=iA+1;i<iB;i++){
+      const t=(i-iA)/(iB-iA);
+      routeElevations[i]=eA+(eB-eA)*t;
+    }
+  }
+
+  elevationReady=true;
+  try{localStorage.setItem('bp_elevations',JSON.stringify(routeElevations));}catch(e){}
+  console.log('Elevation geladen:',filled,'Samples →',routeElevations.length,'Punkte interpoliert');
+}
+
+// Compute climbing meters from user's position to a POI along the route
+function elevationGainTo(poiLat,poiLon){
+  if(!uLat||!uLon||!elevationReady||routeElevations.length<2) return null;
+  const userIdx=nearestRouteIdx(uLat,uLon);
+  const poiIdx=nearestRouteIdx(poiLat,poiLon);
+  if(userIdx===poiIdx) return 0;
+  const start=Math.min(userIdx,poiIdx);
+  const end=Math.max(userIdx,poiIdx);
+  let gain=0;
+  for(let i=start+1;i<=end;i++){
+    if(routeElevations[i]==null||routeElevations[i-1]==null) continue;
+    const diff=routeElevations[i]-routeElevations[i-1];
+    if(userIdx<=poiIdx){ if(diff>0) gain+=diff; } // forward: count climbs
+    else { if(diff<0) gain-=diff; } // backward: downhills become climbs
+  }
+  return Math.round(gain);
+}
+function nearestRouteIdx(lat,lon){
+  let best=0,bd=Infinity;
+  for(let i=0;i<RC.length;i++){const d=hav(lat,lon,RC[i][0],RC[i][1]);if(d<bd){bd=d;best=i;}}
+  return best;
+}
+function elevationBadge(lat,lon){
+  const gain=elevationGainTo(lat,lon);
+  if(gain===null) return '';
+  return `<span class="poi-badge" style="background:#f0f4f8;color:#4a6a84;border:1px solid #d0dce8">↑ ${gain} Hm</span>`;
+}
+
 // ── Persistence: save/restore GPX + POIs ──
 function saveSession(){
   try{
@@ -482,13 +583,21 @@ function loadGpxFile(event){
   const reader = new FileReader();
   reader.onload = async function(ev){
     const xml = new DOMParser().parseFromString(ev.target.result, 'text/xml');
-    // Parse track points
+    // Parse track points (with elevation)
     const trkpts = xml.querySelectorAll('trkpt');
     if(trkpts.length === 0){ alert('❌ Keine Trackpunkte in der GPX-Datei gefunden.'); return; }
-    gpxRouteCoords = Array.from(trkpts).map(p=>([
-      parseFloat(p.getAttribute('lat')),
-      parseFloat(p.getAttribute('lon'))
-    ])).filter(p=>!isNaN(p[0])&&!isNaN(p[1]));
+    let gpxHasElevation = false;
+    gpxRouteCoords = Array.from(trkpts).map(p=>{
+      const lat=parseFloat(p.getAttribute('lat'));
+      const lon=parseFloat(p.getAttribute('lon'));
+      return [lat,lon];
+    }).filter(p=>!isNaN(p[0])&&!isNaN(p[1]));
+    // Extract elevation data from GPX
+    const gpxElevs = Array.from(trkpts).map(p=>{
+      const eleEl=p.querySelector('ele');
+      return eleEl?parseFloat(eleEl.textContent):null;
+    });
+    if(gpxElevs.filter(e=>e!==null).length>gpxElevs.length*0.5) gpxHasElevation=true;
     // Also try rte/rtept
     if(gpxRouteCoords.length===0){
       const rtepts = xml.querySelectorAll('rtept');
@@ -501,6 +610,16 @@ function loadGpxFile(event){
     gpxRouteName = xml.querySelector('name')?.textContent || file.name.replace('.gpx','');
     // Persist route immediately
     RC = gpxRouteCoords;
+    // Use GPX elevation if available, otherwise fetch from API
+    if(gpxHasElevation){
+      routeElevations=gpxElevs.slice(0,RC.length);
+      elevationReady=true;
+      try{localStorage.setItem('bp_elevations',JSON.stringify(routeElevations));}catch(e){}
+    } else {
+      routeElevations=[]; elevationReady=false;
+      try{localStorage.removeItem('bp_elevations');}catch(e){}
+      fetchRouteElevations(); // async, runs in background
+    }
     saveSession();
     // Update banner
     document.getElementById('gpx-status').textContent = `✅ ${gpxRouteName} · ${gpxRouteCoords.length} Punkte · ${(gpxRouteLength()/1000).toFixed(0)} km`;
@@ -604,8 +723,7 @@ async function fetchOverpassPois(){
   loading.style.display='flex';
 
   const CORRIDOR=(typeof poiDisplayRadiusKm!=='undefined'?poiDisplayRadiusKm:5)*1000;
-  // Suchradius fix 5km um die Route – keine User-Einstellung mehr nötig
-  const PAD = 5 / 111.32; // 5 km in Grad
+  const PAD = (typeof poiSearchRadiusKm!=='undefined'?poiSearchRadiusKm:5) / 111.32;
   // Route in 6 Abschnitte teilen → kompakte Bounding Boxes
   const step=Math.max(1,Math.floor(gpxRouteCoords.length/6));
   const bboxes=[];
@@ -622,7 +740,9 @@ async function fetchOverpassPois(){
     // Nur die wichtigsten Kategorien
     queryBody+=`node["tourism"~"^(camp_site|caravan_site)$"](${bb});
 `;
-    queryBody+=`node["amenity"~"^(camping|charging_station|restaurant|supermarket)$"](${bb});
+    queryBody+=`node["amenity"~"^(camping|restaurant|supermarket)$"](${bb});
+`;
+    queryBody+=`node["amenity"="charging_station"]["bicycle"~"yes|designated"](${bb});
 `;
     queryBody+=`node["shop"~"^(supermarket|convenience|bakery)$"](${bb});
 `;
@@ -711,7 +831,8 @@ function processOverpassResults(elements, corridorM){
 
     const isCamping   = t.tourism==='camp_site'||t.tourism==='caravan_site'||t.amenity==='camping';
     const isHostel    = false; // deaktiviert – zu viele Treffer
-    const isCharging  = t.amenity==='charging_station';
+    // Nur E-Bike Ladestationen (bicycle=yes/designated), keine Auto-Ladestationen
+    const isCharging  = t.amenity==='charging_station' && /yes|designated/i.test(t.bicycle||'');
     const isFood      = t.amenity==='restaurant'; // nur echte Restaurants
     const isShop      = ['supermarket','convenience','bakery'].includes(t.shop);
 
@@ -727,8 +848,8 @@ function processOverpassResults(elements, corridorM){
       E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone,hours,website,lat,lon,_osm:true,_hostel:true});
     } else if(isCharging){
       const network = t.network||t.operator||'';
-      const label = network ? `${name} (${network})` : name;
-      E.push({km,d:0,h:0,l,ort,t:'Ladestation',n:label,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
+      const label = network ? `${name} (${network})` : (name||'E-Bike Ladestation');
+      E.push({km,d:0,h:0,l,ort,t:'Ladestation',n:`🔋 ${label}`,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
     } else if(isFood){
       const cuisine = t.cuisine ? ` · ${t.cuisine.replace(';',' / ')}` : '';
       const rating  = t.stars ? parseFloat(t.stars) : null;
@@ -770,59 +891,22 @@ function addBuiltinMarkersToMap(){
     window._poiCluster.addLayer(m);
     e.t==='Camping'?campM.push(m):chargeM.push(m);
   });
+  // Add restaurant markers
+  const restIco=L.divIcon({html:`<div style="background:#e07820;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">🍽️</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
+  R.forEach(e=>{
+    if(!e.lat||!e.lon) return;
+    const m=L.marker([e.lat,e.lon],{icon:restIco});
+    m.bindTooltip(`<b>${e.n}</b><br>${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
+    window._poiCluster.addLayer(m);
+  });
+  // Add shop markers
+  shopPois.forEach(e=>{
+    if(!e.lat||!e.lon) return;
+    const m=L.marker([e.lat,e.lon],{icon:shopIco});
+    m.bindTooltip(`<b>${e.n}</b><br>${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
+    window._poiCluster.addLayer(m);
+  });
 }
-
-// ══════════════════════════════════════════
-// GOOGLE MAPS FAVOURITES (Takeout JSON)
-// ══════════════════════════════════════════
-let googleFavs=[];
-let favMarkers={};
-function loadGoogleFavs(){try{googleFavs=JSON.parse(localStorage.getItem('bikepacking_google_favs')||'[]');}catch(e){googleFavs=[];}}
-function saveGoogleFavs(){try{localStorage.setItem('bikepacking_google_favs',JSON.stringify(googleFavs));}catch(e){}}
-loadGoogleFavs();
-function syncFavMarker(fav){
-  if(!mapObj||!mapInitialized||!fav.lat||!fav.lon) return;
-  if(favMarkers[fav.id]) mapObj.removeLayer(favMarkers[fav.id]);
-  const icon=L.divIcon({html:`<div style="background:#e0305a;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.22);cursor:pointer">❤️</div>`,iconSize:[32,32],iconAnchor:[16,16],className:''});
-  const m=L.marker([fav.lat,fav.lon],{icon,zIndexOffset:300});
-  m.bindTooltip(`<b>❤️ ${fav.n}</b>${fav.addr?'<br>'+fav.addr:''}`,{direction:'top',offset:[0,-14]});
-  m.addTo(mapObj);
-  favMarkers[fav.id]=m;
-}
-function removeFavMarker(id){if(favMarkers[id]&&mapObj){mapObj.removeLayer(favMarkers[id]);delete favMarkers[id];}}
-function syncAllFavMarkers(){googleFavs.forEach(f=>syncFavMarker(f));}
-function importFavJson(event){
-  const file=event.target.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=function(ev){
-    let data; try{data=JSON.parse(ev.target.result);}catch(e){alert('❌ Ungültige JSON-Datei.');return;}
-    let entries=[];
-    if(Array.isArray(data)) entries=data;
-    else if(data.features) entries=data.features;
-    if(!entries.length){alert('❌ Keine Einträge gefunden. Bitte die Datei „Gespeicherte Orte.json" verwenden.');return;}
-    googleFavs.forEach(f=>removeFavMarker(f.id)); googleFavs=[];
-    let imported=0,skipped=0;
-    entries.forEach((entry,i)=>{
-      const title=entry.Title||entry.title||entry.properties?.Title||entry.properties?.name||'';
-      if(!title){skipped++;return;}
-      let lat=null,lon=null;
-      const addr=entry.properties?.location?.address||entry.Address||'';
-      if(entry.geometry?.type==='Point'&&entry.geometry.coordinates?.length>=2){lon=parseFloat(entry.geometry.coordinates[0]);lat=parseFloat(entry.geometry.coordinates[1]);}
-      if(!lat&&entry.properties?.location?.geo){lat=parseFloat(entry.properties.location.geo.latitude||0);lon=parseFloat(entry.properties.location.geo.longitude||0);}
-      if(!lat){const url=entry['Google Maps URL']||entry.properties?.['Google Maps URL']||'';const m=url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);if(m){lat=parseFloat(m[1]);lon=parseFloat(m[2]);}}
-      if(!lat||!lon||isNaN(lat)||isNaN(lon)){skipped++;return;}
-      googleFavs.push({id:'fav_'+i+'_'+Date.now(),n:title,addr,lat,lon}); imported++;
-    });
-    saveGoogleFavs();
-    if(currentView==='poi') toggleView();
-    setTimeout(()=>syncAllFavMarkers(),300);
-    event.target.value='';
-    setTimeout(()=>alert(skipped>0?`✅ ${imported} Favoriten importiert.\n⚠️ ${skipped} ohne Koordinaten übersprungen.`:`✅ ${imported} Favoriten importiert!`),400);
-  };
-  reader.readAsText(file,'UTF-8');
-}
-function deleteFav(id){if(!confirm('Diesen Favoriten löschen?'))return;removeFavMarker(id);googleFavs=googleFavs.filter(f=>f.id!==id);saveGoogleFavs();renderList();}
-function deleteAllFavs(){if(!confirm(`Alle ${googleFavs.length} Favoriten wirklich löschen?`))return;googleFavs.forEach(f=>removeFavMarker(f.id));googleFavs=[];saveGoogleFavs();renderList();}
 
 
 // Add/update a single custom POI marker on the map
@@ -1077,7 +1161,7 @@ function toggleView(){
     document.getElementById('toggle-icon').textContent='📋';
     document.getElementById('toggle-label').textContent='POI-Liste';
     if(!mapInitialized) initMap();
-    else{ if(mapObj) setTimeout(()=>mapObj.invalidateSize(),150); syncAllCustomPoiMarkers(); syncAllFavMarkers(); }
+    else{ if(mapObj) setTimeout(()=>mapObj.invalidateSize(),150); syncAllCustomPoiMarkers(); }
   } else {
     currentView='poi';
     document.getElementById('view-map').style.display='none';
@@ -1163,7 +1247,6 @@ function setFilter(f){
   document.getElementById('f-camp').className='ftab'+(f==='camp'?' active-camp':'');
   document.getElementById('f-chg').className='ftab'+(f==='chg'?' active-chg':'');
   document.getElementById('f-rest').className='ftab'+(f==='rest'?' active-rest':'');
-  document.getElementById('f-fav').className='ftab'+(f==='fav'?' active-fav':'');
   document.getElementById('f-shop').className='ftab'+(f==='shop'?' active-shop':'');
   renderList();
 }
@@ -1173,24 +1256,6 @@ function renderList(){
   const list=document.getElementById('poi-list');
   hint.style.display='none';
   // Without GPS: show all POIs sorted by route-km instead of distance
-
-  // ── FAVOURITES — works without GPS ──
-  if(activeFilter==='fav'){
-    const importBtn=`<button onclick="document.getElementById('fav-json-input').click()" style="width:100%;padding:11px;background:linear-gradient(135deg,#e0305a,#a01030);border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;margin-bottom:10px;-webkit-appearance:none">📥 Google Takeout JSON importieren</button>`;
-    if(googleFavs.length===0){
-      list.innerHTML=importBtn+`<div style="text-align:center;padding:20px;color:#9ab0c8;font-size:.8rem;line-height:1.9;background:#fff;border-radius:12px;border:1px solid #e8eef4"><span style="font-size:2.2rem;display:block;margin-bottom:8px">❤️</span><b>Noch keine Favoriten importiert.</b><br><br>1. <a href="https://takeout.google.com" target="_blank" style="color:#e0305a">takeout.google.com</a> öffnen<br>2. Nur <b>„Maps (Ihre Orte)"</b> auswählen<br>3. Export herunterladen &amp; entpacken<br>4. Datei <b>„Gespeicherte Orte.json"</b> importieren</div>`;
-      return;
-    }
-    const items=googleFavs.map(f=>({...f,dist:uLat&&f.lat?hav(uLat,uLon,f.lat,f.lon):null})).sort((a,b)=>(a.dist??999)-(b.dist??999));
-    const deleteAllBtn=`<button onclick="deleteAllFavs()" style="width:100%;padding:8px;background:#fff0f3;border:1.5px solid #f0a0b8;border-radius:10px;color:#a0103a;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;margin-bottom:10px;-webkit-appearance:none">🗑️ Alle ${googleFavs.length} Favoriten löschen</button>`;
-    const cards=items.map(f=>{
-      const mapsUrl=`https://maps.google.com/?q=${f.lat},${f.lon}`;
-      const dist=f.dist!=null?(f.dist<1?(f.dist*1000).toFixed(0)+' m':f.dist<10?f.dist.toFixed(1)+' km':Math.round(f.dist)+' km'):'';
-      return `<div class="poi-card" style="border:2px solid #f0a0b8"><div class="poi-header"><div class="poi-icon" style="background:#fff0f3;font-size:1.2rem">❤️</div><div class="poi-title-block"><div class="poi-name">${f.n}</div><div class="poi-sub"><span class="poi-badge badge-fav">Google Favorit</span>${f.addr}</div></div>${dist?`<div class="poi-dist">${dist}<small>entfernt</small></div>`:''}</div><div class="poi-actions"><a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps</a><button class="btn-call" onclick="deleteFav('${f.id}')" style="cursor:pointer;color:#c04040">🗑️</button></div></div>`;
-    }).join('');
-    list.innerHTML=importBtn+deleteAllBtn+cards;
-    return;
-  }
 
   // ── SHOP filter ──
   if(activeFilter==='shop'){
@@ -1202,7 +1267,7 @@ function renderList(){
     list.innerHTML=items.map(e=>{
       const mapsUrl=`https://maps.google.com/?q=${e.lat},${e.lon}`;
       const dist=e.dist!=null?(e.dist<1?(e.dist*1000).toFixed(0)+' m':e.dist<10?e.dist.toFixed(1)+' km':Math.round(e.dist)+' km'):'';
-      return `<div class="poi-card" style="border:2px solid #a0d070"><div class="poi-header"><div class="poi-icon" style="background:#f0f8e8;font-size:1.1rem">🛒</div><div class="poi-title-block"><div class="poi-name">${e.n}</div><div class="poi-sub"><span class="poi-badge badge-shop">Shop</span>${e.ort}${e.hours?' · '+e.hours:''}</div></div><div class="poi-dist">${e.km} km<small>ab Start</small></div></div><div class="poi-actions"><a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps</a>${e.p&&e.p!=='nicht verfügbar'?`<a class="btn-call" href="tel:${e.p}">📞 Anrufen</a>`:''}</div></div>`;
+      return `<div class="poi-card" style="border:2px solid #a0d070"><div class="poi-header"><div class="poi-icon" style="background:#f0f8e8;font-size:1.1rem">🛒</div><div class="poi-title-block"><div class="poi-name">${e.n}</div><div class="poi-sub"><span class="poi-badge badge-shop">Shop</span>${e.ort}${e.hours?' · '+e.hours:''}${elevationBadge(e.lat,e.lon)}</div></div><div class="poi-dist">${e.km} km<small>ab Start</small></div></div>${uLat&&e.lat?`<div class="poi-details"><div class="poi-detail-row"><span class="ico">🧭</span><span>${fmtDist(hav(uLat,uLon,e.lat,e.lon))} entfernt${elevationReady?' · ↑ '+(elevationGainTo(e.lat,e.lon)||0)+' Hm':''}</span></div></div>`:''}<div class="poi-actions"><a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps</a>${e.p&&e.p!=='nicht verfügbar'?`<a class="btn-call" href="tel:${e.p}">📞 Anrufen</a>`:''}</div></div>`;
     }).join('');
     return;
   }
@@ -1215,7 +1280,7 @@ function renderList(){
       list.innerHTML=`<div style="text-align:center;padding:36px 20px;color:#9ab0c8;font-size:.82rem;line-height:1.9"><span style="font-size:2.5rem;display:block;margin-bottom:10px">📌</span><b>Noch keine eigenen POIs erfasst.</b><br>Tippe das <b>➕</b> oben, um deinen ersten POI hinzuzufügen.</div>`;
       return;
     }
-    const ownItems=ownPois.map(e=>({...e,dist:hav(uLat,uLon,e.lat||0,e.lon||0)})).sort((a,b)=>a.km-b.km);
+    const ownItems=ownPois.map(e=>({...e,dist:uLat&&e.lat?hav(uLat,uLon,e.lat||0,e.lon||0):null})).sort((a,b)=>a.km-b.km);
     const hiddenCards=hiddenPois.map(e=>`<div class="poi-card" style="border:2px dashed #dde4ec;opacity:.6" data-poi-id="hidden_${e.n.replace(/[^a-zA-Z0-9]/g,'_')}">
       <div class="poi-header">
         <div class="poi-icon" style="background:#f4f6f9">🚫</div>
@@ -1254,12 +1319,13 @@ function renderList(){
           <div class="poi-icon" style="background:#fff4e8">🍽️</div>
           <div class="poi-title-block">
             <div class="poi-name">${d.n}${d._wasBuiltin?'<span style="font-size:.6rem;color:#c85a0a;margin-left:5px">✏️ bearbeitet</span>':''}</div>
-            <div class="poi-sub"><span class="poi-badge badge-rest">Restaurant</span>${getFlag(d.l)} ${d.ort}${isNearest?'<span class="nearest-tag">⭐ Nächstes</span>':''}</div>
+            <div class="poi-sub"><span class="poi-badge badge-rest">Restaurant</span>${getFlag(d.l)} ${d.ort}${isNearest?'<span class="nearest-tag">⭐ Nächstes</span>':''}${elevationBadge(d.lat,d.lon)}</div>
           </div>
           <div class="poi-dist">${d.km} km<small>ab Rebstein</small></div>
         </div>
         <div class="poi-details">
           <div class="poi-detail-row"><span class="ico">📍</span><span>${d.addr}</span></div>
+          ${uLat&&d.lat?`<div class="poi-detail-row"><span class="ico">🧭</span><span>${fmtDist(hav(uLat,uLon,d.lat,d.lon))} entfernt${elevationReady?' · ↑ '+(elevationGainTo(d.lat,d.lon)||0)+' Hm':''}</span></div>`:''}
           ${d.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${d.hours}</span></div>`:''}
           ${d.rating?`<div class="poi-detail-row"><span class="ico">⭐</span><span>${d.rating} / 5</span></div>`:''}
           ${hasPhone?`<div class="poi-detail-row"><span class="ico">📞</span><span>${d.p}</span></div>`:''}
@@ -1320,12 +1386,13 @@ function renderList(){
         <div class="poi-icon" style="background:${iconBg}">${icon}</div>
         <div class="poi-title-block">
           <div class="poi-name">${e.n}${wasEdited?'<span style="font-size:.6rem;color:#c85a0a;margin-left:5px">✏️ bearbeitet</span>':''}</div>
-          <div class="poi-sub"><span class="poi-badge ${badgeCls}">${badgeLabel}</span>${getFlag(e.l)} ${e.ort}${nearestTag}</div>
+          <div class="poi-sub"><span class="poi-badge ${badgeCls}">${badgeLabel}</span>${getFlag(e.l)} ${e.ort}${nearestTag}${elevationBadge(e.lat,e.lon)}</div>
         </div>
         <div class="poi-dist">${e.km} km<small>ab Rebstein</small></div>
       </div>
       <div class="poi-details">
         <div class="poi-detail-row"><span class="ico">📍</span><span>${e.addr}</span></div>
+        ${uLat&&e.lat?`<div class="poi-detail-row"><span class="ico">🧭</span><span>${fmtDist(hav(uLat,uLon,e.lat,e.lon))} entfernt${elevationReady?' · ↑ '+(elevationGainTo(e.lat,e.lon)||0)+' Hm':''}</span></div>`:''}
         ${e.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${e.hours}</span></div>`:''}
         ${e.rating?`<div class="poi-detail-row"><span class="ico">⭐</span><span>${e.rating} / 5</span></div>`:''}
         ${hasPhone?`<div class="poi-detail-row"><span class="ico">📞</span><span>${e.p}</span></div>`:''}
@@ -1353,12 +1420,13 @@ function renderPoiCard(e, isOwn){
       <div class="poi-icon" style="background:${tm.bg}">${tm.icon}</div>
       <div class="poi-title-block">
         <div class="poi-name">${e.n}</div>
-        <div class="poi-sub"><span class="poi-badge ${tm.badge}">${e.t}</span><span class="poi-badge badge-own">📌 Eigener POI</span>${getFlag(e.l)} ${e.ort}</div>
+        <div class="poi-sub"><span class="poi-badge ${tm.badge}">${e.t}</span><span class="poi-badge badge-own">📌 Eigener POI</span>${getFlag(e.l)} ${e.ort}${elevationBadge(e.lat,e.lon)}</div>
       </div>
       <div class="poi-dist">${e.km} km<small>ab Rebstein</small></div>
     </div>
     <div class="poi-details">
       ${e.addr?`<div class="poi-detail-row"><span class="ico">📍</span><span>${e.addr}</span></div>`:''}
+      ${dist!=null?`<div class="poi-detail-row"><span class="ico">🧭</span><span>${fmtDist(dist)} entfernt${elevationReady?' · ↑ '+(elevationGainTo(e.lat,e.lon)||0)+' Hm':''}</span></div>`:''}
       ${e.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${e.hours}</span></div>`:''}
       ${hasPhone?`<div class="poi-detail-row"><span class="ico">📞</span><span>${e.p}</span></div>`:''}
       ${e.note?`<div class="poi-detail-row"><span class="ico">📝</span><span>${e.note}</span></div>`:''}
@@ -1372,7 +1440,6 @@ function renderPoiCard(e, isOwn){
 }
 
 renderList();
-setTimeout(()=>{const el=document.getElementById('poi-km');if(el)el.addEventListener('input',updateKmHint);},200);
 // ══════════════════════════════════════════════════════
 let mapObj=null;
 let routeLayerRef=null;
@@ -1413,7 +1480,6 @@ function initMap(){
   if(RC.length>0) buildDynamicArrows(RC[0][0],RC[0][1]);
   mapObj.on('dragstart',()=>{autoCenter=false;document.getElementById('autocenter-btn').style.background='#fff';});
   syncAllCustomPoiMarkers();
-  syncAllFavMarkers();
   loadRiderPosition();
   setInterval(loadRiderPosition, 30000);
 }
@@ -1472,9 +1538,9 @@ function refreshGPS(){
   const _p=document.getElementById('g-pos');if(_p)_p.textContent=`${uLat.toFixed(4)}°N  ${uLon.toFixed(4)}°E`;
   const _st=document.getElementById('map-gps-status');if(_st){_st.textContent=`${uLat.toFixed(4)}°N ${uLon.toFixed(4)}°E`;_st.className='ok';}
   const nc=nearest("Camping");
-  if(nc){document.getElementById('g-cn').textContent=nc.e.n;document.getElementById('g-cd').innerHTML=`<span class="dist-pill">${fmt(nc.d)} entfernt</span>  ${FL[nc.e.l]} km ${nc.e.km}`;}
+  if(nc){document.getElementById('g-cn').textContent=nc.e.n;document.getElementById('g-cd').innerHTML=`<span class="dist-pill">${fmt(nc.d)} entfernt</span>  ${getFlag(nc.e.l)} km ${nc.e.km}`;}
   const nh=nearest("Ladestation");
-  if(nh){document.getElementById('g-hn').textContent=nh.e.n;document.getElementById('g-hd').innerHTML=`<span class="dist-pill ch">${fmt(nh.d)} entfernt</span>  ${FL[nh.e.l]} km ${nh.e.km}`;}
+  if(nh){document.getElementById('g-hn').textContent=nh.e.n;document.getElementById('g-hd').innerHTML=`<span class="dist-pill ch">${fmt(nh.d)} entfernt</span>  ${getFlag(nh.e.l)} km ${nh.e.km}`;}
   const k=routeKm(),pct=Math.min(100,Math.round(k/TOTAL*100));
   document.getElementById('g-prog').textContent=`~${k} km (${pct}%)`;
   document.getElementById('g-rem').textContent=`noch ~${TOTAL-k} km`;
@@ -1496,8 +1562,8 @@ function onGpsUpdate(pos){
   refreshGPS();
   const movedKm=lastArrowLat?hav(lastArrowLat,lastArrowLon,lat,lon):999;
   if(movedKm>0.3){buildDynamicArrows(lat,lon);lastArrowLat=lat;lastArrowLon=lon;}
-  // Also update POI view if it uses same GPS
-  if(!uLat) renderList();
+  // Also update POI view with fresh GPS data
+  renderList();
 }
 
 function setMapTbGpsState(state){
@@ -1583,13 +1649,15 @@ function buildDynamicArrows(uLt,uLn){
 function showPanel(e,i){
   const iC=e.t==="Camping",pct=(e.km/TOTAL*100).toFixed(1);
   const badge=iC?'<span class="badge camp">⛺ Campingplatz</span>':'<span class="badge chg">⚡ Ladestation</span>';
-  const distRow=uLat?`<div class="irow"><div class="iico" style="background:#fff4ec">🧭</div><div class="itxt"><div class="ilbl">Entfernung von dir</div><div class="ival"><b style="color:#c85a0a">${fmt(hav(uLat,uLon,e.lat,e.lon))}</b></div></div></div>`:'';
+  const elevGain=elevationGainTo(e.lat,e.lon);
+  const elevTxt=elevGain!==null?` · ↑ ${elevGain} Hm`:'';
+  const distRow=uLat?`<div class="irow"><div class="iico" style="background:#fff4ec">🧭</div><div class="itxt"><div class="ilbl">Entfernung von dir</div><div class="ival"><b style="color:#c85a0a">${fmt(hav(uLat,uLon,e.lat,e.lon))}</b>${elevTxt}</div></div></div>`:'';
   document.getElementById('ptitle').textContent=e.n;
   document.getElementById('pbody').innerHTML=`${badge}<div class="kmbar"><div class="kmfill" style="width:${pct}%"></div></div>
     <div class="irow"><div class="iico" style="background:#fff4ec">📍</div><div class="itxt"><div class="ilbl">Km vom Start (Rebstein)</div><div class="ival"><b style="color:#c85a0a">${e.km} km</b> · ${pct}% der Route</div></div></div>
     ${distRow}
     <div class="irow"><div class="iico" style="background:#e8f0fb">↔️</div><div class="itxt"><div class="ilbl">Seit letztem Eintrag</div><div class="ival">${e.d} km · +${e.h} Hm ↑</div></div></div>
-    <div class="irow"><div class="iico" style="background:#eaf5ee">🌍</div><div class="itxt"><div class="ilbl">Land / Ort</div><div class="ival">${FL[e.l]} ${e.l} · ${e.ort}</div></div></div>
+    <div class="irow"><div class="iico" style="background:#eaf5ee">🌍</div><div class="itxt"><div class="ilbl">Land / Ort</div><div class="ival">${getFlag(e.l)} ${e.l} · ${e.ort}</div></div></div>
     <div class="irow"><div class="iico" style="background:#f0ecf8">🏠</div><div class="itxt"><div class="ilbl">Adresse</div><div class="ival">${e.addr}</div></div></div>
     <div class="irow"><div class="iico" style="background:#fdf8ec">📞</div><div class="itxt"><div class="ilbl">Telefon</div><div class="ival">${e.p!=='nicht verfügbar'?`<a href="tel:${e.p}" style="color:#1a4a8a;text-decoration:none;font-weight:500">${e.p}</a>`:'<span style="color:#aab8c8">nicht verfügbar</span>'}</div></div></div>
     <a class="mapbtn" href="https://maps.google.com/?q=${e.lat},${e.lon}" target="_blank">🗺️ In Google Maps öffnen</a>`;
@@ -1603,9 +1671,9 @@ function closePanel(){document.getElementById('panel').classList.add('hidden');}
 let listPanelOpen=false;
 function toggleListPanel(){
   listPanelOpen=!listPanelOpen;
-  const lp=document.getElementById('listpanel'),btn=document.getElementById('list-toggle-btn');
-  if(listPanelOpen){lp.classList.remove('hidden');btn.style.display='none';}
-  else{lp.classList.add('hidden');btn.style.display='';}
+  const lp=document.getElementById('listpanel');
+  if(listPanelOpen){lp.classList.remove('hidden');}
+  else{lp.classList.add('hidden');}
 }
 let listOn=true;
 function toggleList(){
@@ -1717,6 +1785,10 @@ window.addEventListener('load', async ()=>{
       },300);
     }
   }
+  // Fetch elevation data for route (async, doesn't block)
+  if(RC.length>=2 && !elevationReady){
+    fetchRouteElevations().then(()=>{ if(elevationReady) renderList(); });
+  }
   } catch(e){ console.warn('Startup error:', e); }
 });
 
@@ -1814,7 +1886,7 @@ function doLogin(){
 function startRiderTracking(){
   if(riderWatchId) return;
   const btn=document.getElementById('admin-btn');
-  if(btn){btn.textContent='🚴 Tracking aktiv';btn.style.background='linear-gradient(135deg,#c85a0a,#e07820)';}
+  if(btn){btn.querySelector('span:last-child').textContent='Tracking…';btn.style.background='linear-gradient(135deg,#c85a0a,#e07820)';}
   riderWatchId=navigator.geolocation.watchPosition(pos=>{
     const {latitude:lat,longitude:lon}=pos.coords;
     if(riderMarker) mapObj.removeLayer(riderMarker);
@@ -1830,8 +1902,7 @@ function startRiderTracking(){
 function stopRiderTracking(){
   if(riderWatchId){navigator.geolocation.clearWatch(riderWatchId);riderWatchId=null;}
   const btn=document.getElementById('admin-btn');
-  if(btn){btn.textContent='🔐 Admin Login';btn.style.background='';}
-  isAdmin=false;
+  if(btn){btn.querySelector('span:last-child').textContent='Admin';btn.style.background='';}
 }
 </script>
 <!-- ADD / EDIT POI MODAL – ausserhalb aller Views, direkt am body -->
@@ -1958,8 +2029,10 @@ const WMO={
   0:'Klar',1:'Überwiegend klar',2:'Teilweise bewölkt',3:'Bedeckt',
   45:'Nebel',48:'Raureif',
   51:'Leichter Niesel',53:'Niesel',55:'Starker Niesel',
+  56:'Gefrierender Niesel (leicht)',57:'Gefrierender Niesel',
   61:'Leichter Regen',63:'Regen',65:'Starker Regen',
-  71:'Leichter Schnee',73:'Schnee',75:'Starker Schnee',
+  66:'Gefrierender Regen (leicht)',67:'Gefrierender Regen',
+  71:'Leichter Schnee',73:'Schnee',75:'Starker Schnee',77:'Schneegriesel',
   80:'Leichte Schauer',81:'Schauer',82:'Starke Schauer',
   85:'Schneeschauer',86:'Starke Schneeschauer',
   95:'Gewitter',96:'Gewitter mit Hagel',99:'Starkes Gewitter'
@@ -1968,8 +2041,10 @@ const WMO_ICON={
   0:'☀️',1:'🌤️',2:'⛅',3:'☁️',
   45:'🌫️',48:'🌫️',
   51:'🌦️',53:'🌦️',55:'🌧️',
+  56:'🌧️',57:'🌧️',
   61:'🌧️',63:'🌧️',65:'🌧️',
-  71:'🌨️',73:'❄️',75:'❄️',
+  66:'🌧️',67:'🌧️',
+  71:'🌨️',73:'❄️',75:'❄️',77:'🌨️',
   80:'🌦️',81:'🌧️',82:'⛈️',
   85:'🌨️',86:'🌨️',
   95:'⛈️',96:'⛈️',99:'⛈️'
