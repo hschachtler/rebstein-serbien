@@ -46,7 +46,7 @@ body{
 .topbar-btn-weather{background:linear-gradient(135deg,#1a5080,#2a6aaa);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)}
 .topbar-btn-map{background:linear-gradient(135deg,#1a6b4a,#1a5080);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)}
 .topbar-btn-komoot{background:#6ab04c;color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15);padding:5px 9px}
-.topbar-btn-login{background:#f0f4f8;border:1px solid #dde4ec;color:#5a7a9a}
+.topbar-btn-login{background:linear-gradient(135deg,#4a3a7a,#2a2060);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)}
 
 /* ── VIEW TOGGLE BUTTON ── */
 #view-toggle-btn:active{opacity:.75}
@@ -1691,25 +1691,26 @@ function saveAppToFile(){
 }
 
 window.addEventListener('load', async ()=>{
-  await new Promise(r=>setTimeout(r,500));
-  const ok = await ghLoadPois();
-  if(ok && (E.length>0||R.length>0)){
-    // Update the banner
-    const banner=document.getElementById('gpx-upload-banner');
-    if(banner) banner.classList.add('loaded');
-    // Render the POI list immediately
-    renderList();
-    // Add markers to map once it's open
-    if(mapInitialized && mapObj){
-      addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
-    } else {
-      const iv=setInterval(()=>{
-        if(mapInitialized && mapObj){
-          clearInterval(iv);
-          addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
-        }
-      },300);
+  try{
+    await new Promise(r=>setTimeout(r,500));
+    const ok = await ghLoadPois();
+    if(ok && (E.length>0||R.length>0)){
+      const banner=document.getElementById('gpx-upload-banner');
+      if(banner) banner.classList.add('loaded');
+      renderList();
+      if(mapInitialized && mapObj){
+        addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
+      } else {
+        const iv=setInterval(()=>{
+          if(mapInitialized && mapObj){
+            clearInterval(iv);
+            addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); drawGpxRoute();
+          }
+        },300);
+      }
     }
+  } catch(e){
+    console.warn('Startup error (non-fatal):', e);
   }
 });
 
@@ -1756,15 +1757,18 @@ async function saveRiderPosition(lat,lon){
 }
 
 function openLoginModal(){
-  // Pre-fill token field if stored
+  const modal=document.getElementById('login-modal');
+  if(!modal) return;
+  modal.style.display='flex';
+  const pw=document.getElementById('login-pw');
+  if(pw) pw.value='';
+  const err=document.getElementById('login-err');
+  if(err) err.style.display='none';
   setTimeout(()=>{
     const tf=document.getElementById('gh-token-input');
     if(tf) tf.value=ghToken||'';
-  },50);
-  document.getElementById('login-modal').style.display='flex';
-  document.getElementById('login-pw').value='';
-  document.getElementById('login-err').style.display='none';
-  setTimeout(()=>document.getElementById('login-pw').focus(),100);
+    if(pw) pw.focus();
+  },100);
 }
 function closeLoginModal(){
   document.getElementById('login-modal').style.display='none';
