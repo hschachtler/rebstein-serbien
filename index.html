@@ -97,6 +97,8 @@ body{
 .ftab.active-chg{background:#e8f0fb;border-color:#1a60c0;color:#1a4a8a}
 .ftab.active-all{background:#f0ecf8;border-color:#7a5aa0;color:#4a2a7a}
 .ftab.active-rest{background:#fff4e8;border-color:#e07820;color:#a04010}
+.ftab.active-accom{background:#f0ecf8;border-color:#8a5ab0;color:#5a2a8a}
+.badge-accom{background:#f0ecf8;color:#5a2a8a;border:1px solid #c0a0e8}
 .ftab.active-shop{background:#f0f8e8;border-color:#5a9a2a;color:#2a5a0a}
 .badge-shop{background:#f0f8e8;color:#2a5a0a;border:1px solid #a0d070}
 
@@ -194,7 +196,7 @@ body{
 .mapbtn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:9px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:500;cursor:pointer;text-decoration:none;transition:all .2s;margin-top:9px;min-height:42px;-webkit-appearance:none}
 .mapbtn:active{opacity:.85}
 
-#listpanel{position:absolute;bottom:calc(76px + env(safe-area-inset-bottom));left:8px;width:calc(100vw - 16px);max-width:290px;background:#fff;border:1px solid #dde4ec;border-radius:14px;z-index:800;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.09);transition:all .3s}
+#listpanel{position:absolute;bottom:calc(76px + env(safe-area-inset-bottom) + 48px);left:8px;width:calc(100vw - 16px);max-width:290px;background:#fff;border:1px solid #dde4ec;border-radius:14px;z-index:800;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.09);transition:all .3s}
 #listpanel.hidden{transform:translateY(12px);opacity:0;pointer-events:none}
 #listhdr{padding:9px 12px;background:linear-gradient(135deg,#f0f7f4,#e8f0fb);border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
 #listhdr h4{font-family:'Playfair Display',serif;font-size:.78rem;color:#1a2b3c}
@@ -304,6 +306,7 @@ a{color:inherit}
   <div id="filters">
     <button class="ftab active-all" id="f-all" onclick="setFilter('all')">🗂 Alle</button>
     <button class="ftab" id="f-camp" onclick="setFilter('camp')">⛺ Camp</button>
+    <button class="ftab" id="f-accom" onclick="setFilter('accom')">🏠 Bed</button>
     <button class="ftab" id="f-chg" onclick="setFilter('chg')">🔋 E-Bike</button>
     <button class="ftab" id="f-rest" onclick="setFilter('rest')">🍽️ Essen</button>
     <button class="ftab" id="f-shop" onclick="setFilter('shop')">🛒 Shop</button>
@@ -339,6 +342,14 @@ a{color:inherit}
     <div id="listhdr"><h4>📋 Stationen</h4><button id="ltoggle" onclick="toggleList()">▼</button>
       <button onclick="toggleListPanel()" style="background:#fee8e8;border:1px solid #f0a0a0;color:#b04040;font-size:.72rem;padding:4px 8px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-left:3px;min-height:30px;-webkit-appearance:none">✕</button>
     </div><div id="elist"></div>
+  </div>
+  <div id="map-filter-bar" style="position:absolute;bottom:calc(70px + env(safe-area-inset-bottom));left:8px;right:8px;z-index:1000;display:flex;gap:4px;padding:5px 6px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.1);border:1px solid rgba(226,232,240,.8)">
+    <button class="ftab active-all" id="mf-all" onclick="setFilter('all')" style="flex:1;min-height:32px;font-size:.65rem;padding:4px 2px">🗂 Alle</button>
+    <button class="ftab" id="mf-camp" onclick="setFilter('camp')" style="flex:1;min-height:32px;font-size:.65rem;padding:4px 2px">⛺</button>
+    <button class="ftab" id="mf-accom" onclick="setFilter('accom')" style="flex:1;min-height:32px;font-size:.65rem;padding:4px 2px">🏠</button>
+    <button class="ftab" id="mf-chg" onclick="setFilter('chg')" style="flex:1;min-height:32px;font-size:.65rem;padding:4px 2px">🔋</button>
+    <button class="ftab" id="mf-rest" onclick="setFilter('rest')" style="flex:1;min-height:32px;font-size:.65rem;padding:4px 2px">🍽️</button>
+    <button class="ftab" id="mf-shop" onclick="setFilter('shop')" style="flex:1;min-height:32px;font-size:.65rem;padding:4px 2px">🛒</button>
   </div>
   <div id="map-toolbar">
     <button id="map-tb-gps" class="map-tb-btn map-tb-btn-gps" onclick="locateMeMap()"><span class="tb-icon">📡</span><span id="map-tb-gps-lbl">Standort</span></button>
@@ -740,6 +751,8 @@ async function fetchOverpassPois(){
     // Nur die wichtigsten Kategorien
     queryBody+=`node["tourism"~"^(camp_site|caravan_site)$"](${bb});
 `;
+    queryBody+=`node["tourism"~"^(hostel|guest_house|apartment|alpine_hut)$"](${bb});
+`;
     queryBody+=`node["amenity"~"^(camping|restaurant|supermarket)$"](${bb});
 `;
     queryBody+=`node["amenity"="charging_station"]["bicycle"~"yes|designated"](${bb});
@@ -830,7 +843,7 @@ function processOverpassResults(elements, corridorM){
     const l      = '??';
 
     const isCamping   = t.tourism==='camp_site'||t.tourism==='caravan_site'||t.amenity==='camping';
-    const isHostel    = false; // deaktiviert – zu viele Treffer
+    const isAccom     = ['hostel','guest_house','apartment','alpine_hut'].includes(t.tourism);
     // Nur E-Bike Ladestationen (bicycle=yes/designated), keine Auto-Ladestationen
     const isCharging  = t.amenity==='charging_station' && /yes|designated/i.test(t.bicycle||'');
     const isFood      = t.amenity==='restaurant'; // nur echte Restaurants
@@ -839,13 +852,13 @@ function processOverpassResults(elements, corridorM){
     // Vollständigkeitsfilter: nur POIs mit ausreichenden Daten
     if(!name) return;
     if(isFood || isShop){ if(!addr || !hours) return; }
-    if(isCamping || isHostel){ if(!addr && !hours && !website) return; }
+    if(isCamping){ if(!addr && !hours && !website) return; }
 
     if(isCamping){
       E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:name,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
-    } else if(isHostel){
-      // Hostels/Guesthouses go into Camping category with different icon hint
-      E.push({km,d:0,h:0,l,ort:ort||name,t:'Camping',n:`🏠 ${name}`,addr,p:phone,hours,website,lat,lon,_osm:true,_hostel:true});
+    } else if(isAccom){
+      const typeLabel=t.tourism==='alpine_hut'?'🏔️':t.tourism==='hostel'?'🏠':t.tourism==='apartment'?'🏢':'🛏️';
+      E.push({km,d:0,h:0,l,ort:ort||name,t:'Unterkunft',n:`${typeLabel} ${name}`,addr,p:phone||'nicht verfügbar',hours,website,lat,lon,_osm:true});
     } else if(isCharging){
       const network = t.network||t.operator||'';
       const label = network ? `${name} (${network})` : (name||'E-Bike Ladestation');
@@ -868,11 +881,11 @@ function processOverpassResults(elements, corridorM){
 
   if(mapInitialized&&mapObj) addBuiltinMarkersToMap();
 
-  const nCamp   = E.filter(e=>e.t==='Camping'&&!e._hostel).length;
-  const nHostel = E.filter(e=>e._hostel).length;
+  const nCamp   = E.filter(e=>e.t==='Camping').length;
+  const nAccom  = E.filter(e=>e.t==='Unterkunft').length;
   const nCharge = E.filter(e=>e.t==='Ladestation').length;
   document.getElementById('gpx-status').textContent =
-    `✅ ${gpxRouteName} · ⛺ ${nCamp} Camp · 🏠 ${nHostel} Unterkunft · ⚡ ${nCharge} Laden · 🍽️ ${R.length} Essen · 🛒 ${shopPois.length} Shops`;
+    `✅ ${gpxRouteName} · ⛺ ${nCamp} Camp · 🏠 ${nAccom} Unterkunft · ⚡ ${nCharge} E-Bike · 🍽️ ${R.length} Essen · 🛒 ${shopPois.length} Shops`;
 }
 
 function addBuiltinMarkersToMap(){
@@ -882,30 +895,51 @@ function addBuiltinMarkersToMap(){
     iconCreateFunction:function(cl){const n=cl.getChildCount(),s=n<10?36:n<50?42:48;return L.divIcon({html:`<div style="width:${s}px;height:${s}px;border-radius:50%;background:linear-gradient(135deg,#1a6b4a,#1a5080);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;font-weight:700;font-size:.72rem;border:3px solid #fff;box-shadow:0 2px 12px rgba(0,0,0,.22)">${n}</div>`,iconSize:[s,s],iconAnchor:[s/2,s/2],className:''});}
   });
   mapObj.addLayer(window._poiCluster);
-  const mkIco=t=>{const isCamp=t==="Camping";return L.divIcon({html:`<div style="background:${isCamp?CC:HC};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${isCamp?"⛺":"⚡"}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''})};
+
+  const f=activeFilter;
+  const mkIco=(t)=>{
+    const colors={Camping:CC,Ladestation:HC,Unterkunft:'#8a5ab0'};
+    const icons={Camping:'⛺',Ladestation:'⚡',Unterkunft:'🏠'};
+    return L.divIcon({html:`<div style="background:${colors[t]||'#7a5aa0'};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${icons[t]||'📌'}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
+  };
   const shopIco=L.divIcon({html:`<div style="background:#5a9a2a;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">🛒</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
+  const restIco=L.divIcon({html:`<div style="background:#e07820;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">🍽️</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
+
+  // Add E (Camping + Ladestation + Unterkunft) based on filter
+  const showCamp = f==='all'||f==='camp';
+  const showAccom= f==='all'||f==='accom';
+  const showChg  = f==='all'||f==='chg';
+  const showRest = f==='all'||f==='rest';
+  const showShop = f==='all'||f==='shop';
+
   E.forEach((e,i)=>{
+    if(e.t==='Camping' && !showCamp) return;
+    if(e.t==='Unterkunft' && !showAccom) return;
+    if(e.t==='Ladestation' && !showChg) return;
     const m=L.marker([e.lat,e.lon],{icon:mkIco(e.t)});
     m.bindTooltip(`<b>${e.n}</b><br>${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
     m.on('click',()=>showPanel(e,i));
     window._poiCluster.addLayer(m);
     e.t==='Camping'?campM.push(m):chargeM.push(m);
   });
-  // Add restaurant markers
-  const restIco=L.divIcon({html:`<div style="background:#e07820;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">🍽️</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
-  R.forEach(e=>{
-    if(!e.lat||!e.lon) return;
-    const m=L.marker([e.lat,e.lon],{icon:restIco});
-    m.bindTooltip(`<b>${e.n}</b><br>${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
-    window._poiCluster.addLayer(m);
-  });
-  // Add shop markers
-  shopPois.forEach(e=>{
-    if(!e.lat||!e.lon) return;
-    const m=L.marker([e.lat,e.lon],{icon:shopIco});
-    m.bindTooltip(`<b>${e.n}</b><br>${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
-    window._poiCluster.addLayer(m);
-  });
+  // Restaurants
+  if(showRest){
+    R.forEach(e=>{
+      if(!e.lat||!e.lon) return;
+      const m=L.marker([e.lat,e.lon],{icon:restIco});
+      m.bindTooltip(`<b>${e.n}</b><br>${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
+      window._poiCluster.addLayer(m);
+    });
+  }
+  // Shops
+  if(showShop){
+    shopPois.forEach(e=>{
+      if(!e.lat||!e.lon) return;
+      const m=L.marker([e.lat,e.lon],{icon:shopIco});
+      m.bindTooltip(`<b>${e.n}</b><br>${e.ort} · km ${e.km}`,{direction:'top',offset:[0,-12]});
+      window._poiCluster.addLayer(m);
+    });
+  }
 }
 
 
@@ -917,8 +951,8 @@ function syncCustomPoiMarker(poi){
   }
   if(!poi.lat||!poi.lon) return;
   if(customPoiMarkers[poi.id]) mapObj.removeLayer(customPoiMarkers[poi.id]);
-  const typeColors={Camping:'#1a9a5a',Ladestation:'#1a60c0',Restaurant:'#e07820',Sonstiges:'#7a5aa0'};
-  const typeIcons={Camping:'⛺',Ladestation:'⚡',Restaurant:'🍽️',Sonstiges:'📌'};
+  const typeColors={Camping:'#1a9a5a',Unterkunft:'#8a5ab0',Ladestation:'#1a60c0',Restaurant:'#e07820',Sonstiges:'#7a5aa0'};
+  const typeIcons={Camping:'⛺',Unterkunft:'🏠',Ladestation:'⚡',Restaurant:'🍽️',Sonstiges:'📌'};
   const col=typeColors[poi.t]||'#7a5aa0';
   const ico=typeIcons[poi.t]||'📌';
   const icon=L.divIcon({html:`<div style="background:${col};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${ico}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
@@ -935,7 +969,25 @@ function removeCustomPoiMarker(id){
 
 // Add all custom POI markers (called after map init)
 function syncAllCustomPoiMarkers(){
-  customPois.forEach(p=>syncCustomPoiMarker(p));
+  // Remove all existing custom markers first
+  Object.keys(customPoiMarkers).forEach(id=>{
+    if(customPoiMarkers[id]){
+      if(window._poiCluster) window._poiCluster.removeLayer(customPoiMarkers[id]);
+      else if(mapObj) mapObj.removeLayer(customPoiMarkers[id]);
+      delete customPoiMarkers[id];
+    }
+  });
+  // Re-add only those matching the current filter
+  const f=activeFilter;
+  customPois.forEach(p=>{
+    if(p._hidden) return;
+    if(f==='camp' && p.t!=='Camping') return;
+    if(f==='accom' && p.t!=='Unterkunft') return;
+    if(f==='chg' && p.t!=='Ladestation') return;
+    if(f==='rest' && p.t!=='Restaurant') return;
+    if(f==='shop') return; // custom POIs are never shops
+    syncCustomPoiMarker(p);
+  });
 }
 
 function openAddPoi(editId){
@@ -990,8 +1042,8 @@ function closeAddPoi(){
 
 function selectType(t){
   selectedType=t;
-  ['Camping','Ladestation','Restaurant','Sonstiges'].forEach(type=>{
-    const map={Camping:'camp',Ladestation:'chg',Restaurant:'rest',Sonstiges:'other'};
+  ['Camping','Unterkunft','Ladestation','Restaurant','Sonstiges'].forEach(type=>{
+    const map={Camping:'camp',Unterkunft:'accom',Ladestation:'chg',Restaurant:'rest',Sonstiges:'other'};
     const btn=document.getElementById('tb-'+map[type]);
     if(btn) btn.className='type-btn'+(type===t?' active-type':'');
   });
@@ -1161,7 +1213,7 @@ function toggleView(){
     document.getElementById('toggle-icon').textContent='📋';
     document.getElementById('toggle-label').textContent='POI-Liste';
     if(!mapInitialized) initMap();
-    else{ if(mapObj) setTimeout(()=>mapObj.invalidateSize(),150); syncAllCustomPoiMarkers(); }
+    else{ if(mapObj) setTimeout(()=>mapObj.invalidateSize(),150); addBuiltinMarkersToMap(); syncAllCustomPoiMarkers(); }
   } else {
     currentView='poi';
     document.getElementById('view-map').style.display='none';
@@ -1243,12 +1295,26 @@ function locateMePoi(){
 
 function setFilter(f){
   activeFilter=f;
+  // POI list filter tabs
   document.getElementById('f-all').className='ftab'+(f==='all'?' active-all':'');
   document.getElementById('f-camp').className='ftab'+(f==='camp'?' active-camp':'');
+  document.getElementById('f-accom').className='ftab'+(f==='accom'?' active-accom':'');
   document.getElementById('f-chg').className='ftab'+(f==='chg'?' active-chg':'');
   document.getElementById('f-rest').className='ftab'+(f==='rest'?' active-rest':'');
   document.getElementById('f-shop').className='ftab'+(f==='shop'?' active-shop':'');
+  // Map filter tabs (sync both)
+  const mf=id=>document.getElementById(id);
+  if(mf('mf-all')){
+    mf('mf-all').className='ftab'+(f==='all'?' active-all':'');
+    mf('mf-camp').className='ftab'+(f==='camp'?' active-camp':'');
+    mf('mf-accom').className='ftab'+(f==='accom'?' active-accom':'');
+    mf('mf-chg').className='ftab'+(f==='chg'?' active-chg':'');
+    mf('mf-rest').className='ftab'+(f==='rest'?' active-rest':'');
+    mf('mf-shop').className='ftab'+(f==='shop'?' active-shop':'');
+  }
   renderList();
+  // Update map markers if map is open
+  if(mapInitialized && mapObj && currentView==='map') addBuiltinMarkersToMap();
 }
 
 function renderList(){
@@ -1346,6 +1412,7 @@ function renderList(){
 
   let items;
   if(activeFilter==='camp') items=[...E.filter(e=>e.t==='Camping'),...customPois.filter(e=>e.t==='Camping'&&e.isOwn)];
+  else if(activeFilter==='accom') items=[...E.filter(e=>e.t==='Unterkunft'),...customPois.filter(e=>e.t==='Unterkunft'&&e.isOwn)];
   else if(activeFilter==='chg') items=[...E.filter(e=>e.t==='Ladestation'),...customPois.filter(e=>e.t==='Ladestation'&&e.isOwn)];
   else items=[...E,...R,...customPois.filter(e=>e.isOwn)];
 
@@ -1366,14 +1433,14 @@ function renderList(){
 
     list.innerHTML=items.map(e=>{
     if(e.isOwn) return renderPoiCard(e,true);
-    const isRest=e.t==='Restaurant',isCamp=e.t==='Camping';
-    const iconBg=isRest?'#fff4e8':isCamp?'#eaf5ee':'#e8f0fb';
-    const icon=isRest?'🍽️':isCamp?'⛺':'⚡';
-    const badgeCls=isRest?'badge-rest':isCamp?'badge-camp':'badge-chg';
-    const badgeLabel=isRest?'Restaurant':isCamp?'Camping':'Ladestation';
+    const isRest=e.t==='Restaurant',isCamp=e.t==='Camping',isAccom=e.t==='Unterkunft',isChg=e.t==='Ladestation';
+    const iconBg=isRest?'#fff4e8':isCamp?'#eaf5ee':isAccom?'#f0ecf8':'#e8f0fb';
+    const icon=isRest?'🍽️':isCamp?'⛺':isAccom?'🏠':'⚡';
+    const badgeCls=isRest?'badge-rest':isCamp?'badge-camp':isAccom?'badge-accom':'badge-chg';
+    const badgeLabel=isRest?'Restaurant':isCamp?'Camping':isAccom?'Unterkunft':'E-Bike Laden';
     const hasPhone=e.p&&e.p!=='nicht verfügbar';
     const isNearestCamp=isCamp&&nearestCamp&&e.n===nearestCamp.n;
-    const isNearestChg=!isCamp&&!isRest&&nearestChg&&e.n===nearestChg.n;
+    const isNearestChg=isChg&&nearestChg&&e.n===nearestChg.n;
     const cardClass=isNearestCamp?'poi-card nearest':isNearestChg?'poi-card nearest-chg':'poi-card';
     const nearestTag=(isNearestCamp||isNearestChg)?`<span class="nearest-tag">⭐ Nächster</span>`:'';
     const wasEdited=e._wasBuiltin||false;
@@ -1410,7 +1477,7 @@ function renderList(){
 }
 
 function renderPoiCard(e, isOwn){
-  const typeMap={Camping:{bg:'#eaf5ee',icon:'⛺',badge:'badge-camp'},Ladestation:{bg:'#e8f0fb',icon:'⚡',badge:'badge-chg'},Restaurant:{bg:'#fff4e8',icon:'🍽️',badge:'badge-rest'},Sonstiges:{bg:'#f0ecf8',icon:'📍',badge:'badge-sonstiges'}};
+  const typeMap={Camping:{bg:'#eaf5ee',icon:'⛺',badge:'badge-camp'},Unterkunft:{bg:'#f0ecf8',icon:'🏠',badge:'badge-accom'},Ladestation:{bg:'#e8f0fb',icon:'⚡',badge:'badge-chg'},Restaurant:{bg:'#fff4e8',icon:'🍽️',badge:'badge-rest'},Sonstiges:{bg:'#f0ecf8',icon:'📍',badge:'badge-sonstiges'}};
   const tm=typeMap[e.t]||typeMap.Sonstiges;
   const hasPhone=e.p&&e.p!=='nicht verfügbar';
   const mapsUrl=e.lat&&e.lon?`https://maps.google.com/?q=${e.lat},${e.lon}`:`https://www.google.com/maps/search/${encodeURIComponent(e.n+' '+e.addr)}`;
@@ -1600,7 +1667,7 @@ function onOrientation(e){
 
 function addNorthUpBtn(){
   const div=document.createElement('div');div.id='navbtn';
-  div.style.cssText='position:absolute;bottom:calc(76px + env(safe-area-inset-bottom) + 8px);right:12px;z-index:1000;display:flex;flex-direction:column;gap:6px';
+  div.style.cssText='position:absolute;bottom:calc(76px + env(safe-area-inset-bottom) + 52px);right:12px;z-index:1000;display:flex;flex-direction:column;gap:6px';
   div.innerHTML=`<button onclick="toggleAutoCenter()" title="Auto-Zentrierung" id="autocenter-btn" style="width:38px;height:38px;border-radius:10px;border:1px solid #d0dce8;background:#eaf5f0;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)">📍</button>
 <button onclick="toggleHeadingUp()" id="headingup-btn" style="width:38px;height:38px;border-radius:10px;border:1px solid #d0dce8;background:#fff;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12)">🧭</button>`;
   document.getElementById('map').appendChild(div);
@@ -1647,8 +1714,9 @@ function buildDynamicArrows(uLt,uLn){
 }
 
 function showPanel(e,i){
-  const iC=e.t==="Camping",pct=(e.km/TOTAL*100).toFixed(1);
-  const badge=iC?'<span class="badge camp">⛺ Campingplatz</span>':'<span class="badge chg">⚡ Ladestation</span>';
+  const pct=(e.km/TOTAL*100).toFixed(1);
+  const badgeMap={Camping:'<span class="badge camp">⛺ Campingplatz</span>',Unterkunft:'<span class="badge" style="background:#f0ecf8;color:#5a2a8a;border:1px solid #c0a0e8">🏠 Unterkunft</span>',Ladestation:'<span class="badge chg">⚡ E-Bike Ladestation</span>'};
+  const badge=badgeMap[e.t]||`<span class="badge chg">${e.t}</span>`;
   const elevGain=elevationGainTo(e.lat,e.lon);
   const elevTxt=elevGain!==null?` · ↑ ${elevGain} Hm`:'';
   const distRow=uLat?`<div class="irow"><div class="iico" style="background:#fff4ec">🧭</div><div class="itxt"><div class="ilbl">Entfernung von dir</div><div class="ival"><b style="color:#c85a0a">${fmt(hav(uLat,uLon,e.lat,e.lon))}</b>${elevTxt}</div></div></div>`:'';
@@ -1921,10 +1989,11 @@ function stopRiderTracking(){
 
       <div>
         <label style="font-size:.68rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px">Typ *</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px">
           <button class="type-btn active-type" id="tb-camp" onclick="selectType('Camping')">⛺ Camping</button>
-          <button class="type-btn" id="tb-chg" onclick="selectType('Ladestation')">⚡ Ladestation</button>
-          <button class="type-btn" id="tb-rest" onclick="selectType('Restaurant')">🍽️ Restaurant</button>
+          <button class="type-btn" id="tb-accom" onclick="selectType('Unterkunft')">🏠 Unterkunft</button>
+          <button class="type-btn" id="tb-chg" onclick="selectType('Ladestation')">⚡ Laden</button>
+          <button class="type-btn" id="tb-rest" onclick="selectType('Restaurant')">🍽️ Essen</button>
           <button class="type-btn" id="tb-other" onclick="selectType('Sonstiges')">📍 Sonstiges</button>
         </div>
       </div>
