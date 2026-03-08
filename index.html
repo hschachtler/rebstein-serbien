@@ -535,7 +535,8 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         • Speichere alles in GitHub – dann sind Tour und POIs auf allen Geräten sichtbar
       </div>
       <button class="wiz-btn wiz-btn-green" onclick="showView('poi')">📋 POI-Liste öffnen &amp; prüfen</button>
-      <button class="wiz-btn wiz-btn-primary" onclick="saveToursToGithub()">☁️ In GitHub speichern</button>
+      <button class="wiz-btn wiz-btn-primary" onclick="saveToursToGithub()">☁️ Route + POIs in GitHub speichern</button>
+      <div style="font-size:.68rem;color:#9ab0c8;text-align:center;margin-top:-4px">Speichert Route (GPX-Trackpunkte) und alle POIs</div>
     </div>
 
     <!-- Step 5: Go live -->
@@ -1043,9 +1044,19 @@ async function saveToursToGithub() {
     // 1. Save tours index
     const tf = await getGithubFile('tours.json');
     const ok1 = await putGithubFile('tours.json', JSON.stringify(tours, null, 2), 'Update tours index', tf?.sha);
-    if (!ok1) return; // error toast already shown in putGithubFile
-    // 2. Save active tour POIs
+    if (!ok1) return;
+
     if (activeTourId) {
+      // 2. Save route.json (track points)
+      if (currentRoutePoints.length > 0) {
+        const routeData = JSON.stringify({ points: currentRoutePoints }, null, 0);
+        const rf = await getGithubFile('tours/' + activeTourId + '/route.json');
+        const ok3 = await putGithubFile('tours/' + activeTourId + '/route.json',
+          routeData, 'Update route', rf?.sha);
+        if (!ok3) return;
+      }
+
+      // 3. Save POIs
       const allPois = [...tourPois, ...customPois.filter(p => p.isOwn || p.isOverride)];
       const pf = await getGithubFile('tours/' + activeTourId + '/pois.json');
       const ok2 = await putGithubFile('tours/' + activeTourId + '/pois.json',
@@ -1341,6 +1352,14 @@ function analyzeGpx(text, filename) {
   window._parsedGpx = { waypoints, trackPoints, name, filename };
   currentRoutePoints = trackPoints.map(p=>[p.lat,p.lon]);
   setWizStepActive(1);
+  // Auto-save route to GitHub if tour already selected
+  if (activeTourId && ghConfig.token) {
+    const routeData = JSON.stringify({ points: currentRoutePoints }, null, 0);
+    getGithubFile('tours/' + activeTourId + '/route.json').then(rf => {
+      putGithubFile('tours/' + activeTourId + '/route.json', routeData, 'Save route', rf?.sha)
+        .then(ok => { if(ok) showToast('✅ Route in GitHub gespeichert', 'success'); });
+    });
+  }
 }
 
 function triggerDownload(blob, filename) {
@@ -1464,6 +1483,12 @@ function handleEnrichedFiles(files) {
       // Also try to get route from this file
       if (trackPoints.length > 10 && currentRoutePoints.length === 0) {
         currentRoutePoints = trackPoints.map(p=>[p.lat,p.lon]);
+        // Save this route to GitHub too
+        if (activeTourId && ghConfig.token) {
+          const rd = JSON.stringify({ points: currentRoutePoints }, null, 0);
+          getGithubFile('tours/' + activeTourId + '/route.json').then(rf =>
+            putGithubFile('tours/' + activeTourId + '/route.json', rd, 'Save route', rf?.sha));
+        }
       }
       waypoints.forEach(w => {
         if (!w.lat || !w.lon || isNaN(w.lat)) return;
