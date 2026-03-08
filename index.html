@@ -735,7 +735,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.0.5';
+const APP_VERSION = '1.0.6';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -918,8 +918,10 @@ async function getGithubFile(path) {
       return null;
     }
     const data = await r.json();
-    // data.content is base64, may have newlines
-    const decoded = decodeURIComponent(escape(atob(data.content.replace(/\s/g,''))));
+    // data.content is base64, may have newlines — use TextDecoder for large files
+    const b64 = data.content.replace(/\s/g, '');
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const decoded = new TextDecoder('utf-8').decode(bytes);
     return { content: decoded, sha: data.sha };
   } catch(e) { console.error('getGithubFile error:', e); return null; }
 }
