@@ -735,7 +735,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.0.6';
+const APP_VERSION = '1.0.7';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -918,10 +918,19 @@ async function getGithubFile(path) {
       return null;
     }
     const data = await r.json();
-    // data.content is base64, may have newlines — use TextDecoder for large files
-    const b64 = data.content.replace(/\s/g, '');
-    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const decoded = new TextDecoder('utf-8').decode(bytes);
+    let decoded;
+    if (data.content && data.content.trim().length > 0) {
+      // Small file: base64 content available
+      const b64 = data.content.replace(/\s/g, '');
+      const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+      decoded = new TextDecoder('utf-8').decode(bytes);
+    } else if (data.download_url) {
+      // Large file (>1MB): GitHub omits content, fetch via download_url instead
+      const dr = await fetch(data.download_url);
+      decoded = await dr.text();
+    } else {
+      return null;
+    }
     return { content: decoded, sha: data.sha };
   } catch(e) { console.error('getGithubFile error:', e); return null; }
 }
