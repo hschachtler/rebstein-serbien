@@ -218,6 +218,10 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 .kmfill{height:100%;border-radius:2px;background:linear-gradient(90deg,#1a8a5a,#1a5080)}
 
 /* LEAFLET overrides */
+#map-filter-bar::-webkit-scrollbar{display:none}
+#map-filter-bar .mf-btn{pointer-events:all;border:none;border-radius:20px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-appearance:none;transition:all .15s;box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;gap:4px;opacity:.85}
+#map-filter-bar .mf-btn.active{opacity:1;transform:scale(1.06);box-shadow:0 3px 12px rgba(0,0,0,.28)}
+#map-filter-bar .mf-btn.inactive{opacity:.45;filter:grayscale(.4)}
 .leaflet-popup-content-wrapper{background:#fff!important;border:1px solid #dde4ec!important;border-radius:12px!important;box-shadow:0 6px 24px rgba(0,0,0,.12)!important;font-family:'DM Sans',sans-serif!important;color:#1a2b3c!important}
 .leaflet-popup-tip{background:#fff!important}
 .leaflet-popup-content{margin:9px 13px!important;font-size:.76rem!important;line-height:1.5!important;color:#1a2b3c!important}
@@ -315,6 +319,10 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
     <div id="pbody"></div>
   </div>
 
+  <!-- Map POI Type Filter -->
+  <div id="map-filter-bar" style="position:absolute;bottom:48px;left:0;right:0;z-index:800;pointer-events:none;padding:0 8px 6px;display:flex;gap:5px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
+  </div>
+
   <!-- List panel -->
   <div id="listpanel">
     <div id="listhdr">
@@ -349,10 +357,10 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         </div>
       </div>
       <div class="wiz-instruction" style="font-size:.72rem">
-        <strong>Einmalige Einrichtung</strong> — damit Touren &amp; POIs auf allen Geräten sichtbar sind:<br>
-        1. <b>github.com → Settings → Developer Settings → Personal Access Tokens</b><br>
-        2. Token mit Scope <b>repo</b> (Classic) oder <b>Contents: Read &amp; Write</b> (Fine-grained) erstellen<br>
-        3. Repo und Token unten eintragen &amp; speichern
+        <strong>Einmalige Einrichtung</strong> — Repo-URL reicht zum Lesen, Token nur zum Bearbeiten:<br>
+        1. Trage die Repo-URL ein (z.B. <b>max/bikepacking-tour</b>)<br>
+        2. Für Admin-Zugriff (Schreiben): Token unter <b>github.com → Settings → Developer Settings → Personal Access Tokens</b> erstellen<br>
+        3. Token mit Scope <b>repo</b> (Classic) oder <b>Contents: Read &amp; Write</b> (Fine-grained)
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div>
@@ -374,6 +382,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         </div>
         <div id="gh-status" style="font-size:.72rem;color:#6a8aa4;min-height:16px;text-align:center"></div>
         <button class="wiz-btn wiz-btn-primary" onclick="saveGithubConfig()">💾 Speichern &amp; verbinden</button>
+        <button class="wiz-btn" style="background:#f0f4f8;color:#5a7a9a;border:1px solid #dde4ec" onclick="saveRepoOnly()">👁️ Nur Repo speichern (kein Token — nur Lesen)</button>
       </div>
     </div>
 
@@ -756,6 +765,7 @@ let uLat = null, uLon = null;
 let activeFilter = 'all';
 let poiWatchId = null;
 let mapObj = null, mapInitialized = false;
+let mapTypeFilter = new Set(); // empty = show all; else show only these types
 let mapWatchId = null, autoCenter = true;
 let uMark = null, uCircle = null;
 let riderMarker = null, riderWatchId = null, riderUpdating = false;
@@ -797,6 +807,25 @@ function loadLocalState() {
 function saveLocalState() {
   try { localStorage.setItem('bp_custom_pois', JSON.stringify(customPois)); } catch(e){}
   try { localStorage.setItem('bp_active_tour', activeTourId || ''); } catch(e){}
+}
+
+function saveRepoOnly() {
+  const repo   = (document.getElementById('gh-repo').value||'').trim();
+  const branch = (document.getElementById('gh-branch').value||'main').trim();
+  const st = document.getElementById('gh-status');
+  if (!repo) { if(st){st.textContent='❌ Bitte Repo-URL eingeben';st.style.color='#c04040';} return; }
+  ghConfig.repo   = repo;
+  ghConfig.branch = branch;
+  // Keep token if already set, just don't require it
+  localStorage.setItem('bp_gh_config', JSON.stringify(ghConfig));
+  if(st){st.textContent='✅ Repo gespeichert — lade Touren…';st.style.color='#1a7a4a';}
+  showToast('⏳ Lade Touren…');
+  loadToursFromGithub().then(()=>{
+    setWizStepDone(0);
+    setWizStepActive('T');
+    renderWizTourList();
+    showToast('✅ Tour-Daten geladen', 'success');
+  });
 }
 
 async function testConnectionOnly() {
@@ -930,32 +959,62 @@ async function putGithubFile(path, content, message, sha) {
   }
 }
 
+// ── Public read via raw.githubusercontent.com (no token needed) ──
+async function fetchPublicGithubFile(path) {
+  if (!ghConfig.repo) return null;
+  const branch = ghConfig.branch || 'main';
+  const url = `https://raw.githubusercontent.com/${ghConfig.repo}/${branch}/${path}?t=${Date.now()}`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.text();
+  } catch(e) { return null; }
+}
+
+// ── Unified file reader: use token API if available, else raw (public) ──
+async function readGithubFile(path) {
+  if (ghConfig.token) {
+    const f = await getGithubFile(path);
+    return f ? f.content : null;
+  } else {
+    return await fetchPublicGithubFile(path);
+  }
+}
+
 async function loadToursFromGithub() {
-  const f = await getGithubFile('tours.json');
-  if (f) {
-    try { tours = JSON.parse(f.content); } catch(e) { tours = []; }
+  if (!ghConfig.repo) return; // no repo configured at all
+  const text = await readGithubFile('tours.json');
+  if (text) {
+    try { tours = JSON.parse(text); } catch(e) { tours = []; }
   } else { tours = []; }
   renderTourTabs();
-  // Load active tour POIs
-  if (!activeTourId && tours.length) activeTourId = tours.find(t=>t.status==='active')?.id || tours[0].id;
-  if (activeTourId) loadTourPois(activeTourId);
+  // Auto-select active tour (status==='active'), or first tour
+  if (!activeTourId && tours.length) {
+    activeTourId = tours.find(t=>t.status==='active')?.id || tours[0].id;
+  }
+  if (activeTourId) await loadTourPois(activeTourId);
 }
 
 async function loadTourPois(tourId) {
   activeTourId = tourId;
   saveLocalState();
-  const f = await getGithubFile(`tours/${tourId}/pois.json`);
-  if (f) {
-    try { tourPois = JSON.parse(f.content); } catch(e) { tourPois = []; }
+  if (!ghConfig.repo) { renderList(); renderTourTabs(); return; }
+
+  // POIs
+  const poisText = await readGithubFile(`tours/${tourId}/pois.json`);
+  if (poisText) {
+    try { tourPois = JSON.parse(poisText); } catch(e) { tourPois = []; }
   } else { tourPois = []; }
-  // Load route
-  const rf = await getGithubFile(`tours/${tourId}/route.json`);
-  if (rf) {
+
+  // Route
+  const routeText = await readGithubFile(`tours/${tourId}/route.json`);
+  if (routeText) {
     try {
-      const rdata = JSON.parse(rf.content);
+      const rdata = JSON.parse(routeText);
       currentRoutePoints = rdata.points || [];
     } catch(e) {}
   }
+
   updateAppTitle();
   renderList();
   renderTourTabs();
@@ -2083,8 +2142,9 @@ function refreshMapMarkers() {
     mapObj.fitBounds(line.getBounds(),{padding:[40,40]});
   }
 
-  // POI markers from tourPois + customPois
-  const allPois=getAllPois().filter(p=>p.lat&&p.lon);
+  // POI markers from tourPois + customPois — apply type filter
+  const allPoisRaw=getAllPois().filter(p=>p.lat&&p.lon);
+  const allPois=mapTypeFilter.size>0 ? allPoisRaw.filter(p=>mapTypeFilter.has(p.t)) : allPoisRaw;
   allPois.forEach(p=>{
     const tc=getTypeConfig(p.t);
     const col=p.isOwn?'#7a5aa0':p.t==='Camping'?'#1a9a5a':p.t==='Ladestation'?'#1a60c0':p.t==='Restaurant'?'#e07820':p.t==='Hotel'?'#c8a020':'#5a7a9a';
@@ -2096,6 +2156,9 @@ function refreshMapMarkers() {
     if(p.t==='Camping') campM.push(m);
     else if(p.t==='Ladestation') chargeM.push(m);
   });
+
+  // Update filter bar
+  renderMapFilterBar();
 
   // Update elist
   const el=document.getElementById('elist');
@@ -2110,6 +2173,67 @@ function refreshMapMarkers() {
       el.appendChild(d);
     });
   }
+}
+
+// Map filter bar
+function renderMapFilterBar() {
+  const bar = document.getElementById('map-filter-bar');
+  if (!bar) return;
+  const allPois = getAllPois().filter(p => p.lat && p.lon);
+  if (!allPois.length) { bar.style.display='none'; return; }
+
+  // Collect types present in current POIs
+  const typeCounts = {};
+  allPois.forEach(p => { typeCounts[p.t] = (typeCounts[p.t]||0)+1; });
+
+  const typeOrder = ['Camping','Hotel','Restaurant','Werkstatt','Ladestation',
+    'Supermarkt','Tankstelle','Trinkwasser','Sonstiges'];
+  const allTypes = [...typeOrder.filter(t=>typeCounts[t]),
+    ...Object.keys(typeCounts).filter(t=>!typeOrder.includes(t))];
+
+  // Color map for filter buttons
+  const colorMap = {
+    Camping:'#1a9a5a', Hotel:'#c8a020', Restaurant:'#e07820',
+    Werkstatt:'#4a7a9a', Ladestation:'#1a60c0', Supermarkt:'#2a8a6a',
+    Tankstelle:'#e05a20', Trinkwasser:'#1a70c0', Sonstiges:'#7a8a9a',
+    Unterstand:'#8a8a7a'
+  };
+
+  bar.style.display = 'flex';
+
+  // "Alle"-Button
+  const allActive = mapTypeFilter.size === 0;
+  let html = `<button class="mf-btn ${allActive?'active':''}" style="background:${allActive?'#1a2b3c':'#fff'};color:${allActive?'#fff':'#1a2b3c'}" onclick="setMapFilter(null)">
+    Alle <span style="background:rgba(255,255,255,.25);border-radius:10px;padding:0 5px;font-size:.62rem;margin-left:1px">${allPois.length}</span>
+  </button>`;
+
+  allTypes.forEach(t => {
+    const tc = getTypeConfig(t);
+    const col = colorMap[t] || '#5a7a9a';
+    const isActive = mapTypeFilter.has(t);
+    const isInactive = mapTypeFilter.size > 0 && !isActive;
+    html += `<button class="mf-btn ${isActive?'active':''} ${isInactive?'inactive':''}"
+      style="background:${isActive?col:'#fff'};color:${isActive?'#fff':col};border:2px solid ${col}"
+      onclick="setMapFilter('${t}')">
+      ${tc.icon} ${tc.label} <span style="background:${isActive?'rgba(255,255,255,.25)':'rgba(0,0,0,.08)'};border-radius:10px;padding:0 5px;font-size:.62rem;margin-left:1px">${typeCounts[t]}</span>
+    </button>`;
+  });
+
+  bar.innerHTML = html;
+}
+
+function setMapFilter(type) {
+  if (type === null) {
+    mapTypeFilter.clear();
+  } else {
+    if (mapTypeFilter.has(type)) {
+      mapTypeFilter.delete(type);
+    } else {
+      mapTypeFilter.add(type);
+    }
+  }
+  renderMapFilterBar();
+  refreshMapMarkers();
 }
 
 function showPanel(p) {
@@ -2242,11 +2366,17 @@ loadLocalState();
 buildCountryBtns();
 
 // Try to load tours from github on startup
-if (ghConfig.repo && ghConfig.token) {
+// Works WITHOUT token (public read via raw.githubusercontent.com)
+// Token only needed for writing (admin)
+if (ghConfig.repo) {
+  showToast('⏳ Lade Tour-Daten…');
   loadToursFromGithub().then(()=>{
-    setWizStepDone(0);
-    setWizStepActive('T');
-    renderWizTourList();
+    if (ghConfig.token) {
+      setWizStepDone(0);
+      setWizStepActive('T');
+      renderWizTourList();
+    }
+    if (tours.length) showToast('✅ Tour geladen', 'success');
   });
 }
 
