@@ -348,34 +348,32 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
           <div class="wiz-step-sub">Repository & Token einrichten (einmalig)</div>
         </div>
       </div>
-      <div class="wiz-instruction">
-        <strong>Einmalige Einrichtung:</strong><br>
-        Damit Touren, POIs und Rider-Position auf allen Geräten sichtbar sind, verbinde die App mit deinem GitHub Repo.<br><br>
-        1. Gehe zu <b>github.com → Settings → Developer Settings → Personal Access Tokens</b><br>
-        2. Erstelle ein Token mit Scope <b>repo</b> (Classic) oder <b>Contents: Read &amp; Write</b> (Fine-grained)<br>
-        3. Trage Repo und Token unten ein
+      <div class="wiz-instruction" style="font-size:.72rem">
+        <strong>Einmalige Einrichtung</strong> — damit Touren &amp; POIs auf allen Geräten sichtbar sind:<br>
+        1. <b>github.com → Settings → Developer Settings → Personal Access Tokens</b><br>
+        2. Token mit Scope <b>repo</b> (Classic) oder <b>Contents: Read &amp; Write</b> (Fine-grained) erstellen<br>
+        3. Repo und Token unten eintragen &amp; speichern
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div>
-          <label class="form-label">GitHub Repo (user/repo-name)</label>
-          <input id="gh-repo" class="form-input" placeholder="z.B. maxmuster/bikepacking-tour" type="text">
+          <label class="form-label">GitHub Repo</label>
+          <input id="gh-repo" class="form-input" placeholder="user/repo-name  z.B. max/bikepacking" type="text">
         </div>
         <div>
-          <label class="form-label">GitHub Token (wird nur lokal gespeichert)</label>
+          <label class="form-label">GitHub Token</label>
           <input id="gh-token" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" type="password">
         </div>
-        <div>
-          <label class="form-label">Branch</label>
-          <input id="gh-branch" class="form-input" value="main" type="text">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label">Branch</label>
+            <input id="gh-branch" class="form-input" value="main" type="text">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="wiz-btn wiz-btn-secondary" style="margin-bottom:0;min-height:40px;font-size:.72rem" onclick="testConnectionOnly()">🔍 Testen</button>
+          </div>
         </div>
-        <div id="gh-status" style="font-size:.72rem;color:#6a8aa4;min-height:18px;text-align:center;padding:4px 0"></div>
-        <div style="background:#fffbec;border:1px solid #f0d890;border-radius:8px;padding:10px 12px;font-size:.72rem;color:#7a5010;line-height:1.6">
-          <b>⚠️ Token-Berechtigungen:</b> Scope <b>repo</b> (Classic) oder <b>Contents: Read &amp; Write</b> (Fine-grained) muss aktiviert sein.
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="wiz-btn wiz-btn-secondary" style="flex:0 0 auto" onclick="testConnectionOnly()">🔍 Nur testen</button>
-          <button class="wiz-btn wiz-btn-primary" style="flex:1" onclick="saveGithubConfig()">💾 Speichern & verbinden</button>
-        </div>
+        <div id="gh-status" style="font-size:.72rem;color:#6a8aa4;min-height:16px;text-align:center"></div>
+        <button class="wiz-btn wiz-btn-primary" onclick="saveGithubConfig()">💾 Speichern &amp; verbinden</button>
       </div>
     </div>
 
@@ -468,7 +466,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <strong>So gehts (je GPX-Teil):</strong><br>
         1. Öffne <a href="https://onroutemap.de" target="_blank" style="color:#1a6b4a;font-weight:600">onroutemap.de ↗</a><br>
         2. GPX hochladen → POIs suchen und hinzufügen<br>
-        3. <b>Wichtig:</b> Befülle bei jedem POI: Name, Typ, Adresse und Website (www) — nur vollständige POIs werden später importiert<br>
+        3. <b>Wichtig:</b> Befülle bei jedem POI mindestens: Name, Typ und Adresse — Website (www) ist optional<br>
         4. GPX wieder exportieren<br>
         5. Wiederhole für alle Teile
       </div>
@@ -488,7 +486,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       <div class="wiz-instruction">
         <strong>Lade alle von onroutemap exportierten GPX-Dateien hoch.</strong><br>
         Die App liest alle Wegpunkte aus und zeigt sie zur Kontrolle an.<br>
-        <span style="color:#c85a0a">⚠️ Nur POIs mit <b>Name, Typ, Adresse und Website</b> werden übernommen.</span>
+        <span style="color:#c85a0a">⚠️ Nur POIs mit <b>Name, Typ und Adresse</b> werden übernommen. Website (www) ist optional.</span>
       </div>
       <div id="enriched-drop-zone" class="drop-zone" onclick="document.getElementById('enriched-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleEnrichedDrop(event)">
         <span class="drop-icon">📥</span>
@@ -1423,11 +1421,11 @@ function guessPoiType(sym, type, name, desc) {
 
 // Check if a POI from onroutemap has all required fields: Name, Typ, Adresse, www
 function poiIsComplete(p) {
-  const hasName = !!(p.n && p.n.trim() && p.n !== 'Wegpunkt');
+  const hasName = !!(p.n && p.n.trim() && p.n !== 'Wegpunkt' && p.n !== '');
   const hasType = !!(p.t && p.t !== 'Sonstiges');
   const hasAddr = !!(p.addr && p.addr.trim());
-  const hasWww  = !!(p.www && p.www.trim());
-  return { hasName, hasType, hasAddr, hasWww, complete: hasName && hasType && hasAddr && hasWww };
+  const hasWww  = !!(p.www && p.www.trim()); // info only, not required
+  return { hasName, hasType, hasAddr, hasWww, complete: hasName && hasType && hasAddr };
 }
 
 function calcRouteKmForPois(pois) {
@@ -1512,9 +1510,8 @@ function renderExtractedPois() {
       const chk = poiIsComplete(p);
       const missing = [
         !chk.hasName?'Name':'',
-        !chk.hasType?'Typ':'',
-        !chk.hasAddr?'Adresse':'',
-        !chk.hasWww?'Website (www)':''
+        !chk.hasType?'Typ (nicht Sonstiges)':'',
+        !chk.hasAddr?'Adresse':''
       ].filter(Boolean).join(', ');
       const tc = TYPE_CONFIG[p.t] || TYPE_CONFIG.Sonstiges;
       return `<div style="background:#fff;border:1.5px dashed #f0c090;border-radius:12px;margin-bottom:8px;padding:10px 12px;opacity:.8">
