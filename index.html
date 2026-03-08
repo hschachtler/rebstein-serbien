@@ -1148,16 +1148,60 @@ function renderWizTourList() {
   c.innerHTML = `<div style="margin-bottom:10px">
     <div style="font-size:.68rem;font-weight:700;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Vorhandene Touren</div>
     ${tours.map(t=>`
-      <div onclick="wizSelectTour('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:2px solid ${activeTourId===t.id?'#c85a0a':'#e2e8f0'};background:${activeTourId===t.id?'#fff8f5':'#fff'};margin-bottom:6px;cursor:pointer">
-        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#f0f7f4,#e8f0fb);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">${t.status==='active'?'🟢':t.status==='done'?'✅':'📝'}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:.82rem;font-weight:600;color:#1a2b3c">${t.name}</div>
-          <div style="font-size:.65rem;color:#7a92a8;margin-top:1px">${t.start||''}${t.start&&t.end?' → ':''}${t.end||''} ${t.totalKm?'· '+t.totalKm+' km':''}</div>
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;border:2px solid ${activeTourId===t.id?'#c85a0a':'#e2e8f0'};background:${activeTourId===t.id?'#fff8f5':'#fff'};margin-bottom:6px">
+        <div onclick="wizSelectTour('${t.id}')" style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;cursor:pointer">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#f0f7f4,#e8f0fb);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">${t.status==='active'?'🟢':t.status==='done'?'✅':'📝'}</div>
+          <div style="min-width:0">
+            <div style="font-size:.82rem;font-weight:600;color:#1a2b3c">${escHtml(t.name)}</div>
+            <div style="font-size:.65rem;color:#7a92a8;margin-top:1px">${t.start||''}${t.start&&t.end?' → ':''}${t.end||''} ${t.totalKm?'· '+t.totalKm+' km':''}</div>
+          </div>
         </div>
-        ${activeTourId===t.id?'<span style="font-size:.65rem;padding:2px 8px;border-radius:10px;background:#fff4ec;color:#c85a0a;border:1px solid #f0c090;font-weight:600">Aktiv</span>':''}
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          ${activeTourId===t.id?'<span style="font-size:.65rem;padding:2px 8px;border-radius:10px;background:#fff4ec;color:#c85a0a;border:1px solid #f0c090;font-weight:600">Aktiv</span>':''}
+          <button onclick="event.stopPropagation();deleteTour('${t.id}')" title="Tour löschen"
+            style="width:28px;height:28px;border-radius:8px;background:#fff0f0;border:1px solid #f0b0b0;color:#c04040;font-size:.8rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;-webkit-appearance:none">🗑️</button>
+        </div>
       </div>
     `).join('')}
   </div>`;
+}
+
+async function deleteTour(id) {
+  const tour = tours.find(t => t.id === id);
+  if (!tour) return;
+  if (!confirm(`Tour "${tour.name}" wirklich löschen?
+
+Dies löscht auch alle POIs und die Route dieser Tour auf GitHub.`)) return;
+
+  showToast('⏳ Lösche Tour…');
+
+  // Remove from local array
+  tours = tours.filter(t => t.id !== id);
+  if (activeTourId === id) {
+    activeTourId = tours.find(t=>t.status==='active')?.id || tours[0]?.id || null;
+    tourPois = [];
+    currentRoutePoints = [];
+  }
+
+  // Delete files on GitHub (replace with empty/tombstone)
+  if (ghConfig.repo && ghConfig.token) {
+    // Delete pois.json
+    const pf = await getGithubFile('tours/' + id + '/pois.json');
+    if (pf) await putGithubFile('tours/' + id + '/pois.json', '[]', 'Delete tour ' + id, pf.sha);
+    // Delete route.json
+    const rf = await getGithubFile('tours/' + id + '/route.json');
+    if (rf) await putGithubFile('tours/' + id + '/route.json', '{"points":[]}', 'Delete route ' + id, rf.sha);
+    // Update tours.json
+    const tf = await getGithubFile('tours.json');
+    await putGithubFile('tours.json', JSON.stringify(tours, null, 2), 'Remove tour ' + id, tf?.sha);
+  }
+
+  saveLocalState();
+  renderWizTourList();
+  renderTourTabs();
+  updateAppTitle();
+  renderList();
+  showToast('✅ Tour gelöscht', 'success');
 }
 
 function wizSelectTour(id) {
