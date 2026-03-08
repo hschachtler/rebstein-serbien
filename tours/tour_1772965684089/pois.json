@@ -7179,7 +7179,8 @@
     "p": "",
     "hours": "",
     "note": "",
-    "isImported": true
+    "isImported": true,
+    "_hidden": true
   },
   {
     "id": "imp_1772966419707_flky7zx4lb7",
