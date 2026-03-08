@@ -231,7 +231,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 
 <!-- TOP BAR -->
 <div id="topbar">
-  <h1>🚴 <span id="app-title-text">BikePacking</span></h1>
+  <h1>🚴 <span id="app-title-text">BikePacking</span> <span id="version-badge" style="font-size:.52rem;font-weight:400;color:#9ab0c8;font-family:'DM Sans',sans-serif;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:2px 6px;vertical-align:middle;letter-spacing:.03em">v1.0.0</span></h1>
   <div id="topbar-btns">
     <button class="topbar-btn topbar-btn-wizard" onclick="openWizardAdmin()">🧭 Wizard</button>
     <button class="topbar-btn topbar-btn-weather" onclick="openWeather()">🌤️</button>
@@ -735,6 +735,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
+const APP_VERSION = '1.0.1';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1012,6 +1013,8 @@ async function loadTourPois(tourId) {
   saveLocalState();
   if (!ghConfig.repo) { renderList(); renderTourTabs(); return; }
 
+  showToast('⏳ Lade POIs & Route…');
+
   // POIs
   const poisText = await readGithubFile(`tours/${tourId}/pois.json`);
   if (poisText) {
@@ -1031,6 +1034,12 @@ async function loadTourPois(tourId) {
   renderList();
   renderTourTabs();
   if (mapInitialized) { refreshMapMarkers(); loadRiderPosition(); }
+
+  // Only show toast if triggered manually (not during initial startup which has its own toast)
+  if (!window._appStarting) {
+    const tourName = tours.find(t=>t.id===tourId)?.name || '';
+    showToast(`✅ ${tourName}: ${tourPois.length} POIs geladen`, 'success');
+  }
 }
 
 async function saveToursToGithub() {
@@ -2467,12 +2476,16 @@ loadGoogleFavs();
 
 // Startup loading — runs after DOM is ready
 function appStartup() {
+  // Set version badge
+  const vb = document.getElementById('version-badge');
+  if (vb) vb.textContent = 'v' + APP_VERSION;
   loadLocalState();
   buildCountryBtns();
   renderList();
 
   if (ghConfig.repo) {
-    showToast('⏳ Lade Tour-Daten…');
+    window._appStarting = true;
+    showToast('⏳ Lade Tour & POIs…');
     loadToursFromGithub().then(()=>{
       if (ghConfig.token) {
         setWizStepDone(0);
@@ -2480,7 +2493,9 @@ function appStartup() {
         renderWizTourList();
       }
       if (tours.length) {
-        showToast('✅ Tour geladen', 'success');
+        const poiCount = tourPois.length;
+        window._appStarting = false;
+        showToast(`✅ Tour & ${poiCount} POIs geladen`, 'success');
       } else {
         showToast('⚠️ Keine Tour gefunden — bitte Wizard öffnen', 'error');
       }
