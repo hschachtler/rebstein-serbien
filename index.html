@@ -735,7 +735,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -979,9 +979,17 @@ async function fetchPublicGithubFile(path) {
   const url = `https://raw.githubusercontent.com/${ghConfig.repo}/${branch}/${path}?t=${Date.now()}`;
   try {
     const r = await fetch(url);
-    if (!r.ok) return null;
-    return await r.text();
-  } catch(e) { return null; }
+    if (!r.ok) {
+      console.warn(`[BikePacking] fetchPublicGithubFile: ${r.status} for ${url}`);
+      return null;
+    }
+    const text = await r.text();
+    console.log(`[BikePacking] fetchPublicGithubFile OK: ${path} (${text.length} chars)`);
+    return text;
+  } catch(e) {
+    console.error(`[BikePacking] fetchPublicGithubFile error: ${path}`, e);
+    return null;
+  }
 }
 
 // ── Unified file reader: use token API if available, else raw (public) ──
@@ -1001,6 +1009,10 @@ async function loadToursFromGithub() {
     try { tours = JSON.parse(text); } catch(e) { tours = []; }
   } else { tours = []; }
   renderTourTabs();
+  // Validate activeTourId — if it's stale/unknown, reset it
+  if (activeTourId && !tours.find(t => t.id === activeTourId)) {
+    activeTourId = null;
+  }
   // Auto-select active tour (status==='active'), or first tour
   if (!activeTourId && tours.length) {
     activeTourId = tours.find(t=>t.status==='active')?.id || tours[0].id;
@@ -1018,8 +1030,17 @@ async function loadTourPois(tourId) {
   // POIs
   const poisText = await readGithubFile(`tours/${tourId}/pois.json`);
   if (poisText) {
-    try { tourPois = JSON.parse(poisText); } catch(e) { tourPois = []; }
-  } else { tourPois = []; }
+    try {
+      tourPois = JSON.parse(poisText);
+      console.log(`[BikePacking] Loaded ${tourPois.length} POIs for tour ${tourId}`);
+    } catch(e) {
+      console.error('[BikePacking] Failed to parse pois.json:', e);
+      tourPois = [];
+    }
+  } else {
+    console.warn(`[BikePacking] No pois.json found for tour ${tourId}`);
+    tourPois = [];
+  }
 
   // Route
   const routeText = await readGithubFile(`tours/${tourId}/route.json`);
@@ -2017,9 +2038,12 @@ function renderList() {
   }
 
   if (!pois.length) {
-    if (uLat) {
-      list.innerHTML=`<div style="text-align:center;padding:36px 20px;color:#9ab0c8;font-size:.82rem;line-height:1.9"><span style="font-size:2.5rem;display:block;margin-bottom:10px">📍</span>Keine POIs in dieser Kategorie.</div>`;
-    }
+    const msg = !activeTourId
+      ? '⚙️ Keine Tour ausgewählt – bitte Wizard öffnen.'
+      : activeFilter !== 'all'
+        ? 'Keine POIs in dieser Kategorie.'
+        : '⏳ Keine POIs geladen – Tour enthält noch keine POIs.';
+    list.innerHTML=`<div style="text-align:center;padding:36px 20px;color:#9ab0c8;font-size:.82rem;line-height:1.9"><span style="font-size:2.5rem;display:block;margin-bottom:10px">📍</span>${msg}</div>`;
     return;
   }
 
