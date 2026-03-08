@@ -1,0 +1,12 @@
+[
+  {
+    "id": "test_1772989642321",
+    "url": "https://res.cloudinary.com/drkfuxkb1/image/upload/v1/test.jpg",
+    "thumb": "https://res.cloudinary.com/drkfuxkb1/image/upload/w_200,h_200,c_fill/v1/test.jpg",
+    "lat": 47.1,
+    "lon": 9.5,
+    "caption": "Testfoto",
+    "ts": 1772989642321,
+    "routeKm": 5
+  }
+]
