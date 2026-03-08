@@ -229,7 +229,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 <div id="topbar">
   <h1>🚴 <span id="app-title-text">BikePacking</span></h1>
   <div id="topbar-btns">
-    <button class="topbar-btn topbar-btn-wizard" onclick="showView('wizard')">🧭 Wizard</button>
+    <button class="topbar-btn topbar-btn-wizard" onclick="openWizardAdmin()">🧭 Wizard</button>
     <button class="topbar-btn topbar-btn-weather" onclick="openWeather()">🌤️</button>
     <button class="topbar-btn topbar-btn-map" onclick="showView('map')">🗺️ Karte</button>
     <button id="topbar-login-btn" class="topbar-btn topbar-btn-login" onclick="isAdmin?doLogout():openLoginModal()">
@@ -333,7 +333,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
   <div style="padding:10px 14px;background:#fff;border-bottom:1px solid #e8eef4;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
     <div>
       <div style="font-family:'Playfair Display',serif;font-size:.92rem;color:#1a2b3c">🧭 Tour-Wizard</div>
-      <div style="font-size:.65rem;color:#7a92a8;margin-top:1px">Schritt für Schritt zur fertigen Tour</div>
+      <div style="font-size:.65rem;color:#7a92a8;margin-top:1px">Schritt für Schritt zur fertigen Tour &nbsp;<span style="background:#eaf5f0;color:#1a6a3a;border:1px solid #9ad8b0;border-radius:8px;padding:1px 7px;font-size:.6rem;font-weight:700">🔐 Admin</span></div>
     </div>
     <button onclick="showView('poi')" style="padding:7px 14px;background:#f0f4f8;border:1px solid #dde4ec;border-radius:20px;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;cursor:pointer;color:#5a7a9a;-webkit-appearance:none">✕ Schließen</button>
   </div>
@@ -345,16 +345,15 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <div class="wiz-step-num active" id="wiz-num-0">⚙️</div>
         <div>
           <div class="wiz-step-title">GitHub Verbindung</div>
-          <div class="wiz-step-sub">Repository & Token einrichten</div>
+          <div class="wiz-step-sub">Repository & Token einrichten (einmalig)</div>
         </div>
       </div>
       <div class="wiz-instruction">
         <strong>Einmalige Einrichtung:</strong><br>
-        Damit alle Daten (POIs, Route, Rider-Position) zwischen deinen Geräten geteilt werden, 
-        verbinde die App mit deinem GitHub Repository.<br><br>
+        Damit Touren, POIs und Rider-Position auf allen Geräten sichtbar sind, verbinde die App mit deinem GitHub Repo.<br><br>
         1. Gehe zu <b>github.com → Settings → Developer Settings → Personal Access Tokens</b><br>
-        2. Erstelle ein Token mit <b>repo</b>-Berechtigung<br>
-        3. Trage unten Repo-URL und Token ein
+        2. Erstelle ein Token mit Scope <b>repo</b> (Classic) oder <b>Contents: Read &amp; Write</b> (Fine-grained)<br>
+        3. Trage Repo und Token unten ein
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div>
@@ -371,9 +370,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         </div>
         <div id="gh-status" style="font-size:.72rem;color:#6a8aa4;min-height:18px;text-align:center;padding:4px 0"></div>
         <div style="background:#fffbec;border:1px solid #f0d890;border-radius:8px;padding:10px 12px;font-size:.72rem;color:#7a5010;line-height:1.6">
-          <b>⚠️ Token-Berechtigungen:</b><br>
-          Beim Erstellen des Tokens muss der Scope <b>Contents: Read and Write</b> (bei Fine-grained tokens) 
-          oder <b>repo</b> (bei Classic tokens) aktiviert sein.
+          <b>⚠️ Token-Berechtigungen:</b> Scope <b>repo</b> (Classic) oder <b>Contents: Read &amp; Write</b> (Fine-grained) muss aktiviert sein.
         </div>
         <div style="display:flex;gap:8px">
           <button class="wiz-btn wiz-btn-secondary" style="flex:0 0 auto" onclick="testConnectionOnly()">🔍 Nur testen</button>
@@ -382,20 +379,72 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       </div>
     </div>
 
-    <!-- Step 1: Import Komoot GPX -->
-    <div class="wizard-step-card" id="wiz-step-1">
+    <!-- Step T: Neue Tour anlegen — IMMER ERSTER INHALTLICHER SCHRITT -->
+    <div class="wizard-step-card step-locked" id="wiz-step-T">
       <div class="wiz-step-hdr">
-        <div class="wiz-step-num locked" id="wiz-num-1">1</div>
+        <div class="wiz-step-num locked" id="wiz-num-T">1</div>
+        <div>
+          <div class="wiz-step-title">Tour anlegen oder wählen</div>
+          <div class="wiz-step-sub">Jede Tour hat eigene Route, POIs und Einstellungen</div>
+        </div>
+      </div>
+      <div class="wiz-instruction">
+        <strong>Lege zuerst deine Tour an</strong> — alle folgenden Schritte (GPX, POIs, Tracking) werden dieser Tour zugeordnet.<br><br>
+        Du kannst mehrere Touren verwalten, aber immer nur eine ist öffentlich sichtbar.
+      </div>
+
+      <!-- Existing tours list -->
+      <div id="wiz-tour-list" style="margin-bottom:10px"></div>
+
+      <!-- New tour form (inline, no modal) -->
+      <div id="wiz-new-tour-form" style="background:#f8fffe;border:1.5px solid #9ad8c0;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:.72rem;font-weight:700;color:#1a4a2a;margin-bottom:2px">➕ Neue Tour erstellen</div>
+        <div>
+          <label class="form-label">Tour-Name *</label>
+          <input id="wiz-tour-name" class="form-input" type="text" placeholder="z.B. Rebstein → Serbien 2026">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label">Startpunkt</label>
+            <input id="wiz-tour-start" class="form-input" type="text" placeholder="z.B. Rebstein">
+          </div>
+          <div>
+            <label class="form-label">Ziel</label>
+            <input id="wiz-tour-end" class="form-input" type="text" placeholder="z.B. Belgrad">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label">Geplante km</label>
+            <input id="wiz-tour-km" class="form-input" type="number" placeholder="z.B. 1360">
+          </div>
+          <div>
+            <label class="form-label">Status</label>
+            <select id="wiz-tour-status" class="form-input">
+              <option value="draft">Entwurf</option>
+              <option value="active">Aktiv (öffentlich)</option>
+            </select>
+          </div>
+        </div>
+        <div id="wiz-tour-error" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040"></div>
+        <button class="wiz-btn wiz-btn-green" onclick="wizCreateTour()">✅ Tour anlegen & weiter</button>
+      </div>
+    </div>
+
+    <!-- Step 1: Import Komoot GPX -->
+    <div class="wizard-step-card step-locked" id="wiz-step-1">
+      <div class="wiz-step-hdr">
+        <div class="wiz-step-num locked" id="wiz-num-1">2</div>
         <div>
           <div class="wiz-step-title">GPX von Komoot importieren</div>
           <div class="wiz-step-sub">Route analysieren & bei Bedarf splitten</div>
         </div>
       </div>
-      <div class="wiz-instruction" id="wiz-1-instr">
+      <div class="wiz-instruction">
         <strong>So gehts:</strong><br>
         1. Öffne deine Tour auf <b>komoot.de</b><br>
         2. Klicke auf <b>… → Tour exportieren → GPX</b><br>
-        3. Lade die Datei hier hoch
+        3. Lade die Datei hier hoch — die App prüft automatisch ob ein Split nötig ist
       </div>
       <div id="gpx-drop-zone" class="drop-zone" onclick="document.getElementById('gpx-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleGpxDrop(event)">
         <span class="drop-icon">📁</span>
@@ -409,93 +458,102 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
     <!-- Step 2: onroutemap -->
     <div class="wizard-step-card step-locked" id="wiz-step-2">
       <div class="wiz-step-hdr">
-        <div class="wiz-step-num locked" id="wiz-num-2">2</div>
+        <div class="wiz-step-num locked" id="wiz-num-2">3</div>
         <div>
           <div class="wiz-step-title">onroutemap.de — POIs hinzufügen</div>
-          <div class="wiz-step-sub">GPX importieren, POIs ergänzen, exportieren</div>
+          <div class="wiz-step-sub">GPX importieren, POIs mit Details ergänzen, exportieren</div>
         </div>
       </div>
       <div class="wiz-instruction">
-        <strong>So gehts (je GPX-Datei):</strong><br>
+        <strong>So gehts (je GPX-Teil):</strong><br>
         1. Öffne <a href="https://onroutemap.de" target="_blank" style="color:#1a6b4a;font-weight:600">onroutemap.de ↗</a><br>
-        2. Klicke auf <b>Import → GPX hochladen</b><br>
-        3. Wähle den gewünschten GPX-Teil<br>
-        4. Füge POIs hinzu (Camping ⛺, Laden ⚡, etc.)<br>
-        5. Exportiere die Datei wieder als GPX<br>
-        6. Wiederhole für alle Teile
+        2. GPX hochladen → POIs suchen und hinzufügen<br>
+        3. <b>Wichtig:</b> Befülle bei jedem POI: Name, Typ, Adresse und Website (www) — nur vollständige POIs werden später importiert<br>
+        4. GPX wieder exportieren<br>
+        5. Wiederhole für alle Teile
       </div>
       <button class="wiz-btn wiz-btn-secondary" onclick="window.open('https://onroutemap.de','_blank')">🗺️ onroutemap.de öffnen</button>
-      <button class="wiz-btn wiz-btn-primary" id="wiz-step2-done" onclick="markStep2Done()">✅ POIs erfasst – weiter zu Schritt 3</button>
+      <button class="wiz-btn wiz-btn-primary" onclick="markStep2Done()">✅ POIs erfasst – weiter zu Schritt 4</button>
     </div>
 
     <!-- Step 3: Import enriched GPX with POIs -->
     <div class="wizard-step-card step-locked" id="wiz-step-3">
       <div class="wiz-step-hdr">
-        <div class="wiz-step-num locked" id="wiz-num-3">3</div>
+        <div class="wiz-step-num locked" id="wiz-num-3">4</div>
         <div>
           <div class="wiz-step-title">Angereicherte GPX importieren</div>
-          <div class="wiz-step-sub">POIs aus onroutemap extrahieren</div>
+          <div class="wiz-step-sub">POIs aus onroutemap laden — mehrere GPX-Dateien möglich</div>
         </div>
       </div>
       <div class="wiz-instruction">
-        <strong>Importiere die von onroutemap exportierten GPX-Dateien.</strong><br>
-        Die App extrahiert automatisch alle Wegpunkte (POIs) aus den Dateien.
+        <strong>Lade alle von onroutemap exportierten GPX-Dateien hoch.</strong><br>
+        Die App liest alle Wegpunkte aus und zeigt sie zur Kontrolle an.<br>
+        <span style="color:#c85a0a">⚠️ Nur POIs mit <b>Name, Typ, Adresse und Website</b> werden übernommen.</span>
       </div>
       <div id="enriched-drop-zone" class="drop-zone" onclick="document.getElementById('enriched-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleEnrichedDrop(event)">
         <span class="drop-icon">📥</span>
-        Angereicherte GPX(s) hierher ziehen<br><small style="color:#9ab0c8">oder tippen (Mehrfachauswahl möglich)</small>
+        Eine oder mehrere GPX-Dateien hierher ziehen<br>
+        <small style="color:#9ab0c8">oder tippen — Mehrfachauswahl möglich</small>
       </div>
       <input type="file" id="enriched-file-input" accept=".gpx" multiple style="display:none" onchange="handleEnrichedFiles(this.files)">
-      <div id="enriched-poi-list" style="display:none"></div>
-      <button class="wiz-btn wiz-btn-green" id="wiz-import-pois-btn" style="display:none" onclick="importExtractedPois()">✅ POIs in Tour übernehmen</button>
+
+      <!-- Stats bar -->
+      <div id="enriched-stats" style="display:none;margin-top:10px"></div>
+
+      <!-- Filter bar -->
+      <div id="enriched-filter-bar" style="display:none;margin-top:8px;display:none;gap:6px;flex-wrap:wrap"></div>
+
+      <!-- POI list with checkboxes -->
+      <div id="enriched-poi-list" style="display:none;margin-top:8px"></div>
+
+      <!-- Actions -->
+      <div id="enriched-actions" style="display:none;margin-top:10px;display:none;flex-direction:column;gap:8px">
+        <div id="enriched-selection-info" style="font-size:.72rem;color:#6a8aa4;text-align:center"></div>
+        <button class="wiz-btn wiz-btn-green" id="wiz-import-pois-btn" onclick="importExtractedPois()">✅ Alle gültigen POIs in Tour übernehmen</button>
+      </div>
     </div>
 
     <!-- Step 4: Manage POIs -->
     <div class="wizard-step-card step-locked" id="wiz-step-4">
       <div class="wiz-step-hdr">
-        <div class="wiz-step-num locked" id="wiz-num-4">4</div>
+        <div class="wiz-step-num locked" id="wiz-num-4">5</div>
         <div>
-          <div class="wiz-step-title">POIs verwalten</div>
-          <div class="wiz-step-sub">Filtern, bearbeiten, eigene hinzufügen</div>
+          <div class="wiz-step-title">POI-Liste prüfen & speichern</div>
+          <div class="wiz-step-sub">Eigene POIs ergänzen, dann in GitHub sichern</div>
         </div>
       </div>
       <div class="wiz-instruction">
-        <strong>Jetzt kannst du:</strong><br>
-        • POIs aus onroutemap filtern und löschen<br>
-        • Eigene POIs hinzufügen (Camping, Laden, Restaurant…)<br>
-        • Alle POIs werden automatisch in GitHub gespeichert
+        <strong>Fast fertig!</strong><br>
+        • Prüfe die POI-Liste und ergänze eigene Einträge<br>
+        • Speichere alles in GitHub – dann sind Tour und POIs auf allen Geräten sichtbar
       </div>
-      <button class="wiz-btn wiz-btn-green" onclick="showView('poi')">📋 POI-Liste öffnen</button>
+      <button class="wiz-btn wiz-btn-green" onclick="showView('poi')">📋 POI-Liste öffnen &amp; prüfen</button>
       <button class="wiz-btn wiz-btn-primary" onclick="saveToursToGithub()">☁️ In GitHub speichern</button>
     </div>
 
-    <!-- Step 5: Tour öffentlich schalten -->
+    <!-- Step 5: Go live -->
     <div class="wizard-step-card step-locked" id="wiz-step-5">
       <div class="wiz-step-hdr">
-        <div class="wiz-step-num locked" id="wiz-num-5">5</div>
+        <div class="wiz-step-num locked" id="wiz-num-5">6</div>
         <div>
           <div class="wiz-step-title">Tour veröffentlichen & Live-Tracking</div>
-          <div class="wiz-step-sub">Tour für alle sichtbar schalten + GPS-Tracking starten</div>
+          <div class="wiz-step-sub">Tour für alle sichtbar + GPS-Tracking starten</div>
         </div>
       </div>
       <div class="wiz-instruction">
         <strong>Wenn du losfährst:</strong><br>
         1. Öffne die App auf deinem Handy<br>
-        2. Melde dich als Admin an<br>
-        3. Aktiviere das Live-Tracking<br>
-        4. Deine Position wird alle 15 Sek. gespeichert<br><br>
-        Freunde mit dem Link zur App sehen deine Position live auf der Karte! 🎉
+        2. Melde dich als Admin an (🔐 Login)<br>
+        3. Gehe zur Karte und tippe <b>Admin → Tracking aktiv</b><br>
+        4. Deine Position wird alle 15 Sek. in GitHub gespeichert<br><br>
+        Alle mit dem Link sehen deinen Standort live auf der Karte! 🎉
       </div>
       <button class="wiz-btn wiz-btn-success" onclick="activatePublicTour()">🚀 Tour veröffentlichen</button>
       <div id="wiz-tour-url" style="display:none;margin-top:10px"></div>
     </div>
 
-    <!-- New Tour Button -->
-    <div style="text-align:center;padding:8px 0 20px" id="new-tour-wrap">
-      <button onclick="isAdmin?openNewTourModal():openLoginModal()" style="padding:12px 24px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:20px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,107,74,.2);display:inline-flex;align-items:center;gap:8px">➕ Neue Tour anlegen</button>
-    </div>
-
   </div>
+</div>
 </div>
 
 <!-- ══════ POI MODAL ══════ -->
@@ -771,8 +829,10 @@ function saveGithubConfig() {
     if (ok) {
       st.textContent = '✅ Verbunden! Lade Touren…'; st.style.color='#1a7a4a';
       setWizStepDone(0);
-      setWizStepActive(1);
-      loadToursFromGithub();
+      loadToursFromGithub().then(()=>{
+        setWizStepActive('T');
+        renderWizTourList();
+      });
     } else {
       st.textContent = '❌ Verbindung fehlgeschlagen. Token/Repo prüfen.'; st.style.color='#c04040';
     }
@@ -999,7 +1059,68 @@ function openNewTourModal() {
 function closeNewTourModal() {
   document.getElementById('new-tour-modal').style.display = 'none';
 }
+
+// Wizard inline tour creation
+function renderWizTourList() {
+  const c = document.getElementById('wiz-tour-list');
+  if (!c) return;
+  if (!tours.length) { c.innerHTML=''; return; }
+  c.innerHTML = `<div style="margin-bottom:10px">
+    <div style="font-size:.68rem;font-weight:700;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Vorhandene Touren</div>
+    ${tours.map(t=>`
+      <div onclick="wizSelectTour('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:2px solid ${activeTourId===t.id?'#c85a0a':'#e2e8f0'};background:${activeTourId===t.id?'#fff8f5':'#fff'};margin-bottom:6px;cursor:pointer">
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#f0f7f4,#e8f0fb);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">${t.status==='active'?'🟢':t.status==='done'?'✅':'📝'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.82rem;font-weight:600;color:#1a2b3c">${t.name}</div>
+          <div style="font-size:.65rem;color:#7a92a8;margin-top:1px">${t.start||''}${t.start&&t.end?' → ':''}${t.end||''} ${t.totalKm?'· '+t.totalKm+' km':''}</div>
+        </div>
+        ${activeTourId===t.id?'<span style="font-size:.65rem;padding:2px 8px;border-radius:10px;background:#fff4ec;color:#c85a0a;border:1px solid #f0c090;font-weight:600">Aktiv</span>':''}
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function wizSelectTour(id) {
+  activeTourId = id; saveLocalState();
+  renderWizTourList(); renderTourTabs(); updateAppTitle();
+  loadTourPois(id);
+  setWizStepDone('T'); setWizStepActive(1);
+  showToast('✅ Tour gewählt: ' + (tours.find(t=>t.id===id)?.name||id), 'success');
+}
+
+async function wizCreateTour() {
+  if (!isAdmin) { pendingAfterLogin=wizCreateTour; openLoginModal(); return; } // should never reach here
+  const name = document.getElementById('wiz-tour-name').value.trim();
+  const err = document.getElementById('wiz-tour-error');
+  if (!name) { err.textContent='Bitte einen Tour-Namen eingeben.'; err.style.display='block'; return; }
+  err.style.display='none';
+  const id = 'tour_' + Date.now();
+  const tour = {
+    id, name,
+    start: document.getElementById('wiz-tour-start').value.trim(),
+    end: document.getElementById('wiz-tour-end').value.trim(),
+    totalKm: parseFloat(document.getElementById('wiz-tour-km').value) || 0,
+    status: document.getElementById('wiz-tour-status').value,
+    created: new Date().toISOString()
+  };
+  if (tour.status === 'active') tours.forEach(t => { if(t.status==='active') t.status='done'; });
+  tours.push(tour);
+  showToast('⏳ Tour wird erstellt…');
+  if (ghConfig.repo && ghConfig.token) {
+    await putGithubFile('tours/' + id + '/pois.json', '[]', 'Create tour ' + name);
+    const tf = await getGithubFile('tours.json');
+    await putGithubFile('tours.json', JSON.stringify(tours, null, 2), 'Add tour ' + name, tf?.sha);
+  }
+  activeTourId = id; tourPois = []; saveLocalState();
+  renderTourTabs(); updateAppTitle(); renderWizTourList();
+  setWizStepDone('T'); setWizStepActive(1);
+  showToast('✅ Tour "' + name + '" erstellt!', 'success');
+  // Clear form
+  ['wiz-tour-name','wiz-tour-start','wiz-tour-end','wiz-tour-km'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+}
+
 async function saveNewTour() {
+  // Legacy modal fallback – calls wizCreateTour logic
   const name = document.getElementById('new-tour-name').value.trim();
   const err = document.getElementById('new-tour-error');
   if (!name) { err.textContent='Bitte einen Tour-Namen eingeben.'; err.style.display='block'; return; }
@@ -1013,20 +1134,16 @@ async function saveNewTour() {
     status: document.getElementById('new-tour-status').value,
     created: new Date().toISOString()
   };
-  // Deactivate others if this is active
   if (tour.status === 'active') tours.forEach(t => { if(t.status==='active') t.status='done'; });
   tours.push(tour);
   closeNewTourModal();
   showToast('⏳ Tour wird erstellt…');
-  // Create empty pois.json for this tour
   if (ghConfig.repo && ghConfig.token) {
-    await putGithubFile(`tours/${id}/pois.json`, '[]', `Create tour ${name}`);
+    await putGithubFile('tours/' + id + '/pois.json', '[]', 'Create tour ' + name);
     const tf = await getGithubFile('tours.json');
-    await putGithubFile('tours.json', JSON.stringify(tours, null, 2), 'Add new tour', tf?.sha);
+    await putGithubFile('tours.json', JSON.stringify(tours, null, 2), 'Add tour', tf?.sha);
     showToast('✅ Tour erstellt!', 'success');
-  } else {
-    showToast('✅ Tour lokal erstellt (kein GitHub)', 'success');
-  }
+  } else { showToast('✅ Tour lokal erstellt', 'success'); }
   activeTourId = id; tourPois = [];
   renderTourTabs(); updateAppTitle(); renderList();
   setWizStepActive(1);
@@ -1056,14 +1173,26 @@ function parseGpx(text) {
 
   // Waypoints (POIs)
   const wptEls = [...doc.getElementsByTagNameNS(ns,'wpt'), ...doc.getElementsByTagName('wpt')].filter((v,i,a)=>a.indexOf(v)===i);
-  const waypoints = wptEls.map(w => ({
-    lat: parseFloat(w.getAttribute('lat')),
-    lon: parseFloat(w.getAttribute('lon')),
-    name: getTxt(w,'name') || 'Wegpunkt',
-    desc: getTxt(w,'desc') || '',
-    sym: getTxt(w,'sym') || '',
-    type: getTxt(w,'type') || ''
-  }));
+  const waypoints = wptEls.map(w => {
+    // Extract www/url – onroutemap stores it in <link href="..."> or <url> or <urlname>
+    const linkEl = w.getElementsByTagNameNS(ns,'link')[0] || w.getElementsByTagName('link')[0];
+    const www = (linkEl ? linkEl.getAttribute('href') : '') || getTxt(w,'url') || getTxt(w,'urlname') || '';
+    // Extract phone from desc or extensions
+    const desc = getTxt(w,'desc') || '';
+    const phoneMatch = desc.match(/(?:tel|phone|telefon)[:\s]*([+\d\s\-\/]{7,})/i);
+    const addrMatch  = desc.match(/(?:adresse|address|addr)[:\s]*([^\n|;]+)/i);
+    return {
+      lat:  parseFloat(w.getAttribute('lat')),
+      lon:  parseFloat(w.getAttribute('lon')),
+      name: getTxt(w,'name') || '',
+      desc: desc,
+      sym:  getTxt(w,'sym') || '',
+      type: getTxt(w,'type') || '',
+      www:  www,
+      addr: addrMatch ? addrMatch[1].trim() : (desc.split('|')[1]||'').trim() || '',
+      p:    phoneMatch ? phoneMatch[1].trim() : '',
+    };
+  });
 
   // Track points
   const trkEls = [...doc.getElementsByTagNameNS(ns,'trkpt'), ...doc.getElementsByTagName('trkpt')].filter((v,i,a)=>a.indexOf(v)===i);
@@ -1258,16 +1387,20 @@ function handleEnrichedFiles(files) {
       }
       waypoints.forEach(w => {
         if (!w.lat || !w.lon || isNaN(w.lat)) return;
-        const type = guessPoiType(w.sym, w.type, w.name);
+        const type = guessPoiType(w.sym, w.type, w.name, w.desc);
         extractedPois.push({
           id: 'imported_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-          n: w.name || 'Wegpunkt',
+          n: w.name || '',
           lat: w.lat, lon: w.lon,
           t: type,
           desc: w.desc || '',
           sym: w.sym || '',
+          www: w.www || '',
           km: 0,
-          ort: '', l: '??', addr: '', p: '', hours: '', note: w.desc || '',
+          ort: '', l: '??',
+          addr: w.addr || '',
+          p: w.p || '',
+          hours: '', note: w.desc || '',
           isImported: true
         });
       });
@@ -1278,70 +1411,159 @@ function handleEnrichedFiles(files) {
   });
 }
 
-function guessPoiType(sym, type, name) {
-  const s = (sym+' '+type+' '+name).toLowerCase();
-  if (s.includes('camp') || s.includes('zelt') || s.includes('camping')) return 'Camping';
-  if (s.includes('charg') || s.includes('lad') || s.includes('electric') || s.includes('ev ')) return 'Ladestation';
-  if (s.includes('hotel') || s.includes('unterkunft') || s.includes('hostel') || s.includes('pension')) return 'Hotel';
-  if (s.includes('restaurant') || s.includes('food') || s.includes('essen') || s.includes('cafe') || s.includes('gasthaus')) return 'Restaurant';
-  if (s.includes('werkstatt') || s.includes('repair') || s.includes('bike shop') || s.includes('fahrrad')) return 'Werkstatt';
+function guessPoiType(sym, type, name, desc) {
+  const s = (sym+' '+type+' '+name+' '+(desc||'')).toLowerCase();
+  if (s.includes('camp') || s.includes('zelt') || s.includes('camping') || s.includes('bivouac')) return 'Camping';
+  if (s.includes('charg') || s.includes('ladestation') || s.includes('electric') || s.includes('ev ') || s.includes('e-bike')) return 'Ladestation';
+  if (s.includes('hotel') || s.includes('unterkunft') || s.includes('hostel') || s.includes('pension') || s.includes('b&b') || s.includes('gasthaus') || s.includes('zimmer')) return 'Hotel';
+  if (s.includes('restaurant') || s.includes('food') || s.includes('essen') || s.includes('cafe') || s.includes('café') || s.includes('gastro') || s.includes('pizza') || s.includes('bistro')) return 'Restaurant';
+  if (s.includes('werkstatt') || s.includes('repair') || s.includes('bike shop') || s.includes('fahrrad') || s.includes('velo')) return 'Werkstatt';
   return 'Sonstiges';
 }
 
+// Check if a POI from onroutemap has all required fields: Name, Typ, Adresse, www
+function poiIsComplete(p) {
+  const hasName = !!(p.n && p.n.trim() && p.n !== 'Wegpunkt');
+  const hasType = !!(p.t && p.t !== 'Sonstiges');
+  const hasAddr = !!(p.addr && p.addr.trim());
+  const hasWww  = !!(p.www && p.www.trim());
+  return { hasName, hasType, hasAddr, hasWww, complete: hasName && hasType && hasAddr && hasWww };
+}
+
+function calcRouteKmForPois(pois) {
+  if (!currentRoutePoints.length) return;
+  let cumDist = 0;
+  const routeDistMap = currentRoutePoints.map((pt, i) => {
+    if (i>0) cumDist += hav(currentRoutePoints[i-1][0], currentRoutePoints[i-1][1], pt[0], pt[1]);
+    return { lat:pt[0], lon:pt[1], km:cumDist };
+  });
+  pois.forEach(poi => {
+    let minD=Infinity, nearKm=0;
+    routeDistMap.forEach(rp => {
+      const d=hav(poi.lat,poi.lon,rp.lat,rp.lon);
+      if(d<minD){minD=d;nearKm=rp.km;}
+    });
+    poi.km = Math.round(nearKm);
+  });
+}
+
 function renderExtractedPois() {
-  const c = document.getElementById('enriched-poi-list');
-  const btn = document.getElementById('wiz-import-pois-btn');
+  const statsEl   = document.getElementById('enriched-stats');
+  const listEl    = document.getElementById('enriched-poi-list');
+  const actionsEl = document.getElementById('enriched-actions');
+  const btnEl     = document.getElementById('wiz-import-pois-btn');
+
   if (!extractedPois.length) {
-    c.style.display='block'; c.innerHTML='<div style="color:#9ab0c8;font-size:.78rem;text-align:center;padding:16px">Keine Wegpunkte gefunden. Stelle sicher, dass die GPX Wegpunkte (wpt) enthält.</div>';
+    statsEl.style.display='block';
+    statsEl.innerHTML='<div style="color:#9ab0c8;font-size:.78rem;text-align:center;padding:16px">Keine Wegpunkte gefunden. Stelle sicher, dass die GPX Wegpunkte (wpt) enthält.</div>';
+    listEl.style.display='none'; actionsEl.style.display='none';
     return;
   }
 
-  // Calc km position based on route
-  if (currentRoutePoints.length > 0) {
-    let cumDist = 0;
-    const routeDistMap = currentRoutePoints.map((pt, i) => {
-      if (i>0) cumDist += hav(currentRoutePoints[i-1][0],currentRoutePoints[i-1][1],pt[0],pt[1]);
-      return { lat:pt[0], lon:pt[1], km:cumDist };
-    });
-    extractedPois.forEach(poi => {
-      let minD=Infinity, nearKm=0;
-      routeDistMap.forEach(rp => {
-        const d=hav(poi.lat,poi.lon,rp.lat,rp.lon);
-        if(d<minD){minD=d;nearKm=rp.km;}
-      });
-      poi.km = Math.round(nearKm);
-    });
-  }
+  calcRouteKmForPois(extractedPois);
 
-  c.style.display = 'block';
-  btn.style.display = 'block';
-  c.innerHTML = `
-    <div class="poi-import-result">
-      <div style="font-size:.7rem;font-weight:700;color:#1a4a2a;margin-bottom:10px">📍 ${extractedPois.length} POIs gefunden:</div>
-      ${extractedPois.map((p,i) => {
-        const tc = TYPE_CONFIG[p.t] || TYPE_CONFIG.Sonstiges;
-        return `<div class="poi-import-item">
-          <div class="poi-import-icon" style="background:${tc.bg}">${tc.icon}</div>
-          <div class="poi-import-txt">
-            <div class="poi-import-name">${escHtml(p.n)}</div>
-            <div class="poi-import-sub">${tc.label} · km ${p.km} · ${p.lat.toFixed(4)}°N</div>
-          </div>
-          <button onclick="extractedPois.splice(${i},1);renderExtractedPois()" style="background:#fff0f0;border:1px solid #f0a0a0;border-radius:6px;color:#c04040;padding:4px 8px;font-size:.65rem;cursor:pointer;-webkit-appearance:none">✕</button>
-        </div>`;
-      }).join('')}
+  // Partition: complete vs incomplete
+  const complete   = extractedPois.filter(p => poiIsComplete(p).complete);
+  const incomplete = extractedPois.filter(p => !poiIsComplete(p).complete);
+
+  // Stats bar
+  statsEl.style.display = 'block';
+  statsEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;background:#f8fbff;border:1px solid #c8ddf4;border-radius:10px;padding:10px">
+      <div><div style="font-size:1.2rem;font-weight:700;color:#1a2b3c">${extractedPois.length}</div><div style="font-size:.62rem;color:#6a8aa4">Gesamt</div></div>
+      <div><div style="font-size:1.2rem;font-weight:700;color:#1a9a5a">${complete.length}</div><div style="font-size:.62rem;color:#6a8aa4">✅ Vollständig</div></div>
+      <div><div style="font-size:1.2rem;font-weight:700;color:#c85a0a">${incomplete.length}</div><div style="font-size:.62rem;color:#6a8aa4">⚠️ Unvollständig</div></div>
     </div>
   `;
+
+  // Build cards
+  let html = '';
+
+  if (complete.length) {
+    html += `<div style="font-size:.68rem;font-weight:700;color:#1a6a3a;text-transform:uppercase;letter-spacing:.08em;padding:10px 2px 5px">✅ Wird importiert (${complete.length})</div>`;
+    html += complete.map((p,i) => {
+      const tc = TYPE_CONFIG[p.t] || TYPE_CONFIG.Sonstiges;
+      const idx = extractedPois.indexOf(p);
+      return `<div style="background:#fff;border:1.5px solid #9ad8b0;border-radius:12px;margin-bottom:8px;overflow:hidden">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px 6px">
+          <div style="width:36px;height:36px;border-radius:10px;background:${tc.bg};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${tc.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.82rem;font-weight:700;color:#1a2b3c">${escHtml(p.n)}</div>
+            <div style="font-size:.65rem;color:#6a8aa4;margin-top:1px;display:flex;gap:6px;flex-wrap:wrap">
+              <span style="background:${tc.bg};padding:1px 6px;border-radius:8px;font-weight:600;color:#1a4a2a">${tc.label}</span>
+              ${p.km?`<span>km ${p.km}</span>`:''}
+              <span>${p.lat.toFixed(4)}°N, ${p.lon.toFixed(4)}°E</span>
+            </div>
+          </div>
+        </div>
+        <div style="padding:0 12px 8px;display:flex;flex-direction:column;gap:3px">
+          ${p.addr?`<div style="font-size:.72rem;color:#4a6a84;display:flex;gap:5px"><span>📍</span><span>${escHtml(p.addr)}</span></div>`:''}
+          ${p.www?`<div style="font-size:.72rem;color:#1a5080;display:flex;gap:5px"><span>🌐</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="${escHtml(p.www)}" target="_blank" style="color:#1a5080">${escHtml(p.www)}</a></span></div>`:''}
+          ${p.desc&&p.desc!==p.addr?`<div style="font-size:.7rem;color:#7a92a8;display:flex;gap:5px"><span>📝</span><span>${escHtml(p.desc.slice(0,120))}${p.desc.length>120?'…':''}</span></div>`:''}
+          ${p.p?`<div style="font-size:.72rem;color:#4a6a84;display:flex;gap:5px"><span>📞</span><span>${escHtml(p.p)}</span></div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  if (incomplete.length) {
+    html += `<div style="font-size:.68rem;font-weight:700;color:#c85a0a;text-transform:uppercase;letter-spacing:.08em;padding:10px 2px 5px">⚠️ Wird NICHT importiert — fehlende Felder (${incomplete.length})</div>`;
+    html += incomplete.map(p => {
+      const chk = poiIsComplete(p);
+      const missing = [
+        !chk.hasName?'Name':'',
+        !chk.hasType?'Typ':'',
+        !chk.hasAddr?'Adresse':'',
+        !chk.hasWww?'Website (www)':''
+      ].filter(Boolean).join(', ');
+      const tc = TYPE_CONFIG[p.t] || TYPE_CONFIG.Sonstiges;
+      return `<div style="background:#fff;border:1.5px dashed #f0c090;border-radius:12px;margin-bottom:8px;padding:10px 12px;opacity:.8">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:36px;height:36px;border-radius:10px;background:#fff8f0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${tc.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.8rem;font-weight:600;color:#6a4a2a">${escHtml(p.n||'(kein Name)')}</div>
+            <div style="font-size:.65rem;color:#9a7a5a;margin-top:2px">${p.lat.toFixed(4)}°N, ${p.lon.toFixed(4)}°E</div>
+          </div>
+        </div>
+        <div style="margin-top:7px;background:#fff4ec;border-radius:7px;padding:6px 10px;font-size:.68rem;color:#a04010">
+          <b>Fehlend:</b> ${missing}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  listEl.style.display = 'block';
+  listEl.innerHTML = html;
+
+  // Actions
+  actionsEl.style.display = 'flex';
+  if (complete.length) {
+    btnEl.textContent = '✅ ' + complete.length + ' vollständige POIs in Tour übernehmen';
+    btnEl.style.display = 'block';
+  } else {
+    btnEl.style.display = 'none';
+  }
+
   setWizStepActive(3);
 }
 
 async function importExtractedPois() {
-  if (!activeTourId) { showToast('❌ Bitte zuerst eine Tour wählen'); return; }
-  tourPois = [...tourPois, ...extractedPois];
+  if (!activeTourId) {
+    // Redirect to tour step
+    setWizStepActive('T');
+    document.getElementById('wiz-step-T').scrollIntoView({behavior:'smooth'});
+    showToast('⚠️ Bitte zuerst eine Tour anlegen (Schritt 1)', 'error');
+    return;
+  }
+  const complete = extractedPois.filter(p => poiIsComplete(p).complete);
+  if (!complete.length) { showToast('❌ Keine vollständigen POIs zum Importieren', 'error'); return; }
+  tourPois = [...tourPois, ...complete];
   extractedPois = [];
   document.getElementById('enriched-poi-list').style.display = 'none';
-  document.getElementById('wiz-import-pois-btn').style.display = 'none';
+  document.getElementById('enriched-actions').style.display = 'none';
+  document.getElementById('enriched-stats').innerHTML = `<div style="background:#eaf5f0;border:1px solid #9ad8b0;border-radius:10px;padding:10px 14px;font-size:.78rem;color:#1a4a2a;font-weight:600">✅ ${tourPois.length} POIs wurden in die Tour übernommen.</div>`;
   setWizStepDone(3); setWizStepActive(4);
-  showToast(`✅ ${tourPois.length} POIs importiert`, 'success');
+  showToast('✅ ' + complete.length + ' POIs importiert!', 'success');
   renderList();
   if (mapInitialized) refreshMapMarkers();
   await saveToursToGithub();
@@ -1349,9 +1571,17 @@ async function importExtractedPois() {
 
 function markStep2Done() {
   setWizStepDone(2); setWizStepActive(3);
+  // Also reset enriched import area for fresh upload
+  document.getElementById('enriched-poi-list').style.display = 'none';
+  const statsEl = document.getElementById('enriched-stats');
+  if (statsEl) statsEl.style.display = 'none';
+  const actEl = document.getElementById('enriched-actions');
+  if (actEl) actEl.style.display = 'none';
+  extractedPois = [];
 }
 
 async function activatePublicTour() {
+  if (!isAdmin) { openLoginModal(); return; }
   if (!activeTourId) return;
   tours.forEach(t => { if(t.status==='active') t.status='done'; });
   const t = tours.find(t=>t.id===activeTourId);
@@ -1366,22 +1596,35 @@ async function activatePublicTour() {
 
 // Wizard step helpers
 function setWizStepDone(n) {
-  const card = document.getElementById(`wiz-step-${n}`);
-  const num = document.getElementById(`wiz-num-${n}`);
-  if (card) { card.className='wizard-step-card step-done'; }
-  if (num) { num.className='wiz-step-num done'; num.textContent='✓'; }
+  const card = document.getElementById('wiz-step-'+n);
+  const num  = document.getElementById('wiz-num-'+n);
+  if (card) card.className = 'wizard-step-card step-done';
+  if (num)  { num.className = 'wiz-step-num done'; num.textContent = '✓'; }
 }
 function setWizStepActive(n) {
-  const card = document.getElementById(`wiz-step-${n}`);
-  const num = document.getElementById(`wiz-num-${n}`);
-  if (card) { card.className='wizard-step-card step-active'; }
-  if (num) { num.className='wiz-step-num active'; num.textContent=n===0?'⚙️':n; }
+  const card = document.getElementById('wiz-step-'+n);
+  const num  = document.getElementById('wiz-num-'+n);
+  if (card) {
+    card.className = 'wizard-step-card step-active';
+    setTimeout(()=>card.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+  }
+  if (num) {
+    num.className = 'wiz-step-num active';
+    num.textContent = n===0 ? '⚙️' : n==='T' ? '1' : n;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
 // VIEWS
 // ═══════════════════════════════════════════════════════════
+function openWizardAdmin() {
+  if (!isAdmin) { pendingAfterLogin=()=>showView('wizard'); openLoginModal(); return; }
+  showView('wizard');
+}
+
 function showView(v) {
+  // Wizard always requires admin
+  if (v==='wizard' && !isAdmin) { pendingAfterLogin=()=>showView('wizard'); openLoginModal(); return; }
   document.getElementById('topbar').style.display = v==='map'?'none':'';
   document.getElementById('view-poi').style.display = v==='poi'?'flex':'none';
   document.getElementById('view-poi').className = v==='poi'?'active':'';
@@ -1393,6 +1636,11 @@ function showView(v) {
   if (v==='map') {
     if (!mapInitialized) initMap();
     else { setTimeout(()=>mapObj?.invalidateSize(),150); syncAllCustomPoiMarkers(); refreshMapMarkers(); }
+  }
+  if (v==='wizard') {
+    renderWizTourList();
+    // If no github config yet, ensure step 0 is active
+    if (!ghConfig.repo || !ghConfig.token) { setWizStepActive(0); }
   }
 }
 
@@ -1960,8 +2208,9 @@ buildCountryBtns();
 // Try to load tours from github on startup
 if (ghConfig.repo && ghConfig.token) {
   loadToursFromGithub().then(()=>{
-    // Check if github is set up — if so mark step 0 done
-    setWizStepDone(0); setWizStepActive(1);
+    setWizStepDone(0);
+    setWizStepActive('T');
+    renderWizTourList();
   });
 }
 
