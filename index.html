@@ -466,7 +466,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <strong>So gehts (je GPX-Teil):</strong><br>
         1. Öffne <a href="https://onroutemap.de" target="_blank" style="color:#1a6b4a;font-weight:600">onroutemap.de ↗</a><br>
         2. GPX hochladen → POIs suchen und hinzufügen<br>
-        3. <b>Wichtig:</b> Befülle bei jedem POI mindestens: Name, Typ und Adresse — Website (www) ist optional<br>
+        3. Die App importiert POIs mit spezifischem Namen und sinnvollem Typ automatisch<br>
         4. GPX wieder exportieren<br>
         5. Wiederhole für alle Teile
       </div>
@@ -485,8 +485,8 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       </div>
       <div class="wiz-instruction">
         <strong>Lade alle von onroutemap exportierten GPX-Dateien hoch.</strong><br>
-        Die App liest alle Wegpunkte aus und zeigt sie zur Kontrolle an.<br>
-        <span style="color:#c85a0a">⚠️ Nur POIs mit <b>Name, Typ und Adresse</b> werden übernommen. Website (www) ist optional.</span>
+        Die App filtert automatisch nach Qualität und zeigt was importiert wird.<br>
+        <span style="color:#1a6a3a">✅ Kriterien: spezifischer Name · sinnvoller Typ · max. 500m von der Route</span>
       </div>
       <div id="enriched-drop-zone" class="drop-zone" onclick="document.getElementById('enriched-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleEnrichedDrop(event)">
         <span class="drop-icon">📥</span>
@@ -1172,23 +1172,25 @@ function parseGpx(text) {
   // Waypoints (POIs)
   const wptEls = [...doc.getElementsByTagNameNS(ns,'wpt'), ...doc.getElementsByTagName('wpt')].filter((v,i,a)=>a.indexOf(v)===i);
   const waypoints = wptEls.map(w => {
-    // Extract www/url – onroutemap stores it in <link href="..."> or <url> or <urlname>
-    const linkEl = w.getElementsByTagNameNS(ns,'link')[0] || w.getElementsByTagName('link')[0];
-    const www = (linkEl ? linkEl.getAttribute('href') : '') || getTxt(w,'url') || getTxt(w,'urlname') || '';
-    // Extract phone from desc or extensions
     const desc = getTxt(w,'desc') || '';
-    const phoneMatch = desc.match(/(?:tel|phone|telefon)[:\s]*([+\d\s\-\/]{7,})/i);
-    const addrMatch  = desc.match(/(?:adresse|address|addr)[:\s]*([^\n|;]+)/i);
+    // onroutemap uses <n> (not <name>) for waypoint names
+    const name = getTxt(w,'name') || '';  // <n> is standard GPX name tag
+    const type = getTxt(w,'type') || '';
+    // Parse km and distance from onroutemap desc format:
+    // "Typ: Campingplatz, Entfernung zur Route: 316 m, Streckenkilometer: 2.6 km"
+    const kmMatch   = desc.match(/Streckenkilometer:\s*([\d.]+)/);
+    const distMatch = desc.match(/Entfernung zur Route:\s*([\d.]+)/);
+    const km   = kmMatch   ? parseFloat(kmMatch[1])   : null;
+    const dist = distMatch ? parseFloat(distMatch[1]) : null;
+    // www/link optional
+    const linkEl = w.getElementsByTagNameNS(ns,'link')[0] || w.getElementsByTagName('link')[0];
+    const www = (linkEl ? linkEl.getAttribute('href') : '') || getTxt(w,'url') || '';
     return {
       lat:  parseFloat(w.getAttribute('lat')),
       lon:  parseFloat(w.getAttribute('lon')),
-      name: getTxt(w,'name') || '',
-      desc: desc,
+      name, desc, type, www, km, dist,
       sym:  getTxt(w,'sym') || '',
-      type: getTxt(w,'type') || '',
-      www:  www,
-      addr: addrMatch ? addrMatch[1].trim() : (desc.split('|')[1]||'').trim() || '',
-      p:    phoneMatch ? phoneMatch[1].trim() : '',
+      addr: '', p: ''
     };
   });
 
@@ -1385,20 +1387,19 @@ function handleEnrichedFiles(files) {
       }
       waypoints.forEach(w => {
         if (!w.lat || !w.lon || isNaN(w.lat)) return;
-        const type = guessPoiType(w.sym, w.type, w.name, w.desc);
+        const appType = mapOnroutemapType(w.type);
         extractedPois.push({
-          id: 'imported_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-          n: w.name || '',
-          lat: w.lat, lon: w.lon,
-          t: type,
+          id: 'imp_'+Date.now()+'_'+Math.random().toString(36).slice(2),
+          n:    w.name || '',           // <name> tag from onroutemap GPX
+          lat:  w.lat,
+          lon:  w.lon,
+          t:    appType,
+          onroutemapType: w.type || '', // original <type> value e.g. "Campingplatz"
           desc: w.desc || '',
-          sym: w.sym || '',
-          www: w.www || '',
-          km: 0,
-          ort: '', l: '??',
-          addr: w.addr || '',
-          p: w.p || '',
-          hours: '', note: w.desc || '',
+          www:  w.www  || '',
+          km:   w.km   !== null ? w.km : 0,
+          dist: w.dist !== null ? w.dist : 999,
+          ort: '', l: '??', addr: '', p: '', hours: '', note: '',
           isImported: true
         });
       });
@@ -1409,23 +1410,68 @@ function handleEnrichedFiles(files) {
   });
 }
 
-function guessPoiType(sym, type, name, desc) {
-  const s = (sym+' '+type+' '+name+' '+(desc||'')).toLowerCase();
-  if (s.includes('camp') || s.includes('zelt') || s.includes('camping') || s.includes('bivouac')) return 'Camping';
-  if (s.includes('charg') || s.includes('ladestation') || s.includes('electric') || s.includes('ev ') || s.includes('e-bike')) return 'Ladestation';
-  if (s.includes('hotel') || s.includes('unterkunft') || s.includes('hostel') || s.includes('pension') || s.includes('b&b') || s.includes('gasthaus') || s.includes('zimmer')) return 'Hotel';
-  if (s.includes('restaurant') || s.includes('food') || s.includes('essen') || s.includes('cafe') || s.includes('café') || s.includes('gastro') || s.includes('pizza') || s.includes('bistro')) return 'Restaurant';
-  if (s.includes('werkstatt') || s.includes('repair') || s.includes('bike shop') || s.includes('fahrrad') || s.includes('velo')) return 'Werkstatt';
-  return 'Sonstiges';
+// Map onroutemap.de type strings to app categories
+function mapOnroutemapType(t) {
+  const m = {
+    'Campingplatz':'Camping',
+    'Hostel':'Hotel','Hotel':'Hotel','Motel':'Hotel','Pension':'Hotel',
+    'Restaurant':'Restaurant','Café':'Restaurant','Fast Food':'Restaurant',
+    'Bäckerei':'Restaurant','Kiosk':'Restaurant','Eisdiele':'Restaurant',
+    'Fahrradreparaturstation':'Werkstatt',
+    'Supermarkt':'Supermarkt','Getränkemarkt':'Supermarkt',
+    'Tankstelle':'Tankstelle',
+    'Trinkwasser':'Trinkwasser','Friedhof (Trinkwasser)':'Trinkwasser',
+    'Unterstand':'Unterstand','Toilette':'Toilette',
+    'Verkaufsautomat':'Sonstiges',
+  };
+  return m[t] || 'Sonstiges';
 }
 
-// Check if a POI from onroutemap has all required fields: Name, Typ, Adresse, www
+// Extend TYPE_CONFIG with extra onroutemap categories for display
+const EXTRA_TYPE_CONFIG = {
+  Supermarkt:  {icon:'🛒', bg:'#f0f8ff', badge:'badge-sonstiges', label:'Supermarkt'},
+  Tankstelle:  {icon:'⛽', bg:'#fff4e8', badge:'badge-sonstiges', label:'Tankstelle'},
+  Trinkwasser: {icon:'💧', bg:'#e8f4ff', badge:'badge-chg',       label:'Trinkwasser'},
+  Unterstand:  {icon:'🛖', bg:'#f4f0e8', badge:'badge-sonstiges', label:'Unterstand'},
+  Toilette:    {icon:'🚻', bg:'#f8f8f8', badge:'badge-sonstiges', label:'Toilette'},
+};
+function getTypeConfig(t) { return TYPE_CONFIG[t] || EXTRA_TYPE_CONFIG[t] || TYPE_CONFIG.Sonstiges; }
+
+// Types that are low-value and should be skipped
+const SKIP_IMPORT_TYPES = new Set(['Toilette','Unterstand','Sonstiges']);
+
+// Names that are just the type name repeated (no real info)
+const GENERIC_NAMES = new Set([
+  'Restaurant','Hotel','Café','Kiosk','Fast Food','Bäckerei',
+  'Campingplatz','Pension','Hostel','Motel','Tankstelle','Trinkwasser',
+  'Friedhof (Trinkwasser)','Supermarkt','Getränkemarkt','Eisdiele',
+  'Fahrradreparaturstation','Verkaufsautomat','Unterstand','Toilette',
+  'Sonstiges','Wegpunkt'
+]);
+
+// Quality check for onroutemap POIs
+// Good POI = has a specific name (≠ type name) + non-skipped type + ≤500m from route
+function poiQuality(p) {
+  const onType = (p.onroutemapType || p.t || '').trim();
+  const name   = (p.n || '').trim();
+  const dist   = (p.dist !== undefined && p.dist !== null) ? p.dist : 999;
+
+  // Skip if type is low-value (toilets, shelters etc.)
+  const skipType = SKIP_IMPORT_TYPES.has(onType);
+  // Skip if no name, or name equals type (=generic, no real info)
+  const genericName = !name || name === onType;
+  // Skip if too far from route
+  const tooFar = dist > 500;
+
+  const ok = !skipType && !genericName && !tooFar;
+  return { ok, skipType, genericName, tooFar };
+}
+
+// Legacy alias
+function guessPoiType(sym, type, name, desc) { return mapOnroutemapType(type); }
 function poiIsComplete(p) {
-  const hasName = !!(p.n && p.n.trim() && p.n !== 'Wegpunkt' && p.n !== '');
-  const hasType = !!(p.t && p.t !== 'Sonstiges');
-  const hasAddr = !!(p.addr && p.addr.trim());
-  const hasWww  = !!(p.www && p.www.trim()); // info only, not required
-  return { hasName, hasType, hasAddr, hasWww, complete: hasName && hasType && hasAddr };
+  const q = poiQuality(p);
+  return { complete: q.ok, ...q };
 }
 
 function calcRouteKmForPois(pois) {
@@ -1453,114 +1499,107 @@ function renderExtractedPois() {
 
   if (!extractedPois.length) {
     statsEl.style.display='block';
-    statsEl.innerHTML='<div style="color:#9ab0c8;font-size:.78rem;text-align:center;padding:16px">Keine Wegpunkte gefunden. Stelle sicher, dass die GPX Wegpunkte (wpt) enthält.</div>';
+    statsEl.innerHTML='<div style="color:#9ab0c8;font-size:.78rem;text-align:center;padding:16px">Keine Wegpunkte gefunden.</div>';
     listEl.style.display='none'; actionsEl.style.display='none';
     return;
   }
 
   calcRouteKmForPois(extractedPois);
 
-  // Partition: complete vs incomplete
-  const complete   = extractedPois.filter(p => poiIsComplete(p).complete);
-  const incomplete = extractedPois.filter(p => !poiIsComplete(p).complete);
+  // Quality filter
+  const good    = extractedPois.filter(p => poiQuality(p).ok);
+  const skipped = extractedPois.filter(p => !poiQuality(p).ok);
 
-  // Stats bar
-  statsEl.style.display = 'block';
-  statsEl.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;background:#f8fbff;border:1px solid #c8ddf4;border-radius:10px;padding:10px">
-      <div><div style="font-size:1.2rem;font-weight:700;color:#1a2b3c">${extractedPois.length}</div><div style="font-size:.62rem;color:#6a8aa4">Gesamt</div></div>
-      <div><div style="font-size:1.2rem;font-weight:700;color:#1a9a5a">${complete.length}</div><div style="font-size:.62rem;color:#6a8aa4">✅ Vollständig</div></div>
-      <div><div style="font-size:1.2rem;font-weight:700;color:#c85a0a">${incomplete.length}</div><div style="font-size:.62rem;color:#6a8aa4">⚠️ Unvollständig</div></div>
+  // Count skip reasons
+  const skipType    = skipped.filter(p => poiQuality(p).skipType).length;
+  const genericName = skipped.filter(p => !poiQuality(p).skipType && poiQuality(p).genericName).length;
+  const tooFar      = skipped.filter(p => !poiQuality(p).skipType && !poiQuality(p).genericName && poiQuality(p).tooFar).length;
+
+  // Group good by app-type
+  const byType = {};
+  good.forEach(p => { (byType[p.t] = byType[p.t]||[]).push(p); });
+
+  // Stats
+  statsEl.style.display='block';
+  statsEl.innerHTML=`
+    <div style="background:#f0faf5;border:1px solid #9ad8b0;border-radius:10px;padding:12px 14px;margin-bottom:4px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px">
+          <div style="font-size:1.4rem;font-weight:700;color:#1a9a5a">${good.length}</div>
+          <div style="font-size:.62rem;color:#6a8aa4">✅ Wird importiert</div>
+        </div>
+        <div style="text-align:center;background:#fff;border-radius:8px;padding:8px">
+          <div style="font-size:1.4rem;font-weight:700;color:#9ab0c8">${skipped.length}</div>
+          <div style="font-size:.62rem;color:#6a8aa4">⏭️ Übersprungen</div>
+        </div>
+      </div>
+      <div style="font-size:.65rem;color:#4a7a5a;line-height:1.7">
+        ${skipType?`<div>⏭️ <b>${skipType}</b> Niedrig-Wert-Typen (Toilette, Unterstand…)</div>`:''}
+        ${genericName?`<div>⏭️ <b>${genericName}</b> Generischer Name (= Typname, kein spez. Ort)</div>`:''}
+        ${tooFar?`<div>⏭️ <b>${tooFar}</b> Mehr als 500m von der Route entfernt</div>`:''}
+      </div>
     </div>
-  `;
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
+      ${Object.entries(byType).sort((a,b)=>b[1].length-a[1].length).map(([t,arr])=>{
+        const tc=getTypeConfig(t);
+        return `<span style="background:${tc.bg};padding:3px 9px;border-radius:20px;font-size:.68rem;font-weight:600;color:#1a2b3c">${tc.icon} ${tc.label} ${arr.length}</span>`;
+      }).join('')}
+    </div>`;
 
-  // Build cards
-  let html = '';
+  // POI cards — group by type, sorted by km
+  let html='';
+  const typeOrder=['Camping','Hotel','Restaurant','Werkstatt','Ladestation','Supermarkt','Tankstelle','Trinkwasser','Sonstiges'];
+  const sortedTypes=[...typeOrder.filter(t=>byType[t]),...Object.keys(byType).filter(t=>!typeOrder.includes(t))];
 
-  if (complete.length) {
-    html += `<div style="font-size:.68rem;font-weight:700;color:#1a6a3a;text-transform:uppercase;letter-spacing:.08em;padding:10px 2px 5px">✅ Wird importiert (${complete.length})</div>`;
-    html += complete.map((p,i) => {
-      const tc = TYPE_CONFIG[p.t] || TYPE_CONFIG.Sonstiges;
-      const idx = extractedPois.indexOf(p);
-      return `<div style="background:#fff;border:1.5px solid #9ad8b0;border-radius:12px;margin-bottom:8px;overflow:hidden">
-        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px 6px">
-          <div style="width:36px;height:36px;border-radius:10px;background:${tc.bg};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${tc.icon}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:.82rem;font-weight:700;color:#1a2b3c">${escHtml(p.n)}</div>
-            <div style="font-size:.65rem;color:#6a8aa4;margin-top:1px;display:flex;gap:6px;flex-wrap:wrap">
-              <span style="background:${tc.bg};padding:1px 6px;border-radius:8px;font-weight:600;color:#1a4a2a">${tc.label}</span>
-              ${p.km?`<span>km ${p.km}</span>`:''}
-              <span>${p.lat.toFixed(4)}°N, ${p.lon.toFixed(4)}°E</span>
-            </div>
+  sortedTypes.forEach(t=>{
+    const pois=byType[t].sort((a,b)=>a.km-b.km);
+    const tc=getTypeConfig(t);
+    html+=`<div style="font-size:.68rem;font-weight:700;color:#1a2b3c;text-transform:uppercase;letter-spacing:.08em;padding:12px 2px 5px;display:flex;align-items:center;gap:6px">
+      <span style="background:${tc.bg};padding:2px 8px;border-radius:10px">${tc.icon} ${tc.label}</span>
+      <span style="color:#9ab0c8">${pois.length} POIs</span>
+    </div>`;
+    html+=pois.map(p=>`
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:6px;padding:9px 12px;display:flex;align-items:center;gap:9px">
+        <div style="width:30px;height:30px;border-radius:8px;background:${tc.bg};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${tc.icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.78rem;font-weight:600;color:#1a2b3c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.n)}</div>
+          <div style="font-size:.62rem;color:#6a8aa4;margin-top:1px;display:flex;gap:8px">
+            <span>📍 km ${p.km||0}</span>
+            ${p.dist?`<span style="color:${p.dist>300?'#c85a0a':'#6a8aa4'}">${Math.round(p.dist)}m zur Route</span>`:''}
           </div>
         </div>
-        <div style="padding:0 12px 8px;display:flex;flex-direction:column;gap:3px">
-          ${p.addr?`<div style="font-size:.72rem;color:#4a6a84;display:flex;gap:5px"><span>📍</span><span>${escHtml(p.addr)}</span></div>`:''}
-          ${p.www?`<div style="font-size:.72rem;color:#1a5080;display:flex;gap:5px"><span>🌐</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="${escHtml(p.www)}" target="_blank" style="color:#1a5080">${escHtml(p.www)}</a></span></div>`:''}
-          ${p.desc&&p.desc!==p.addr?`<div style="font-size:.7rem;color:#7a92a8;display:flex;gap:5px"><span>📝</span><span>${escHtml(p.desc.slice(0,120))}${p.desc.length>120?'…':''}</span></div>`:''}
-          ${p.p?`<div style="font-size:.72rem;color:#4a6a84;display:flex;gap:5px"><span>📞</span><span>${escHtml(p.p)}</span></div>`:''}
-        </div>
-      </div>`;
-    }).join('');
-  }
+      </div>`).join('');
+  });
 
-  if (incomplete.length) {
-    html += `<div style="font-size:.68rem;font-weight:700;color:#c85a0a;text-transform:uppercase;letter-spacing:.08em;padding:10px 2px 5px">⚠️ Wird NICHT importiert — fehlende Felder (${incomplete.length})</div>`;
-    html += incomplete.map(p => {
-      const chk = poiIsComplete(p);
-      const missing = [
-        !chk.hasName?'Name':'',
-        !chk.hasType?'Typ (nicht Sonstiges)':'',
-        !chk.hasAddr?'Adresse':''
-      ].filter(Boolean).join(', ');
-      const tc = TYPE_CONFIG[p.t] || TYPE_CONFIG.Sonstiges;
-      return `<div style="background:#fff;border:1.5px dashed #f0c090;border-radius:12px;margin-bottom:8px;padding:10px 12px;opacity:.8">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:36px;height:36px;border-radius:10px;background:#fff8f0;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${tc.icon}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:.8rem;font-weight:600;color:#6a4a2a">${escHtml(p.n||'(kein Name)')}</div>
-            <div style="font-size:.65rem;color:#9a7a5a;margin-top:2px">${p.lat.toFixed(4)}°N, ${p.lon.toFixed(4)}°E</div>
-          </div>
-        </div>
-        <div style="margin-top:7px;background:#fff4ec;border-radius:7px;padding:6px 10px;font-size:.68rem;color:#a04010">
-          <b>Fehlend:</b> ${missing}
-        </div>
-      </div>`;
-    }).join('');
-  }
+  listEl.style.display='block';
+  listEl.innerHTML=html;
 
-  listEl.style.display = 'block';
-  listEl.innerHTML = html;
-
-  // Actions
-  actionsEl.style.display = 'flex';
-  if (complete.length) {
-    btnEl.textContent = '✅ ' + complete.length + ' vollständige POIs in Tour übernehmen';
-    btnEl.style.display = 'block';
+  actionsEl.style.display='flex';
+  if(good.length){
+    btnEl.textContent='✅ '+good.length+' POIs importieren';
+    btnEl.style.display='block';
   } else {
-    btnEl.style.display = 'none';
+    btnEl.style.display='none';
   }
-
   setWizStepActive(3);
 }
 
 async function importExtractedPois() {
   if (!activeTourId) {
-    // Redirect to tour step
     setWizStepActive('T');
-    document.getElementById('wiz-step-T').scrollIntoView({behavior:'smooth'});
+    document.getElementById('wiz-step-T')?.scrollIntoView({behavior:'smooth'});
     showToast('⚠️ Bitte zuerst eine Tour anlegen (Schritt 1)', 'error');
     return;
   }
-  const complete = extractedPois.filter(p => poiIsComplete(p).complete);
-  if (!complete.length) { showToast('❌ Keine vollständigen POIs zum Importieren', 'error'); return; }
-  tourPois = [...tourPois, ...complete];
+  const good = extractedPois.filter(p => poiQuality(p).ok);
+  if (!good.length) { showToast('❌ Keine qualitativ ausreichenden POIs gefunden', 'error'); return; }
+  tourPois = [...tourPois, ...good];
   extractedPois = [];
   document.getElementById('enriched-poi-list').style.display = 'none';
   document.getElementById('enriched-actions').style.display = 'none';
-  document.getElementById('enriched-stats').innerHTML = `<div style="background:#eaf5f0;border:1px solid #9ad8b0;border-radius:10px;padding:10px 14px;font-size:.78rem;color:#1a4a2a;font-weight:600">✅ ${tourPois.length} POIs wurden in die Tour übernommen.</div>`;
+  document.getElementById('enriched-stats').innerHTML=`<div style="background:#eaf5f0;border:1px solid #9ad8b0;border-radius:10px;padding:10px 14px;font-size:.78rem;color:#1a4a2a;font-weight:600">✅ ${good.length} POIs wurden in die Tour übernommen.</div>`;
   setWizStepDone(3); setWizStepActive(4);
-  showToast('✅ ' + complete.length + ' POIs importiert!', 'success');
+  showToast('✅ '+good.length+' POIs importiert!', 'success');
   renderList();
   if (mapInitialized) refreshMapMarkers();
   await saveToursToGithub();
@@ -1801,7 +1840,7 @@ function renderList() {
 }
 
 function renderPoiCard(p, isNearest) {
-  const tc=TYPE_CONFIG[p.t]||TYPE_CONFIG.Sonstiges;
+  const tc=getTypeConfig(p.t);
   const flag=getFlag(p.l);
   const mapsUrl=`https://maps.google.com/?q=${p.lat},${p.lon}`;
   const hasPhone=p.p&&p.p!=='nicht verfügbar';
@@ -1991,7 +2030,7 @@ function syncCustomPoiMarker(poi) {
   if (!mapObj||!mapInitialized) return;
   if (!poi.lat||!poi.lon) return;
   if (customPoiMarkers[poi.id]) mapObj.removeLayer(customPoiMarkers[poi.id]);
-  const tc=TYPE_CONFIG[poi.t]||TYPE_CONFIG.Sonstiges;
+  const tc=getTypeConfig(poi.t);
   const icon=L.divIcon({html:`<div style="background:#7a5aa0;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${tc.icon}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
   const m=L.marker([poi.lat,poi.lon],{icon,zIndexOffset:200});
   m.bindTooltip(`<b>📌 ${poi.n}</b><br>${getFlag(poi.l)} ${poi.ort||''} · km ${poi.km}`,{direction:'top',offset:[0,-12]});
@@ -2047,7 +2086,7 @@ function refreshMapMarkers() {
   // POI markers from tourPois + customPois
   const allPois=getAllPois().filter(p=>p.lat&&p.lon);
   allPois.forEach(p=>{
-    const tc=TYPE_CONFIG[p.t]||TYPE_CONFIG.Sonstiges;
+    const tc=getTypeConfig(p.t);
     const col=p.isOwn?'#7a5aa0':p.t==='Camping'?'#1a9a5a':p.t==='Ladestation'?'#1a60c0':p.t==='Restaurant'?'#e07820':p.t==='Hotel'?'#c8a020':'#5a7a9a';
     const icon=L.divIcon({html:`<div style="background:${col};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${tc.icon}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
     const m=L.marker([p.lat,p.lon],{icon});
@@ -2063,7 +2102,7 @@ function refreshMapMarkers() {
   if(el){
     el.innerHTML='';
     allPois.slice(0,50).forEach(p=>{
-      const tc=TYPE_CONFIG[p.t]||TYPE_CONFIG.Sonstiges;
+      const tc=getTypeConfig(p.t);
       const d=document.createElement('div');
       d.style.cssText='display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-bottom:1px solid #f0f4f8';
       d.innerHTML=`<span style="width:20px;text-align:center">${tc.icon}</span><span style="font-size:.7rem;font-weight:600;color:#4a6a84;flex-shrink:0">${p.km||0} km</span><span style="font-size:.72rem;color:#1a2b3c;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.n)}</span>`;
@@ -2074,7 +2113,7 @@ function refreshMapMarkers() {
 }
 
 function showPanel(p) {
-  const tc=TYPE_CONFIG[p.t]||TYPE_CONFIG.Sonstiges;
+  const tc=getTypeConfig(p.t);
   const flag=getFlag(p.l);
   document.getElementById('panel-title').textContent=`${tc.icon} ${p.n}`;
   const mapsUrl=`https://maps.google.com/?q=${p.lat},${p.lon}`;
