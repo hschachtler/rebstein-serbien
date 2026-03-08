@@ -735,7 +735,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.0.7';
+const APP_VERSION = '1.0.8';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1097,7 +1097,8 @@ async function saveToursToGithub() {
       }
 
       // 3. Save POIs
-      const allPois = [...tourPois, ...customPois.filter(p => p.isOwn || p.isOverride)];
+      // Save tourPois (carries _hidden flags) + custom own/override entries
+    const allPois = [...tourPois, ...customPois.filter(p => p.isOwn || p.isOverride)];
       const pf = await getGithubFile('tours/' + activeTourId + '/pois.json');
       const ok2 = await putGithubFile('tours/' + activeTourId + '/pois.json',
         JSON.stringify(allPois, null, 2), 'Update POIs', pf?.sha);
@@ -1115,6 +1116,7 @@ async function autosaveToGithub(action) {
   if (!isAdmin || !ghConfig.repo || !ghConfig.token || !activeTourId) return;
   showToast('⏳ Speichere in GitHub…');
   try {
+    // Save tourPois (carries _hidden flags) + custom own/override entries
     const allPois = [...tourPois, ...customPois.filter(p => p.isOwn || p.isOverride)];
     const pf = await getGithubFile('tours/' + activeTourId + '/pois.json');
     const ok = await putGithubFile('tours/' + activeTourId + '/pois.json',
@@ -2028,7 +2030,7 @@ function getAllPois() {
   const hidden=new Set(customPois.filter(p=>p._hidden).map(p=>p.n));
   const own=customPois.filter(p=>p.isOwn);
   return [
-    ...merged.filter(p=>!hidden.has(p.n)).map(p=>overrides.has('override_'+p.n.replace(/[^a-zA-Z0-9]/g,'_'))?overrides.get('override_'+p.n.replace(/[^a-zA-Z0-9]/g,'_')):p),
+    ...merged.filter(p=>!p._hidden && !hidden.has(p.n)).map(p=>overrides.has('override_'+p.n.replace(/[^a-zA-Z0-9]/g,'_'))?overrides.get('override_'+p.n.replace(/[^a-zA-Z0-9]/g,'_')):p),
     ...own
   ];
 }
@@ -2216,14 +2218,14 @@ function deletePoi(id) {
 
 function deleteBuiltinPoi(name) {
   if (!isAdmin) return;
-  if (!confirm(`POI „${name}" ausblenden?`)) return;
-  const hideId='hidden_'+name.replace(/[^a-zA-Z0-9]/g,'_');
-  if (!customPois.find(x=>x.id===hideId)) {
-    customPois.push({id:hideId,_hidden:true,n:name});
-    saveLocalState();
-    autosaveToGithub('Hide POI: ' + name);
+  if (!confirm(`POI „${name}“ löschen?`)) return;
+  // Mark hidden directly in tourPois so it persists on GitHub
+  const poi = tourPois.find(p => p.n === name);
+  if (poi) {
+    poi._hidden = true;
+    renderList();
+    autosaveToGithub('Delete POI: ' + name);
   }
-  renderList();
 }
 
 function editBuiltinPoi(safeId) {
