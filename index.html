@@ -775,6 +775,7 @@ let selectedType = 'Camping';
 let customPoiMarkers = {};
 let routePolylines = [];
 let campM = [], chargeM = [];
+let allPoiMarkers = []; // ALL poi markers — tracked for clean removal
 let activeMapId = null;
 let firstGpsFix = true;
 let extractedPois = []; // from enriched GPX import
@@ -1331,10 +1332,20 @@ function analyzeGpx(text, filename) {
   setWizStepActive(1);
 }
 
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+}
+
 function downloadGpxOriginal() {
-  const blob = new Blob([window._originalGpxText], {type:'application/gpx+xml'});
-  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download = window._originalGpxFilename || 'tour.gpx'; a.click();
+  const blob = new Blob([window._originalGpxText], {type:'application/octet-stream'});
+  triggerDownload(blob, window._originalGpxFilename || 'tour.gpx');
 }
 
 function splitGpx(trackPoints, waypoints, name, origText, totalKm) {
@@ -1415,9 +1426,8 @@ ${trkXml}
 function downloadGpxPart(idx) {
   const p = window._gpxParts[idx];
   if (!p) return;
-  const blob = new Blob([p.gpxText], {type:'application/gpx+xml'});
-  const a = document.createElement('a'); a.href=URL.createObjectURL(blob);
-  a.download = `tour_teil${p.idx}.gpx`; a.click();
+  const blob = new Blob([p.gpxText], {type:'application/octet-stream'});
+  triggerDownload(blob, `tour_teil${p.idx}.gpx`);
 }
 
 function downloadAllGpxParts() {
@@ -2127,8 +2137,9 @@ function refreshMapMarkers() {
   // Remove old route
   routePolylines.forEach(l=>mapObj.removeLayer(l));
   routePolylines=[];
-  campM.forEach(m=>mapObj.removeLayer(m)); campM=[];
-  chargeM.forEach(m=>mapObj.removeLayer(m)); chargeM=[];
+  // Remove ALL poi markers (not just camp/charge)
+  allPoiMarkers.forEach(m=>mapObj.removeLayer(m)); allPoiMarkers=[];
+  campM=[]; chargeM=[];
 
   // Draw route
   if (currentRoutePoints.length > 1) {
@@ -2153,6 +2164,7 @@ function refreshMapMarkers() {
     m.bindTooltip(`<b>${tc.icon} ${p.n}</b><br>${getFlag(p.l)} ${p.ort||''} · km ${p.km}`,{direction:'top',offset:[0,-12]});
     m.on('click',()=>showPanel(p));
     m.addTo(mapObj);
+    allPoiMarkers.push(m);
     if(p.t==='Camping') campM.push(m);
     else if(p.t==='Ladestation') chargeM.push(m);
   });
@@ -2360,25 +2372,40 @@ function importFavJson(event){const file=event.target.files[0];if(!file)return;c
 loadGoogleFavs();
 
 // ═══════════════════════════════════════════════════════════
-// INIT
+// INIT — all startup logic in appStartup() via DOMContentLoaded
 // ═══════════════════════════════════════════════════════════
-loadLocalState();
-buildCountryBtns();
 
-// Try to load tours from github on startup
-// Works WITHOUT token (public read via raw.githubusercontent.com)
-// Token only needed for writing (admin)
-if (ghConfig.repo) {
-  showToast('⏳ Lade Tour-Daten…');
-  loadToursFromGithub().then(()=>{
-    if (ghConfig.token) {
-      setWizStepDone(0);
-      setWizStepActive('T');
-      renderWizTourList();
-    }
-    if (tours.length) showToast('✅ Tour geladen', 'success');
-  });
+// Startup loading — runs after DOM is ready
+function appStartup() {
+  loadLocalState();
+  buildCountryBtns();
+  renderList();
+
+  if (ghConfig.repo) {
+    showToast('⏳ Lade Tour-Daten…');
+    loadToursFromGithub().then(()=>{
+      if (ghConfig.token) {
+        setWizStepDone(0);
+        setWizStepActive('T');
+        renderWizTourList();
+      }
+      if (tours.length) {
+        showToast('✅ Tour geladen', 'success');
+      } else {
+        showToast('⚠️ Keine Tour gefunden — bitte Wizard öffnen', 'error');
+      }
+    });
+  } else {
+    // No repo configured — show a subtle hint bar
+    const hint = document.createElement('div');
+    hint.id = 'setup-hint';
+    hint.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a2b3c;color:#fff;font-family:"DM Sans",sans-serif;font-size:.75rem;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px';
+    hint.innerHTML = '<span>⚙️ Keine Tour konfiguriert</span><button onclick="isAdmin?showView('wizard'):openLoginModal();document.getElementById('setup-hint').remove()" style="background:#c85a0a;border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;padding:6px 14px;cursor:pointer;-webkit-appearance:none">🔐 Einrichten</button>';
+    document.body.appendChild(hint);
+  }
 }
+
+document.addEventListener('DOMContentLoaded', appStartup);
 
 // km hint on poi-km input
 document.addEventListener('DOMContentLoaded', ()=>{
