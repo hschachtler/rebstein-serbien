@@ -16,8 +16,7 @@
     "p": "",
     "hours": "",
     "note": "",
-    "isImported": true,
-    "_hidden": true
+    "isImported": true
   },
   {
     "id": "imp_1772966419513_q9v7skbwq0c",
@@ -7199,7 +7198,8 @@
     "p": "",
     "hours": "",
     "note": "",
-    "isImported": true
+    "isImported": true,
+    "_hidden": true
   },
   {
     "id": "imp_1772966419707_ckhry33ax3t",
