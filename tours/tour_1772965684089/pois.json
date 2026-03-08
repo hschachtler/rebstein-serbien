@@ -7163,26 +7163,6 @@
     "isImported": true
   },
   {
-    "id": "imp_1772966419707_elbnin3her7",
-    "n": "Storchenhof",
-    "lat": 47.37682165412851,
-    "lon": 9.614367629982407,
-    "t": "Hotel",
-    "onroutemapType": "Pension",
-    "desc": "Typ: Pension, Entfernung zur Route: 383 m, Streckenkilometer: 0.1 km",
-    "www": "",
-    "km": 0,
-    "dist": 383,
-    "ort": "",
-    "l": "??",
-    "addr": "",
-    "p": "",
-    "hours": "",
-    "note": "",
-    "isImported": true,
-    "_hidden": true
-  },
-  {
     "id": "imp_1772966419707_flky7zx4lb7",
     "n": "Camping Sonnensee",
     "lat": 47.36201629976797,
