@@ -781,7 +781,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.2.3';
+const APP_VERSION = '1.2.4';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2426,6 +2426,9 @@ function initMap() {
 }
 
 function mapFlyIn() {
+  // Ensure photos are rendered when map opens
+  if (photos.length > 0) renderPhotoMarkers();
+  else loadPhotosFromGithub();
   if (!mapObj) return;
   // Step 1: Show full route
   if (currentRoutePoints.length > 1) {
@@ -2831,8 +2834,11 @@ async function loadPhotosFromGithub() {
   if (!ghConfig.repo) return;
   try {
     const text = await readGithubFile('photos.json');
-    if (text) photos = JSON.parse(text);
-  } catch(e) { photos = []; }
+    if (text) {
+      photos = JSON.parse(text);
+      console.log(`[BikePacking] Loaded ${photos.length} photos`);
+    }
+  } catch(e) { console.warn('[BikePacking] photos.json load error:', e); photos = []; }
   if (mapInitialized) renderPhotoMarkers();
 }
 
