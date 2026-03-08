@@ -1546,7 +1546,8 @@ function handleEnrichedFiles(files) {
         const appType = mapOnroutemapType(w.type);
         extractedPois.push({
           id: 'imp_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-          n:    w.name || '',           // <name> tag from standard GPX     lat:  w.lat,
+          n:    w.name || '',
+          lat:  w.lat,
           lon:  w.lon,
           t:    appType,
           onroutemapType: w.type || '', // original <type> value e.g. "Campingplatz"
