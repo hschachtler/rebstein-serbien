@@ -735,7 +735,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.0.2';
+const APP_VERSION = '1.0.3';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1075,6 +1075,21 @@ async function saveToursToGithub() {
   } catch(e) {
     console.error('saveToursToGithub:', e);
     showToast('❌ Unerwarteter Fehler – Console prüfen', 'error');
+  }
+}
+
+// Auto-save POIs silently to GitHub (only pois.json, no tours index/route)
+async function autosaveToGithub(action) {
+  if (!isAdmin || !ghConfig.repo || !ghConfig.token || !activeTourId) return;
+  showToast('⏳ Speichere in GitHub…');
+  try {
+    const allPois = [...tourPois, ...customPois.filter(p => p.isOwn || p.isOverride)];
+    const pf = await getGithubFile('tours/' + activeTourId + '/pois.json');
+    const ok = await putGithubFile('tours/' + activeTourId + '/pois.json',
+      JSON.stringify(allPois, null, 2), action || 'Update POIs', pf?.sha);
+    if (ok) showToast('✅ Gespeichert (' + allPois.length + ' POIs)', 'success');
+  } catch(e) {
+    showToast('❌ GitHub-Fehler beim Speichern', 'error');
   }
 }
 
@@ -2152,7 +2167,7 @@ function savePoi() {
   syncCustomPoiMarker(poi);
   closeAddPoi();
   renderList();
-  showToast('✅ POI gespeichert!', 'success');
+  autosaveToGithub(editingPoiId ? 'Edit POI: ' + poi.n : 'Add POI: ' + poi.n);
 }
 
 function deletePoi(id) {
@@ -2161,6 +2176,7 @@ function deletePoi(id) {
   customPois=customPois.filter(x=>x.id!==id);
   saveLocalState();
   renderList();
+  autosaveToGithub('Delete POI');
 }
 
 function deleteBuiltinPoi(name) {
@@ -2170,6 +2186,7 @@ function deleteBuiltinPoi(name) {
   if (!customPois.find(x=>x.id===hideId)) {
     customPois.push({id:hideId,_hidden:true,n:name});
     saveLocalState();
+    autosaveToGithub('Hide POI: ' + name);
   }
   renderList();
 }
