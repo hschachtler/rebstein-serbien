@@ -781,7 +781,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1939,8 +1939,16 @@ function showView(v) {
   document.getElementById('view-wizard').className = v==='wizard'?'active':'';
   currentView = v;
   if (v==='map') {
-    if (!mapInitialized) initMap();
-    else { setTimeout(()=>mapObj?.invalidateSize(),150); syncAllCustomPoiMarkers(); refreshMapMarkers(); }
+    if (!mapInitialized) {
+      initMap();
+      // Fly-in: start from full route, then zoom to position
+      setTimeout(()=>mapFlyIn(), 400);
+    } else {
+      setTimeout(()=>mapObj?.invalidateSize(),150);
+      syncAllCustomPoiMarkers();
+      refreshMapMarkers();
+      mapFlyIn();
+    }
   }
   if (v==='wizard') {
     renderWizTourList();
@@ -2415,6 +2423,28 @@ function initMap() {
   loadRiderPosition();
   setInterval(loadRiderPosition, 30000);
   setTimeout(()=>mapObj.invalidateSize(),200);
+}
+
+function mapFlyIn() {
+  if (!mapObj) return;
+  // Step 1: Show full route
+  if (currentRoutePoints.length > 1) {
+    const lats = currentRoutePoints.map(p=>p[0]);
+    const lons = currentRoutePoints.map(p=>p[1]);
+    const bounds = [[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]];
+    mapObj.fitBounds(bounds, {padding:[40,40], animate:false});
+  }
+  // Step 2: After short pause, fly to current position (or route midpoint)
+  setTimeout(()=>{
+    const targetZoom = 13; // ~3km view
+    if (uLat) {
+      mapObj.flyTo([uLat, uLon], targetZoom, {animate:true, duration:2.5, easeLinearity:0.25});
+    } else if (currentRoutePoints.length) {
+      // No GPS – fly to middle of route
+      const mid = currentRoutePoints[Math.floor(currentRoutePoints.length/2)];
+      mapObj.flyTo(mid, targetZoom, {animate:true, duration:2.5, easeLinearity:0.25});
+    }
+  }, 800);
 }
 
 function refreshMapMarkers() {
