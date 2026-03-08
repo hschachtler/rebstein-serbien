@@ -112,6 +112,17 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 #compass-btn{position:absolute;bottom:140px;right:10px;z-index:900;width:40px;height:40px;border-radius:50%;background:#fff;border:2px solid #dde4ec;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:1.1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none;transition:all .2s}
 #compass-btn.active{background:linear-gradient(135deg,#c85a0a,#e07820);border-color:#c85a0a;color:#fff;box-shadow:0 2px 12px rgba(200,90,10,.4)}
 #map-north-arrow{position:absolute;top:70px;right:12px;z-index:899;pointer-events:none;font-size:1.3rem;display:none;transition:transform .3s ease}
+#photo-btn{position:absolute;bottom:90px;right:10px;z-index:900;width:40px;height:40px;border-radius:50%;background:#fff;border:2px solid #dde4ec;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:1.1rem;display:none;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none}
+#photo-btn.admin-visible{display:flex}
+.photo-marker-wrap{width:44px;height:44px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);overflow:hidden;cursor:pointer}
+.photo-marker-wrap img{width:100%;height:100%;object-fit:cover}
+/* Photo upload modal */
+#photo-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(10,20,40,.7);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center}
+#photo-modal.open{display:flex}
+#photo-modal-box{background:#fff;border-radius:20px 20px 0 0;padding:20px 18px 36px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:12px}
+#photo-modal-box h3{font-family:'Playfair Display',serif;font-size:1rem;color:#1a2b3c;margin:0}
+#photo-preview{width:100%;max-height:220px;object-fit:cover;border-radius:12px;display:none}
+#photo-caption-input{width:100%;padding:10px 12px;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.85rem;color:#1a2b3c;background:#f9fafb;box-sizing:border-box;resize:none;outline:none}
 #gps-btn-map.busy{background:linear-gradient(135deg,#7a6a1a,#5a4a1a)}
 #gps-btn-map.ok{background:linear-gradient(135deg,#1a7a4a,#1a6a3a)}
 #map{flex:1;background:#e8eef4;position:relative}
@@ -313,6 +324,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
   <div id="map"></div>
   <div id="rider-bar"><span id="rider-bar-txt">🚴 Standort wird geladen…</span></div>
   <button id="compass-btn" onclick="toggleCompass()" title="Karte in Fahrtrichtung drehen">🧭</button>
+  <button id="photo-btn" onclick="openPhotoModal()" title="Foto hochladen">📸</button>
   <div id="map-north-arrow">⬆️</div>
 
   <!-- Map panel -->
@@ -388,6 +400,35 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <div id="gh-status" style="font-size:.72rem;color:#6a8aa4;min-height:16px;text-align:center"></div>
         <button class="wiz-btn wiz-btn-primary" onclick="saveGithubConfig()">💾 Speichern &amp; verbinden</button>
         <button class="wiz-btn" style="background:#f0f4f8;color:#5a7a9a;border:1px solid #dde4ec" onclick="saveRepoOnly()">👁️ Nur Repo speichern (kein Token — nur Lesen)</button>
+      </div>
+    </div>
+
+    <!-- Step C: Cloudinary Setup -->
+    <div class="wizard-step-card" id="wiz-step-C">
+      <div class="wiz-step-hdr">
+        <div class="wiz-step-num" id="wiz-num-C" style="background:linear-gradient(135deg,#c85a0a,#e07820);color:#fff">📸</div>
+        <div>
+          <div class="wiz-step-title">Foto-Tagebuch einrichten</div>
+          <div class="wiz-step-sub">Cloudinary – kostenlos, 25GB Speicher</div>
+        </div>
+      </div>
+      <div class="wiz-instruction" style="font-size:.72rem">
+        <strong>Einmalige Einrichtung:</strong><br>
+        1. <a href="https://cloudinary.com/users/register_free" target="_blank" style="color:#1a6b4a;font-weight:600">cloudinary.com ↗</a> → kostenlos registrieren<br>
+        2. Dashboard → Cloud Name notieren<br>
+        3. Settings → Upload → <b>Add upload preset</b> → Signing Mode: <b>Unsigned</b> → Save
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div>
+          <label class="form-label">Cloud Name</label>
+          <input id="cld-cloud-name" class="form-input" placeholder="z.B. dxyz123abc" type="text">
+        </div>
+        <div>
+          <label class="form-label">Upload Preset (Unsigned)</label>
+          <input id="cld-upload-preset" class="form-input" placeholder="z.B. bikepacking_photos" type="text">
+        </div>
+        <button class="wiz-btn wiz-btn-primary" onclick="saveCloudinaryFromWizard()">💾 Speichern & aktivieren</button>
+        <div id="cld-status" style="font-size:.72rem;color:#6a8aa4;min-height:16px;text-align:center"></div>
       </div>
     </div>
 
@@ -740,7 +781,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.2.1';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -775,6 +816,9 @@ let mapTypeFilter = new Set(); // empty = show all; else show only these types
 let mapWatchId = null, autoCenter = true;
 let uMark = null, uCircle = null;
 let compassActive = false, compassWatchId = null, currentHeading = 0;
+let cloudinaryConfig = {cloudName:'drkfuxkb1', uploadPreset:'BikePackingAPP'};
+let photos = []; // [{id, url, lat, lon, caption, ts}]
+let photoMarkers = [];
 let riderMarker = null, riderWatchId = null, riderUpdating = false;
 let pendingAfterLogin = null;
 let editingPoiId = null;
@@ -816,6 +860,10 @@ function loadLocalState() {
   try { customPois = JSON.parse(localStorage.getItem('bp_custom_pois') || '[]'); } catch(e){}
   try { activeTourId = localStorage.getItem('bp_active_tour') || null; } catch(e){}
   // Populate GitHub form
+  if (document.getElementById('cld-cloud-name') && cloudinaryConfig.cloudName) {
+    document.getElementById('cld-cloud-name').value = cloudinaryConfig.cloudName;
+    document.getElementById('cld-upload-preset').value = cloudinaryConfig.uploadPreset;
+  }
   if (document.getElementById('gh-repo')) {
     document.getElementById('gh-repo').value = ghConfig.repo || '';
     document.getElementById('gh-token').value = ghConfig.token || '';
@@ -1071,7 +1119,7 @@ async function loadTourPois(tourId) {
   updateAppTitle();
   renderList();
   renderTourTabs();
-  if (mapInitialized) { refreshMapMarkers(); loadRiderPosition(); }
+  if (mapInitialized) { refreshMapMarkers(); loadRiderPosition(); renderPhotoMarkers(); }
 
   // Only show toast if triggered manually (not during initial startup which has its own toast)
   if (!window._appStarting) {
@@ -1146,7 +1194,11 @@ async function loadRiderPosition() {
   if (!mapObj) return;
   try {
     let data = null;
-    if (ghConfig.repo) {
+    loadCloudinaryConfig();
+  // Show photo button for admins
+  if (isAdmin) document.getElementById('photo-btn')?.classList.add('admin-visible');
+
+  if (ghConfig.repo) {
       // Use raw GitHub URL (public read, no token needed)
       const url = `https://raw.githubusercontent.com/${ghConfig.repo}/${ghConfig.branch}/rider.json?t=${Date.now()}`;
       const r = await fetch(url);
@@ -2623,6 +2675,161 @@ function safeParseJsonArray(text) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// PHOTOS
+// ═══════════════════════════════════════════════════════════
+function saveCloudinaryFromWizard() {
+  const cn = document.getElementById('cld-cloud-name')?.value.trim();
+  const up = document.getElementById('cld-upload-preset')?.value.trim();
+  const st = document.getElementById('cld-status');
+  if (!cn || !up) { if(st) st.textContent = '❌ Beide Felder ausfüllen'; return; }
+  saveCloudinaryConfig(cn, up);
+  document.getElementById('photo-btn')?.classList.add('admin-visible');
+  if (st) st.textContent = '✅ Gespeichert!';
+  showToast('✅ Foto-Tagebuch aktiviert!', 'success');
+}
+
+function loadCloudinaryConfig() {
+  try {
+    const c = JSON.parse(localStorage.getItem('bp_cloudinary') || '{}');
+    if (c.cloudName) cloudinaryConfig = c; // localStorage overrides defaults
+  } catch(e) {}
+  // Pre-fill wizard fields if open
+  const cn = document.getElementById('cld-cloud-name');
+  if (cn && !cn.value) cn.value = cloudinaryConfig.cloudName;
+  const up = document.getElementById('cld-upload-preset');
+  if (up && !up.value) up.value = cloudinaryConfig.uploadPreset;
+}
+
+function saveCloudinaryConfig(cloudName, uploadPreset) {
+  cloudinaryConfig = {cloudName, uploadPreset};
+  localStorage.setItem('bp_cloudinary', JSON.stringify(cloudinaryConfig));
+}
+
+function openPhotoModal() {
+  if (!cloudinaryConfig.cloudName) {
+    const cn = prompt('Cloudinary Cloud Name eingeben:');
+    if (!cn) return;
+    const up = prompt('Upload Preset eingeben (muss "Unsigned" sein):');
+    if (!up) return;
+    saveCloudinaryConfig(cn.trim(), up.trim());
+  }
+  document.getElementById('photo-modal').classList.add('open');
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('photo-caption-input').value = '';
+  document.getElementById('photo-file-input').value = '';
+  // Show current GPS
+  const gpsInfo = document.getElementById('photo-gps-info');
+  if (uLat) gpsInfo.textContent = `📍 ${uLat.toFixed(5)}, ${uLon.toFixed(5)}`;
+  else gpsInfo.textContent = '⚠️ Kein GPS – Foto wird ohne Standort gespeichert';
+}
+
+function closePhotoModal() {
+  document.getElementById('photo-modal').classList.remove('open');
+}
+
+function previewPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById('photo-preview');
+    prev.src = e.target.result;
+    prev.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function uploadPhoto() {
+  const file = document.getElementById('photo-file-input').files[0];
+  if (!file) { showToast('❌ Bitte zuerst ein Foto auswählen', 'error'); return; }
+  if (!cloudinaryConfig.cloudName || !cloudinaryConfig.uploadPreset) {
+    showToast('❌ Cloudinary nicht konfiguriert', 'error'); return;
+  }
+
+  const btn = document.getElementById('photo-upload-btn');
+  btn.textContent = '⏳ Wird hochgeladen…';
+  btn.disabled = true;
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', cloudinaryConfig.uploadPreset);
+    formData.append('folder', 'bikepacking');
+
+    const r = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`, {
+      method: 'POST', body: formData
+    });
+    const data = await r.json();
+    if (!data.secure_url) throw new Error(data.error?.message || 'Upload fehlgeschlagen');
+
+    // Save photo entry
+    const entry = {
+      id: 'photo_' + Date.now(),
+      url: data.secure_url,
+      thumb: data.secure_url.replace('/upload/', '/upload/w_200,h_200,c_fill/'),
+      lat: uLat,
+      lon: uLon,
+      caption: document.getElementById('photo-caption-input').value.trim(),
+      ts: Date.now(),
+      routeKm: uLat ? routeKm() : null
+    };
+    photos.push(entry);
+
+    // Save photos.json to GitHub
+    await savePhotosToGithub();
+
+    // Add marker to map
+    if (mapInitialized && entry.lat) addPhotoMarker(entry);
+
+    closePhotoModal();
+    showToast('✅ Foto hochgeladen & auf Karte!', 'success');
+  } catch(e) {
+    showToast('❌ Upload fehlgeschlagen: ' + e.message, 'error');
+  } finally {
+    btn.textContent = '⬆️ Hochladen & auf Karte zeigen';
+    btn.disabled = false;
+  }
+}
+
+async function savePhotosToGithub() {
+  if (!ghConfig.repo || !ghConfig.token) return;
+  const pf = await getGithubFile('photos.json');
+  await putGithubFile('photos.json', JSON.stringify(photos, null, 2), 'Update photos', pf?.sha);
+}
+
+async function loadPhotosFromGithub() {
+  if (!ghConfig.repo) return;
+  try {
+    const text = await readGithubFile('photos.json');
+    if (text) photos = JSON.parse(text);
+  } catch(e) { photos = []; }
+  if (mapInitialized) renderPhotoMarkers();
+}
+
+function renderPhotoMarkers() {
+  photoMarkers.forEach(m => mapObj.removeLayer(m));
+  photoMarkers = [];
+  photos.filter(p => p.lat && p.lon).forEach(addPhotoMarker);
+}
+
+function addPhotoMarker(p) {
+  if (!mapObj) return;
+  const icon = L.divIcon({
+    html: `<div class="photo-marker-wrap"><img src="${p.thumb || p.url}" loading="lazy"></div>`,
+    iconSize: [44, 44], iconAnchor: [22, 22], className: ''
+  });
+  const m = L.marker([p.lat, p.lon], {icon, zIndexOffset: 500}).addTo(mapObj);
+  m.bindPopup(`
+    <div style="max-width:240px">
+      <img src="${p.url}" style="width:100%;border-radius:8px;margin-bottom:6px">
+      ${p.caption ? `<div style="font-size:.8rem;font-weight:600">${p.caption}</div>` : ''}
+      <div style="font-size:.65rem;color:#6a8aa4;margin-top:4px">${new Date(p.ts).toLocaleDateString('de-CH')}${p.routeKm ? ' · km ' + p.routeKm : ''}</div>
+    </div>
+  `);
+  photoMarkers.push(m);
+}
+
+// ═══════════════════════════════════════════════════════════
 // INIT — all startup logic in appStartup() via DOMContentLoaded
 // ═══════════════════════════════════════════════════════════
 
@@ -2648,6 +2855,7 @@ function appStartup() {
         const poiCount = tourPois.length;
         window._appStarting = false;
         showToast(`✅ Tour & ${poiCount} POIs geladen`, 'success');
+        loadPhotosFromGithub();
       } else {
         showToast('⚠️ Keine Tour gefunden — bitte Wizard öffnen', 'error');
       }
@@ -2680,5 +2888,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
 });
 </script>
+<!-- PHOTO UPLOAD MODAL -->
+<div id="photo-modal">
+  <div id="photo-modal-box">
+    <h3>📸 Foto zur Tour</h3>
+    <img id="photo-preview" src="" alt="Vorschau">
+    <input type="file" id="photo-file-input" accept="image/*" capture="environment" style="display:none" onchange="previewPhoto(this)">
+    <button onclick="document.getElementById('photo-file-input').click()" style="padding:12px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer;-webkit-appearance:none">📷 Foto auswählen / Kamera</button>
+    <textarea id="photo-caption-input" placeholder="Kurzer Kommentar (optional)…" rows="2"></textarea>
+    <div id="photo-gps-info" style="font-size:.7rem;color:#6a8aa4;min-height:16px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closePhotoModal()" style="flex:0 0 auto;padding:13px 18px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;color:#5a7a9a;cursor:pointer;-webkit-appearance:none">Abbrechen</button>
+      <button id="photo-upload-btn" onclick="uploadPhoto()" style="flex:1;padding:13px;background:linear-gradient(135deg,#c85a0a,#e07820);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(200,90,10,.25)">⬆️ Hochladen & auf Karte zeigen</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
