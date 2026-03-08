@@ -2400,7 +2400,7 @@ function appStartup() {
     const hint = document.createElement('div');
     hint.id = 'setup-hint';
     hint.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a2b3c;color:#fff;font-family:"DM Sans",sans-serif;font-size:.75rem;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px';
-    hint.innerHTML = '<span>⚙️ Keine Tour konfiguriert</span><button onclick="isAdmin?showView('wizard'):openLoginModal();document.getElementById('setup-hint').remove()" style="background:#c85a0a;border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;padding:6px 14px;cursor:pointer;-webkit-appearance:none">🔐 Einrichten</button>';
+    hint.innerHTML = `<span>⚙️ Keine Tour konfiguriert</span><button onclick="isAdmin?showView('wizard'):openLoginModal();document.getElementById('setup-hint').remove()" style="background:#c85a0a;border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;padding:6px 14px;cursor:pointer;-webkit-appearance:none">🔐 Einrichten</button>`;
     document.body.appendChild(hint);
   }
 }
