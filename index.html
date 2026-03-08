@@ -781,7 +781,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.2.3';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2436,7 +2436,7 @@ function mapFlyIn() {
   }
   // Step 2: After short pause, fly to current position (or route midpoint)
   setTimeout(()=>{
-    const targetZoom = 13; // ~3km view
+    const targetZoom = 11; // ~10km view
     if (uLat) {
       mapObj.flyTo([uLat, uLon], targetZoom, {animate:true, duration:2.5, easeLinearity:0.25});
     } else if (currentRoutePoints.length) {
