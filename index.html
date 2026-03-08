@@ -109,6 +109,9 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 .gpssub{font-size:.58rem;color:#6a8aa4;margin-top:1px;line-height:1.3}
 #gps-btn-map{display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:500;cursor:pointer;flex-shrink:0;min-width:120px;min-height:54px;transition:opacity .2s;-webkit-appearance:none}
 #gps-btn-map:active{opacity:.8}
+#compass-btn{position:absolute;bottom:140px;right:10px;z-index:900;width:40px;height:40px;border-radius:50%;background:#fff;border:2px solid #dde4ec;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:1.1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none;transition:all .2s}
+#compass-btn.active{background:linear-gradient(135deg,#c85a0a,#e07820);border-color:#c85a0a;color:#fff;box-shadow:0 2px 12px rgba(200,90,10,.4)}
+#map-north-arrow{position:absolute;top:70px;right:12px;z-index:899;pointer-events:none;font-size:1.3rem;display:none;transition:transform .3s ease}
 #gps-btn-map.busy{background:linear-gradient(135deg,#7a6a1a,#5a4a1a)}
 #gps-btn-map.ok{background:linear-gradient(135deg,#1a7a4a,#1a6a3a)}
 #map{flex:1;background:#e8eef4;position:relative}
@@ -309,6 +312,8 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
   </div>
   <div id="map"></div>
   <div id="rider-bar"><span id="rider-bar-txt">🚴 Standort wird geladen…</span></div>
+  <button id="compass-btn" onclick="toggleCompass()" title="Karte in Fahrtrichtung drehen">🧭</button>
+  <div id="map-north-arrow">⬆️</div>
 
   <!-- Map panel -->
   <div id="panel" class="hidden">
@@ -735,7 +740,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -769,6 +774,7 @@ let mapObj = null, mapInitialized = false;
 let mapTypeFilter = new Set(); // empty = show all; else show only these types
 let mapWatchId = null, autoCenter = true;
 let uMark = null, uCircle = null;
+let compassActive = false, compassWatchId = null, currentHeading = 0;
 let riderMarker = null, riderWatchId = null, riderUpdating = false;
 let pendingAfterLogin = null;
 let editingPoiId = null;
@@ -1978,9 +1984,68 @@ function locateMeMap() {
     updateMapGpsBar();
     if (!uMark) uMark=L.marker([uLat,uLon],{icon:L.divIcon({html:'<div style="background:#c85a0a;width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>',iconSize:[18,18],iconAnchor:[9,9],className:''})}).addTo(mapObj);
     else uMark.setLatLng([uLat,uLon]);
-    if (autoCenter) mapObj.setView([uLat,uLon],14);
+    if (autoCenter) mapObj.setView([uLat,uLon], compassActive ? 16 : 14);
     updateNearestIndicators();
   }, ()=>{btn.textContent='📡 GPS';btn.className='';mapWatchId=null;},{enableHighAccuracy:true,timeout:20000,maximumAge:5000});
+}
+
+function toggleCompass() {
+  const btn = document.getElementById('compass-btn');
+  const arrow = document.getElementById('map-north-arrow');
+  if (!compassActive) {
+    // Try DeviceOrientationEvent (needs permission on iOS 13+)
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().then(state => {
+        if (state === 'granted') { startCompass(btn, arrow); }
+        else { showToast('❌ Kompass-Zugriff verweigert', 'error'); }
+      }).catch(() => showToast('❌ Kompass nicht verfügbar', 'error'));
+    } else if (window.DeviceOrientationEvent) {
+      startCompass(btn, arrow);
+    } else {
+      showToast('⚠️ Kein Kompass auf diesem Gerät', 'error');
+    }
+  } else {
+    stopCompass(btn, arrow);
+  }
+}
+
+function startCompass(btn, arrow) {
+  compassActive = true;
+  btn.classList.add('active');
+  btn.textContent = '🧭';
+  arrow.style.display = 'block';
+  autoCenter = true;
+  window._compassHandler = function(e) {
+    // webkitCompassHeading = iOS; alpha = Android (needs 360-alpha)
+    let heading = e.webkitCompassHeading != null
+      ? e.webkitCompassHeading
+      : (e.alpha != null ? (360 - e.alpha) : null);
+    if (heading == null) return;
+    currentHeading = heading;
+    // Rotate map container (CSS transform on the tile pane)
+    const mapEl = document.getElementById('map');
+    mapEl.style.transformOrigin = '50% 50%';
+    mapEl.style.transform = `rotate(${-heading}deg)`;
+    // Counter-rotate north arrow to always point up-screen
+    arrow.style.transform = `rotate(${heading}deg)`;
+    arrow.title = `Nord: ${Math.round(heading)}°`;
+  };
+  window.addEventListener('deviceorientation', window._compassHandler, true);
+  showToast('🧭 Fahrtrichtungsmodus aktiv');
+}
+
+function stopCompass(btn, arrow) {
+  compassActive = false;
+  btn.classList.remove('active');
+  btn.textContent = '🧭';
+  arrow.style.display = 'none';
+  if (window._compassHandler) {
+    window.removeEventListener('deviceorientation', window._compassHandler, true);
+    window._compassHandler = null;
+  }
+  // Reset map rotation
+  document.getElementById('map').style.transform = '';
+  showToast('🧭 Fahrtrichtungsmodus aus');
 }
 
 function updateMapGpsBar() {
