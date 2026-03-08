@@ -787,14 +787,25 @@ let tourPois = []; // POIs of active tour (from github/storage)
 let customPois = []; // own/override POIs
 
 // GitHub config (stored in localStorage)
-let ghConfig = {repo:'', token:'', branch:'main'};
+// DEFAULT_REPO: baked in so normal users see the tour without any setup
+// Admin can override via Wizard → GitHub Setup
+const DEFAULT_REPO   = '';   // ← Admin trägt hier einmalig sein Repo ein, z.B. 'maxmuster/bikepacking'
+const DEFAULT_BRANCH = 'main';
+let ghConfig = {repo: DEFAULT_REPO, token:'', branch: DEFAULT_BRANCH};
 
 // ═══════════════════════════════════════════════════════════
 // STORAGE (localStorage + GitHub)
 // ═══════════════════════════════════════════════════════════
 function loadLocalState() {
-  try { ghConfig = JSON.parse(localStorage.getItem('bp_gh_config') || '{}') || {}; } catch(e){}
-  ghConfig.branch = ghConfig.branch || 'main';
+  try {
+    const saved = JSON.parse(localStorage.getItem('bp_gh_config') || '{}') || {};
+    // Merge: saved values override defaults, but never lose the default repo
+    ghConfig = {
+      repo:   saved.repo   || DEFAULT_REPO,
+      token:  saved.token  || '',
+      branch: saved.branch || DEFAULT_BRANCH
+    };
+  } catch(e) { ghConfig = {repo: DEFAULT_REPO, token:'', branch: DEFAULT_BRANCH}; }
   try { customPois = JSON.parse(localStorage.getItem('bp_custom_pois') || '[]'); } catch(e){}
   try { activeTourId = localStorage.getItem('bp_active_tour') || null; } catch(e){}
   // Populate GitHub form
