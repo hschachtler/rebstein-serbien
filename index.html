@@ -508,13 +508,13 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       <div id="enriched-stats" style="display:none;margin-top:10px"></div>
 
       <!-- Filter bar -->
-      <div id="enriched-filter-bar" style="display:none;margin-top:8px;display:none;gap:6px;flex-wrap:wrap"></div>
+      <div id="enriched-filter-bar" style="display:none;margin-top:8px;gap:6px;flex-wrap:wrap"></div>
 
       <!-- POI list with checkboxes -->
       <div id="enriched-poi-list" style="display:none;margin-top:8px"></div>
 
       <!-- Actions -->
-      <div id="enriched-actions" style="display:none;margin-top:10px;display:none;flex-direction:column;gap:8px">
+      <div id="enriched-actions" style="display:none;margin-top:10px;flex-direction:column;gap:8px">
         <div id="enriched-selection-info" style="font-size:.72rem;color:#6a8aa4;text-align:center"></div>
         <button class="wiz-btn wiz-btn-green" id="wiz-import-pois-btn" onclick="importExtractedPois()">✅ Alle gültigen POIs in Tour übernehmen</button>
       </div>
@@ -1176,8 +1176,9 @@ Dies löscht auch alle POIs und die Route dieser Tour auf GitHub.`)) return;
   showToast('⏳ Lösche Tour…');
 
   // Remove from local array
+  const wasActive = activeTourId === id;
   tours = tours.filter(t => t.id !== id);
-  if (activeTourId === id) {
+  if (wasActive) {
     activeTourId = tours.find(t=>t.status==='active')?.id || tours[0]?.id || null;
     tourPois = [];
     currentRoutePoints = [];
@@ -1200,7 +1201,13 @@ Dies löscht auch alle POIs und die Route dieser Tour auf GitHub.`)) return;
   renderWizTourList();
   renderTourTabs();
   updateAppTitle();
-  renderList();
+  // If another tour is now active, load its pois+route
+  if (activeTourId) {
+    loadTourPois(activeTourId);
+  } else {
+    renderList();
+    if (mapInitialized) refreshMapMarkers();
+  }
   showToast('✅ Tour gelöscht', 'success');
 }
 
@@ -1227,7 +1234,7 @@ async function wizCreateTour() {
     status: document.getElementById('wiz-tour-status').value,
     created: new Date().toISOString()
   };
-  if (tour.status === 'active') tours.forEach(t => { if(t.status==='active') t.status='done'; });
+  if (tour.status === 'active') tours.forEach(t => { if(t.status==='active') t.status='draft'; });
   tours.push(tour);
   showToast('⏳ Tour wird erstellt…');
   if (ghConfig.repo && ghConfig.token) {
@@ -1299,8 +1306,8 @@ function parseGpx(text) {
   const wptEls = [...doc.getElementsByTagNameNS(ns,'wpt'), ...doc.getElementsByTagName('wpt')].filter((v,i,a)=>a.indexOf(v)===i);
   const waypoints = wptEls.map(w => {
     const desc = getTxt(w,'desc') || '';
-    // onroutemap uses <n> (not <name>) for waypoint names
-    const name = getTxt(w,'name') || '';  // <n> is standard GPX name tag
+   // Standard GPX <name> tag — used by onroutemap.de for waypoint names
+    const name = getTxt(w,'name') || '';
     const type = getTxt(w,'type') || '';
     // Parse km and distance from onroutemap desc format:
     // "Typ: Campingplatz, Entfernung zur Route: 316 m, Streckenkilometer: 2.6 km"
@@ -1539,8 +1546,7 @@ function handleEnrichedFiles(files) {
         const appType = mapOnroutemapType(w.type);
         extractedPois.push({
           id: 'imp_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-          n:    w.name || '',           // <name> tag from onroutemap GPX
-          lat:  w.lat,
+          n:    w.name || '',           // <name> tag from standard GPX     lat:  w.lat,
           lon:  w.lon,
           t:    appType,
           onroutemapType: w.type || '', // original <type> value e.g. "Campingplatz"
@@ -1607,8 +1613,8 @@ function poiQuality(p) {
 
   // Skip if type is low-value (toilets, shelters etc.)
   const skipType = SKIP_IMPORT_TYPES.has(onType);
-  // Skip if no name, or name equals type (=generic, no real info)
-  const genericName = !name || name === onType;
+  // Skip if no name, name equals type, or name is in GENERIC_NAMES set (=generic, no real info)
+  const genericName = !name || name === onType || GENERIC_NAMES.has(name);
   // Skip if too far from route
   const tooFar = dist > 500;
 
@@ -1825,7 +1831,7 @@ function showView(v) {
   if (v==='wizard') {
     renderWizTourList();
     // If no github config yet, ensure step 0 is active
-    if (!ghConfig.repo || !ghConfig.token) { setWizStepActive(0); }
+    if (!ghConfig.token) { setWizStepActive(0); } // step 0 if no write access yet
   }
 }
 
@@ -1867,10 +1873,14 @@ function updateTopbarLoginBtn() {
 // ═══════════════════════════════════════════════════════════
 function routeKm() {
   if (!currentRoutePoints.length || !uLat) return 0;
-  let bd=Infinity, bi=0;
-  currentRoutePoints.forEach(([la,lo],i)=>{ const d=hav(uLat,uLon,la,lo); if(d<bd){bd=d;bi=i;} });
-  const total = calcTrackLength(currentRoutePoints.map(p=>({lat:p[0],lon:p[1]})));
-  return Math.round(bi/currentRoutePoints.length*total);
+  // Build cumulative distance map and find nearest point
+  let cumDist = 0, bd = Infinity, nearKm = 0;
+  for (let i = 0; i < currentRoutePoints.length; i++) {
+    if (i > 0) cumDist += hav(currentRoutePoints[i-1][0], currentRoutePoints[i-1][1], currentRoutePoints[i][0], currentRoutePoints[i][1]);
+    const d = hav(uLat, uLon, currentRoutePoints[i][0], currentRoutePoints[i][1]);
+    if (d < bd) { bd = d; nearKm = cumDist; }
+  }
+  return Math.round(nearKm);
 }
 
 function locateMePoi() {
@@ -2015,7 +2025,7 @@ function renderPoiCard(p, isNearest) {
       ${hasPhone?`<a class="btn-call" href="tel:${p.p}">📞</a>`:''}
       ${isAdmin&&(isOwn)?`<button class="btn-call" onclick="openAddPoi('${p.id}')">✏️</button>`:''}
       ${isAdmin&&(isOwn)?`<button class="btn-call" onclick="deletePoi('${p.id}')" style="color:#c04040">🗑️</button>`:''}
-      ${isAdmin&&!isOwn?`<button class="btn-call" onclick="editBuiltinPoi(${safeId})">✏️</button>`:''}
+      ${isAdmin&&!isOwn?`<button class="btn-call" onclick="editBuiltinPoi('${safeId}')">✏️</button>`:''}
       ${isAdmin&&!isOwn?`<button class="btn-call" onclick="deleteBuiltinPoi('${escHtml(p.n)}')" style="color:#c04040">🗑️</button>`:''}
     </div>
   </div>`;
@@ -2480,7 +2490,7 @@ function appStartup() {
     const hint = document.createElement('div');
     hint.id = 'setup-hint';
     hint.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a2b3c;color:#fff;font-family:"DM Sans",sans-serif;font-size:.75rem;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px';
-    hint.innerHTML = `<span>⚙️ Keine Tour konfiguriert</span><button onclick="isAdmin?showView('wizard'):openLoginModal();document.getElementById('setup-hint').remove()" style="background:#c85a0a;border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;padding:6px 14px;cursor:pointer;-webkit-appearance:none">🔐 Einrichten</button>`;
+    hint.innerHTML = `<span>⚙️ Keine Tour konfiguriert</span><button onclick="(isAdmin?showView('wizard'):openLoginModal());document.getElementById('setup-hint')?.remove()" style="background:#c85a0a;border:none;border-radius:12px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;padding:6px 14px;cursor:pointer;-webkit-appearance:none">🔐 Einrichten</button>`;
     document.body.appendChild(hint);
   }
 }
