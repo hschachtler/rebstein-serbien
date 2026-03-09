@@ -2011,12 +2011,25 @@ function locateMePoi() {
   if (!navigator.geolocation){st.textContent='GPS nicht verfügbar.';st.className='err';return;}
   if (poiWatchId!==null) {
     navigator.geolocation.clearWatch(poiWatchId); poiWatchId=null;
+    if (window._poiGpsTimeout) { clearTimeout(window._poiGpsTimeout); window._poiGpsTimeout=null; }
     btn.textContent='📡 Standort bestimmen'; btn.className='';
     st.textContent='GPS gestoppt.'; st.className=''; firstGpsFix=true; return;
   }
   btn.textContent='⏳ Ortung läuft…'; btn.className='busy';
   st.textContent='Warte auf GPS-Signal…';
+
+  // Robuster Fallback-Timer: nach 12s abbrechen falls kein Fix
+  window._poiGpsTimeout = setTimeout(()=>{
+    if (poiWatchId!==null && btn.className==='busy') {
+      navigator.geolocation.clearWatch(poiWatchId); poiWatchId=null;
+      btn.textContent='📡 Nochmals versuchen'; btn.className='';
+      st.textContent='⚠️ Kein GPS-Signal – bitte nochmals tippen'; st.className='err';
+    }
+    window._poiGpsTimeout=null;
+  }, 12000);
+
   poiWatchId=navigator.geolocation.watchPosition(pos=>{
+    if (window._poiGpsTimeout) { clearTimeout(window._poiGpsTimeout); window._poiGpsTimeout=null; }
     uLat=pos.coords.latitude; uLon=pos.coords.longitude;
     const acc=Math.round(pos.coords.accuracy);
     btn.textContent='🧭 Aktiv – Tippen zum Stoppen'; btn.className='ok';
@@ -2024,10 +2037,11 @@ function locateMePoi() {
     renderList();
     if (firstGpsFix) { firstGpsFix=false; scrollToNearest(); }
   }, err=>{
-    const msgs={1:'GPS verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};
+    if (window._poiGpsTimeout) { clearTimeout(window._poiGpsTimeout); window._poiGpsTimeout=null; }
+    const msgs={1:'GPS verweigert – Einstellungen prüfen',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};
     st.textContent=msgs[err.code]||'GPS-Fehler'; st.className='err';
     btn.textContent='📡 Nochmals versuchen'; btn.className=''; poiWatchId=null;
-  }, {enableHighAccuracy:true,timeout:20000,maximumAge:5000});
+  }, {enableHighAccuracy:true, timeout:10000, maximumAge:5000});
 }
 
 function locateMeMap() {
@@ -2043,17 +2057,18 @@ function locateMeMap() {
   btn.textContent='⏳ Suche…'; btn.className='busy';
   autoCenter=true;
 
-  // Timeout-Fallback: nach 15s Fehlermeldung anzeigen falls kein Fix
-  const gpsTimeout = setTimeout(()=>{
-    if (btn.className==='busy') {
-      btn.textContent='📡 GPS (kein Signal)'; btn.className='';
-      showToast('⚠️ Kein GPS-Signal – bitte nochmals tippen','error');
+  // Robuster Fallback-Timer: nach 12s abbrechen falls kein Fix
+  window._mapGpsTimeout = setTimeout(()=>{
+    if (mapWatchId!==null && btn.className==='busy') {
       navigator.geolocation.clearWatch(mapWatchId); mapWatchId=null;
+      btn.textContent='📡 GPS'; btn.className='';
+      showToast('⚠️ Kein GPS-Signal – bitte nochmals tippen','error');
     }
-  }, 15000);
+    window._mapGpsTimeout=null;
+  }, 12000);
 
   mapWatchId=navigator.geolocation.watchPosition(pos=>{
-    clearTimeout(gpsTimeout);
+    if (window._mapGpsTimeout) { clearTimeout(window._mapGpsTimeout); window._mapGpsTimeout=null; }
     uLat=pos.coords.latitude; uLon=pos.coords.longitude;
     const acc=Math.round(pos.coords.accuracy);
     btn.textContent=`📍 ±${acc}m`; btn.className='ok';
@@ -2063,11 +2078,11 @@ function locateMeMap() {
     if (autoCenter) mapObj.setView([uLat,uLon], compassActive ? 16 : 11);
     updateNearestIndicators();
   }, err=>{
-    clearTimeout(gpsTimeout);
+    if (window._mapGpsTimeout) { clearTimeout(window._mapGpsTimeout); window._mapGpsTimeout=null; }
     const msgs={1:'GPS verweigert – Einstellungen prüfen',2:'Position nicht verfügbar',3:'GPS-Zeitüberschreitung'};
     showToast('❌ '+(msgs[err.code]||'GPS-Fehler'),'error');
     btn.textContent='📡 GPS'; btn.className=''; mapWatchId=null;
-  },{enableHighAccuracy:true, timeout:30000, maximumAge:10000});
+  },{enableHighAccuracy:true, timeout:10000, maximumAge:10000});
 }
 
 function toggleCompass() {
