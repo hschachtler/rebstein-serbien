@@ -794,7 +794,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.2.5';
+const APP_VERSION = '1.3.0';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2207,9 +2207,6 @@ function updateTopbarLoginBtn() {
   if (!isAdmin && currentView === 'poi') {
     showView('map');
   }
-  // On logout: remove radius circle; on login: remove it (admin doesn't need it)
-  }
-  // On login as admin, show poi list button
 }
 
 // ═══════════════════════════════════════════════════════════
