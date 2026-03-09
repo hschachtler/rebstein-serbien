@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.4.6';
+const APP_VERSION = '1.4.7';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2021,12 +2021,12 @@ function parseNominatimAddress(d) {
 }
 
 // Lookup country by searching Nominatim with the full "PLZ Ort" string the user typed
-async function guessCountryFromOrt() {
+async function guessCountryFromOrt(force) {
   const ortVal = document.getElementById('poi-ort')?.value?.trim();
   const landEl = document.getElementById('poi-land');
   if (!ortVal || !landEl) return;
-  // Only auto-fill if land is empty or has placeholder ??
-  if (landEl.value && landEl.value !== '??') return;
+  // Skip if land is already filled — unless forced
+  if (!force && landEl.value && landEl.value !== '??') return;
   try {
     const r = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ortVal)}&format=json&limit=3&addressdetails=1&accept-language=de`
@@ -2772,6 +2772,8 @@ function openAddPoiWithData(p, isBuiltin) {
   document.getElementById('poi-land').value  = cleanL;
 
   updateFlagPreview();
+  // Auto-detect country from PLZ+Ort if land is empty
+  if (!cleanL) guessCountryFromOrt(true);
   selectType(selectedType);
   document.getElementById('modal-title').textContent = '✏️ POI bearbeiten';
   document.getElementById('save-btn').textContent    = '💾 Aktualisieren';
@@ -3478,10 +3480,13 @@ async function enrichSinglePoiOsm(safeId, btn) {
     const p = targetArr[targetIdx];
     document.getElementById('poi-ort').value   = p.ort   || '';
     document.getElementById('poi-addr').value  = p.addr  || '';
-    document.getElementById('poi-land').value  = (p.l && p.l !== '??') ? p.l : '';
     document.getElementById('poi-phone').value = p.p     || '';
     document.getElementById('poi-hours').value = p.hours || '';
-    updateFlagPreview();
+    // Set land from POI data, or derive from ort via Nominatim
+    const cleanL = (p.l && p.l !== '??' && p.l !== 'AT') ? p.l : '';
+    document.getElementById('poi-land').value = cleanL;
+    if (cleanL) { updateFlagPreview(); }
+    else { guessCountryFromOrt(true); } // force lookup from PLZ+Ort
   }
   showToast(`✅ ${changed} Felder aus OSM ergänzt`, 'success');
 }
