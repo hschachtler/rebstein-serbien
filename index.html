@@ -248,6 +248,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
   <h1>🚴 <span id="app-title-text">BikePacking</span> <span id="version-badge" style="font-size:.52rem;font-weight:400;color:#9ab0c8;font-family:'DM Sans',sans-serif;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:2px 6px;vertical-align:middle;letter-spacing:.03em">v1.0.0</span></h1>
   <div id="topbar-btns">
     <button id="topbar-wizard-btn" class="topbar-btn topbar-btn-wizard" onclick="openWizardAdmin()" style="display:none">🧭 Wizard</button>
+    <button id="topbar-osm-btn" class="topbar-btn" onclick="openOsmEnrichModal()" style="display:none;background:linear-gradient(135deg,#1a7a4a,#1a5080);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)">🌍 OSM</button>
     <button class="topbar-btn topbar-btn-weather" onclick="openWeather()">🌤️</button>
     <button class="topbar-btn topbar-btn-map" onclick="showView('map')">🗺️ Karte</button>
     <button id="topbar-login-btn" class="topbar-btn topbar-btn-login" onclick="isAdmin?doLogout():openLoginModal()">
@@ -794,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2193,6 +2194,8 @@ function updateTopbarLoginBtn() {
   // Show/hide admin-only UI elements
   const wizBtn = document.getElementById('topbar-wizard-btn');
   if (wizBtn) wizBtn.style.display = isAdmin ? '' : 'none';
+  const osmBtn = document.getElementById('topbar-osm-btn');
+  if (osmBtn) osmBtn.style.display = isAdmin ? '' : 'none';
   const gpsBtnPoi = document.getElementById('gps-btn-poi');
   if (gpsBtnPoi) gpsBtnPoi.style.display = isAdmin ? '' : 'none';
   const ownPoiBtn = document.getElementById('own-poi-btn');
@@ -3119,6 +3122,104 @@ function addPhotoMarker(p) {
   photoMarkers.push(m);
 }
 
+
+// ═══════════════════════════════════════════════════════════
+// OSM ENRICH MODAL (standalone — no wizard needed)
+// ═══════════════════════════════════════════════════════════
+function openOsmEnrichModal() {
+  const modal = document.getElementById('osm-enrich-modal');
+  modal.style.display = 'flex';
+  const info = document.getElementById('osm-enrich-info');
+  const allPois = getAllPois();
+  const withCoords = allPois.filter(p => p.lat && p.lon);
+  const alreadyFull = withCoords.filter(p => p.addr && p.p && p.hours).length;
+  info.innerHTML = `📍 <b>${withCoords.length}</b> POIs mit Koordinaten · <b>${alreadyFull}</b> bereits vollständig · <b>${withCoords.length - alreadyFull}</b> könnten ergänzt werden`;
+  document.getElementById('osm-enrich-progress').style.display = 'none';
+  document.getElementById('osm-enrich-result').style.display = 'none';
+  document.getElementById('osm-enrich-actions').style.display = 'flex';
+  document.getElementById('osm-enrich-bar').style.width = '0%';
+  document.getElementById('osm-enrich-preview').innerHTML = '';
+}
+
+function closeOsmEnrichModal() {
+  document.getElementById('osm-enrich-modal').style.display = 'none';
+}
+
+async function runOsmEnrichOnTour(onlyEmpty) {
+  const allPois = getAllPois().filter(p => p.lat && p.lon);
+  const targets = onlyEmpty
+    ? allPois.filter(p => !p.addr || !p.p || !p.hours)
+    : allPois;
+
+  if (!targets.length) { showToast('Alle POIs bereits vollständig', 'success'); return; }
+
+  osmAbort = false;
+  document.getElementById('osm-enrich-actions').style.display = 'none';
+  document.getElementById('osm-enrich-result').style.display = 'none';
+  const progEl    = document.getElementById('osm-enrich-progress');
+  const barEl     = document.getElementById('osm-enrich-bar');
+  const txtEl     = document.getElementById('osm-enrich-txt');
+  const previewEl = document.getElementById('osm-enrich-preview');
+  progEl.style.display = 'block';
+  previewEl.innerHTML = '';
+
+  let found = 0, notFound = 0;
+
+  for (let i = 0; i < targets.length; i++) {
+    if (osmAbort) break;
+    const poi = targets[i];
+    barEl.style.width = Math.round((i / targets.length) * 100) + '%';
+    txtEl.textContent = `${i + 1} / ${targets.length} — ${poi.n}`;
+
+    const elements = await fetchOsmData(poi.lat, poi.lon, poi.t, 80);
+    const best = pickBestOsmElement(elements, poi);
+    if (best) {
+      const fields = osmTagsToPoiFields(best.tags);
+      // Find poi in tourPois or customPois and patch it
+      let patched = false;
+      for (const arr of [tourPois, customPois]) {
+        const idx = arr.findIndex(p => p === poi || (p.n === poi.n && p.km === poi.km));
+        if (idx !== -1) {
+          if (fields.addr && !arr[idx].addr) arr[idx].addr = fields.addr;
+          if (fields.hours && !arr[idx].hours) arr[idx].hours = fields.hours;
+          if (fields.p && !arr[idx].p) arr[idx].p = fields.p;
+          if (fields.l && !arr[idx].l) arr[idx].l = fields.l;
+          patched = true; break;
+        }
+      }
+      if (patched) {
+        found++;
+        const tc = getTypeConfig(poi.t);
+        previewEl.insertAdjacentHTML('afterbegin',
+          `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:#eaf5f0;margin-bottom:3px;font-size:.65rem">
+            <span>${tc.icon}</span>
+            <span style="font-weight:600;color:#1a4a2a;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(poi.n)}</span>
+            <span style="color:#1a8a5a;flex-shrink:0">✅</span>
+          </div>`);
+      }
+    } else { notFound++; }
+    await new Promise(res => setTimeout(res, 120));
+  }
+
+  barEl.style.width = '100%';
+  osmAbort = false;
+  progEl.style.display = 'none';
+
+  // Save to GitHub
+  renderList();
+  if (mapInitialized) refreshMapMarkers();
+  await autosaveToGithub('OSM-Anreicherung');
+
+  const resultEl = document.getElementById('osm-enrich-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `<div style="background:#eaf5f0;border:1px solid #9ad8b0;border-radius:10px;padding:12px 14px;font-size:.78rem;color:#1a4a2a;font-weight:600">
+    ✅ ${found} POIs angereichert · ${notFound} ohne OSM-Treffer
+    <br><span style="font-weight:400;color:#3a8a5a">Daten wurden automatisch in GitHub gespeichert.</span>
+  </div>`;
+  document.getElementById('osm-enrich-actions').style.display = 'flex';
+  showToast(`✅ ${found} POIs mit OSM-Daten angereichert`, 'success');
+}
+
 // ═══════════════════════════════════════════════════════════
 // INIT — all startup logic in appStartup() via DOMContentLoaded
 // ═══════════════════════════════════════════════════════════
@@ -3203,5 +3304,38 @@ document.addEventListener('DOMContentLoaded', ()=>{
   </div>
 </div>
 
+
+<!-- OSM ENRICH MODAL -->
+<div id="osm-enrich-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(10,20,40,.7);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:20px 20px 0 0;padding:20px 18px 36px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-family:'Playfair Display',serif;font-size:1rem;color:#1a2b3c">🌍 OSM-Daten nachladen</div>
+      <button onclick="closeOsmEnrichModal()" style="background:#f0f4f8;border:1px solid #dde4ec;border-radius:50%;width:32px;height:32px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none">✕</button>
+    </div>
+    <div id="osm-enrich-info" style="background:#f0f7f4;border:1px solid #9ad8b0;border-radius:10px;padding:10px 14px;font-size:.78rem;color:#1a4a2a"></div>
+    <div style="font-size:.72rem;color:#6a8aa4;line-height:1.6">
+      Lädt für alle POIs der aktiven Tour fehlende Daten aus OpenStreetMap nach:<br>
+      <b>Adresse · Telefon · Öffnungszeiten</b><br>
+      Bereits vorhandene Felder werden <b>nicht</b> überschrieben.
+    </div>
+    <!-- Progress (reuse same elements) -->
+    <div id="osm-enrich-progress" style="display:none;background:#f0f7ff;border:1px solid #b0d0f0;border-radius:12px;padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:.78rem;font-weight:700;color:#1a4a8a">🌍 Lade OSM-Daten…</div>
+        <button onclick="osmAbort=true" style="padding:4px 10px;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;font-size:.68rem;font-weight:600;color:#c04040;cursor:pointer;-webkit-appearance:none">⏹ Abbrechen</button>
+      </div>
+      <div style="background:#e0eeff;border-radius:6px;height:8px;overflow:hidden;margin-bottom:6px">
+        <div id="osm-enrich-bar" style="height:100%;background:linear-gradient(90deg,#1a60c0,#2a8aff);border-radius:6px;width:0%;transition:width .3s"></div>
+      </div>
+      <div id="osm-enrich-txt" style="font-size:.68rem;color:#4a6a9a;text-align:center"></div>
+      <div id="osm-enrich-preview" style="margin-top:8px;max-height:200px;overflow-y:auto"></div>
+    </div>
+    <div id="osm-enrich-actions" style="display:flex;flex-direction:column;gap:8px">
+      <button onclick="runOsmEnrichOnTour()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a7a4a,#1a5080);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,107,74,.25)">🌍 OSM-Daten für alle POIs nachladen</button>
+      <button onclick="runOsmEnrichOnTour(true)" style="width:100%;padding:11px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;color:#5a7a9a;cursor:pointer;-webkit-appearance:none">🔄 Nur leere Felder füllen (alle POIs)</button>
+    </div>
+    <div id="osm-enrich-result" style="display:none"></div>
+  </div>
+</div>
 </body>
 </html>
