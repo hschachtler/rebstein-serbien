@@ -1248,14 +1248,7 @@ async function loadRiderPosition() {
     riderMarker.bindTooltip(`<b>🚴 Rider-Standort</b><br>Aktualisiert: ${agoTxt}<br>km ${data.routeKm||'?'}`, {direction:'top', offset:[0,-50]});
     const bar = document.getElementById('rider-bar');
     if (bar) { bar.style.display='flex'; document.getElementById('rider-bar-txt').textContent=`🚴 Letzter Standort: ${agoTxt} · km ${data.routeKm||'?'}`; }
-    // Non-admin: fly to rider position if no live GPS and map just opened
-    if (!uLat && window._riderPos && !window._riderFlyDone) {
-      window._riderFlyDone = true;
-      setTimeout(()=>{
-        mapObj.flyTo([data.lat, data.lon], 11, {animate:true, duration:2.5, easeLinearity:0.25});
-        _showRadiusCircle(data.lat, data.lon);
-      }, 1200);
-    }
+    // _riderPos is set above — mapFlyIn will use it
   } catch(e) {}
 }
 
@@ -2150,9 +2143,8 @@ function showView(v) {
   currentView = v;
   if (v==='map') {
     if (!mapInitialized) {
-      initMap();
-      // Fly-in: start from full route, then zoom to position
-      setTimeout(()=>mapFlyIn(), 400);
+      // Await initMap (which awaits rider.json) then fly-in
+      initMap().then(()=>{ setTimeout(()=>mapFlyIn(), 200); });
     } else {
       setTimeout(()=>mapObj?.invalidateSize(),150);
       syncAllCustomPoiMarkers();
@@ -2661,7 +2653,7 @@ function syncAllCustomPoiMarkers() { customPois.forEach(p=>syncCustomPoiMarker(p
 // ═══════════════════════════════════════════════════════════
 // MAP
 // ═══════════════════════════════════════════════════════════
-function initMap() {
+async function initMap() {
   mapInitialized=true;
   const center = currentRoutePoints.length ? currentRoutePoints[Math.floor(currentRoutePoints.length/2)] : [47,13];
   mapObj=L.map('map',{center,zoom:currentRoutePoints.length?7:5,preferCanvas:true});
@@ -2671,9 +2663,10 @@ function initMap() {
 
   refreshMapMarkers();
   mapObj.on('dragstart',()=>{autoCenter=false;});
-  loadRiderPosition();
-  setInterval(loadRiderPosition, 30000);
   setTimeout(()=>mapObj.invalidateSize(),200);
+  // Await rider position so fly-in can zoom to it immediately
+  await loadRiderPosition();
+  setInterval(loadRiderPosition, 30000);
 }
 
 function mapFlyIn() {
@@ -3142,34 +3135,35 @@ function appStartup() {
   buildCountryBtns();
   renderList();
 
-  // Non-admin users always start on map view
+  // Hide admin-only elements immediately for non-admins
   if (!isAdmin) {
-    // Hide admin-only elements immediately
     const gpsarea = document.getElementById('gpsarea');
     if (gpsarea) gpsarea.style.display = 'none';
-    showView('map');
   }
 
   if (ghConfig.repo) {
     window._appStarting = true;
     showToast('⏳ Lade Tour & POIs…');
-    loadToursFromGithub().then(()=>{
+    loadToursFromGithub().then(async ()=>{
       if (ghConfig.token) {
         setWizStepDone(0);
         setWizStepActive('T');
         renderWizTourList();
       }
       if (tours.length) {
-        const poiCount = tourPois.length;
         window._appStarting = false;
+        const poiCount = tourPois.length;
         showToast(`✅ Tour & ${poiCount} POIs geladen`, 'success');
         loadPhotosFromGithub();
       } else {
         showToast('⚠️ Keine Tour gefunden — bitte Wizard öffnen', 'error');
       }
+      // Always open map after data is loaded — rider.json is fetched inside initMap→loadRiderPosition
+      showView('map');
     });
   } else {
-    // No repo configured — show a subtle hint bar
+    // No repo configured — still open map, show hint
+    showView('map');
     const hint = document.createElement('div');
     hint.id = 'setup-hint';
     hint.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#1a2b3c;color:#fff;font-family:"DM Sans",sans-serif;font-size:.75rem;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px';
