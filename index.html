@@ -764,6 +764,11 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <label class="form-label">Passwort</label>
         <input id="login-pw" class="form-input" type="password" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
+      <div id="login-gh-section" style="display:none;background:#f0f7f4;border:1px solid #9ad8b0;border-radius:10px;padding:10px 12px">
+        <div style="font-size:.7rem;font-weight:700;color:#1a4a2a;margin-bottom:6px">🔑 GitHub-Token (einmalig für dieses Gerät)</div>
+        <input id="login-gh-token" class="form-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="font-size:.75rem">
+        <div style="font-size:.62rem;color:#5a8a6a;margin-top:4px">Wird lokal gespeichert — nötig für Fotos & POI-Speichern</div>
+      </div>
       <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040"></div>
       <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen</button>
     </div>
@@ -795,7 +800,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.5.1';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2279,7 +2284,17 @@ function showView(v) {
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
-function openLoginModal() { document.getElementById('login-modal').style.display='flex'; setTimeout(()=>document.getElementById('login-pw').focus(),100); }
+function openLoginModal() {
+  document.getElementById('login-modal').style.display='flex';
+  // Show GitHub token field if not yet configured on this device
+  const ghSection = document.getElementById('login-gh-section');
+  if (ghSection) {
+    const hasToken = !!ghConfig.token;
+    ghSection.style.display = hasToken ? 'none' : 'block';
+    document.getElementById('login-gh-token').value = '';
+  }
+  setTimeout(()=>document.getElementById('login-pw').focus(),100);
+}
 function closeLoginModal() { document.getElementById('login-modal').style.display='none'; pendingAfterLogin=null; }
 function pendingAndLogin(fn) { pendingAfterLogin=fn; openLoginModal(); }
 
@@ -2287,6 +2302,14 @@ function doLogin() {
   const u=document.getElementById('login-user').value.trim().toLowerCase();
   const p=document.getElementById('login-pw').value;
   if ((u==='admin'||u==='') && p===ADMIN_PASS) {
+    // Save GitHub token if entered
+    const tokenInput = document.getElementById('login-gh-token');
+    const newToken = tokenInput?.value?.trim();
+    if (newToken && newToken.startsWith('ghp_')) {
+      ghConfig.token = newToken;
+      localStorage.setItem('bp_gh_config', JSON.stringify(ghConfig));
+      showToast('✅ GitHub-Token gespeichert', 'success');
+    }
     isAdmin=true; updateTopbarLoginBtn(); closeLoginModal();
     showToast('✅ Als Admin angemeldet', 'success');
     if (pendingAfterLogin) { const fn=pendingAfterLogin; pendingAfterLogin=null; setTimeout(fn,100); }
