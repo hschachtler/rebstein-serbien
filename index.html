@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.4.4';
+const APP_VERSION = '1.4.5';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2002,26 +2002,45 @@ function osmTagsToPoiFields(tags) {
 }
 
 // Fetch city/country from Nominatim when OSM tags are missing them
-async function reverseGeocode(lat, lon) {
+function parseNominatimAddress(d) {
+  const a = d.address || {};
+  const cc = (a.country_code || '').toUpperCase();
+  const city = a.city || a.town || a.village || a.hamlet || a.suburb || '';
+  return {
+    ort:  city,
+    l:    cc,
+    addr: [
+      (a.road ? a.road + (a.house_number ? ' ' + a.house_number : '') : ''),
+      a.postcode || '',
+      city
+    ].filter(Boolean).join(', ')
+  };
+}
+
+async function reverseGeocode(lat, lon, name) {
   try {
+    // Strategy 1: if we have a name, search by name near coords — much more accurate
+    if (name) {
+      const sr = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&lat=${lat}&lon=${lon}&format=json&limit=5&addressdetails=1&accept-language=de`
+      );
+      if (sr.ok) {
+        const results = await sr.json();
+        // Pick closest result within 2km
+        const best = results.find(r => {
+          const dlat = parseFloat(r.lat) - lat;
+          const dlon = parseFloat(r.lon) - lon;
+          return Math.sqrt(dlat*dlat + dlon*dlon) * 111000 < 2000;
+        });
+        if (best) return parseNominatimAddress(best);
+      }
+    }
+    // Strategy 2: reverse geocode by coords
     const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=de`,
-      { headers: { 'Accept-Language': 'de' } }
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14&accept-language=de`
     );
     if (!r.ok) return {};
-    const d = await r.json();
-    const a = d.address || {};
-    const cc = (a.country_code || d['ISO3166-1:alpha2'] || '').toUpperCase();
-    const city = a.city || a.town || a.village || a.hamlet || a.suburb || '';
-    return {
-      ort:  city,
-      l:    cc,
-      addr: [
-        (a.road ? a.road + (a.house_number ? ' ' + a.house_number : '') : ''),
-        a.postcode || '',
-        city
-      ].filter(Boolean).join(', ')
-    };
+    return parseNominatimAddress(await r.json());
   } catch(e) { return {}; }
 }
 
@@ -3347,7 +3366,7 @@ async function runOsmEnrichOnTour(onlyEmpty) {
     txtEl.textContent = `📍 Ortsname für ${needsGeo.length} POIs nachladen…`;
     progEl.style.display = 'block';
     for (const p of needsGeo) {
-      const geo = await reverseGeocode(p._needsGeo.lat, p._needsGeo.lon);
+      const geo = await reverseGeocode(p._needsGeo.lat, p._needsGeo.lon, p.n);
       if (geo.ort  && !p.ort)  p.ort  = geo.ort;
       if (geo.l    && !p.l)    p.l    = geo.l;
       if (geo.addr && !p.addr) p.addr = geo.addr;
@@ -3408,7 +3427,7 @@ async function enrichSinglePoiOsm(safeId, btn) {
 
   // Fallback: if OSM has no addr/ort/country, use Nominatim reverse geocode
   if (!fields.ort || !fields.l) {
-    const geo = await reverseGeocode(poi.lat, poi.lon);
+    const geo = await reverseGeocode(poi.lat, poi.lon, poi.n);
     if (!fields.ort   && geo.ort)   fields.ort   = geo.ort;
     if (!fields.l     && geo.l)     fields.l     = geo.l;
     if (!fields.addr  && geo.addr)  fields.addr  = geo.addr;
