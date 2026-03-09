@@ -764,13 +764,16 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <label class="form-label">Passwort</label>
         <input id="login-pw" class="form-input" type="password" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
-      <div id="login-gh-section" style="display:none;background:#f0f7f4;border:1px solid #9ad8b0;border-radius:10px;padding:10px 12px">
-        <div style="font-size:.7rem;font-weight:700;color:#1a4a2a;margin-bottom:6px">🔑 GitHub-Token (einmalig für dieses Gerät)</div>
+      <div id="login-gh-section" style="background:#f0f7f4;border:1px solid #9ad8b0;border-radius:10px;padding:10px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:.7rem;font-weight:700;color:#1a4a2a">🔑 GitHub-Token</div>
+          <div id="login-gh-status" style="font-size:.65rem;color:#5a8a6a"></div>
+        </div>
         <input id="login-gh-token" class="form-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="font-size:.75rem">
-        <div style="font-size:.62rem;color:#5a8a6a;margin-top:4px">Wird lokal gespeichert — nötig für Fotos & POI-Speichern</div>
+        <div style="font-size:.62rem;color:#5a8a6a;margin-top:4px">Wird lokal gespeichert — nötig für Fotos &amp; POI-Speichern</div>
       </div>
       <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040"></div>
-      <button onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen</button>
+      <button id="login-submit-btn" onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen & Token prüfen</button>
     </div>
   </div>
 </div>
@@ -800,7 +803,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.5.2';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2286,38 +2289,72 @@ function showView(v) {
 // ═══════════════════════════════════════════════════════════
 function openLoginModal() {
   document.getElementById('login-modal').style.display='flex';
-  // Show GitHub token field if not yet configured on this device
-  const ghSection = document.getElementById('login-gh-section');
-  if (ghSection) {
-    const hasToken = !!ghConfig.token;
-    ghSection.style.display = hasToken ? 'none' : 'block';
-    document.getElementById('login-gh-token').value = '';
+  const tokenInput = document.getElementById('login-gh-token');
+  const statusEl   = document.getElementById('login-gh-status');
+  if (tokenInput) tokenInput.value = '';
+  if (statusEl) {
+    if (ghConfig.token) {
+      statusEl.textContent = '✅ Token gespeichert — neu eingeben zum Ändern';
+      statusEl.style.color = '#1a7a4a';
+    } else {
+      statusEl.textContent = '⚠️ Kein Token — bitte eingeben';
+      statusEl.style.color = '#c85a0a';
+    }
   }
   setTimeout(()=>document.getElementById('login-pw').focus(),100);
 }
 function closeLoginModal() { document.getElementById('login-modal').style.display='none'; pendingAfterLogin=null; }
 function pendingAndLogin(fn) { pendingAfterLogin=fn; openLoginModal(); }
 
-function doLogin() {
-  const u=document.getElementById('login-user').value.trim().toLowerCase();
-  const p=document.getElementById('login-pw').value;
-  if ((u==='admin'||u==='') && p===ADMIN_PASS) {
-    // Save GitHub token if entered
-    const tokenInput = document.getElementById('login-gh-token');
-    const newToken = tokenInput?.value?.trim();
-    if (newToken && newToken.startsWith('ghp_')) {
+async function doLogin() {
+  const u = document.getElementById('login-user').value.trim().toLowerCase();
+  const p = document.getElementById('login-pw').value;
+  const errEl   = document.getElementById('login-err');
+  const statusEl = document.getElementById('login-gh-status');
+  const btn      = document.getElementById('login-submit-btn');
+
+  if (!((u==='admin'||u==='') && p===ADMIN_PASS)) {
+    errEl.textContent='❌ Falsches Passwort'; errEl.style.display='block';
+    document.getElementById('login-pw').value='';
+    return;
+  }
+
+  errEl.style.display='none';
+  const newToken = document.getElementById('login-gh-token')?.value?.trim();
+
+  // If a new token was entered — validate it first
+  if (newToken) {
+    btn.textContent = '⏳ Token wird geprüft…';
+    btn.disabled = true;
+    try {
+      const r = await fetch(`https://api.github.com/repos/${ghConfig.repo}`, {
+        headers: { 'Authorization': `Bearer ${newToken}`, 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (r.ok) {
+        ghConfig.token = newToken;
+        localStorage.setItem('bp_gh_config', JSON.stringify(ghConfig));
+        if (statusEl) { statusEl.textContent = '✅ Token gültig & gespeichert'; statusEl.style.color='#1a7a4a'; }
+      } else {
+        btn.textContent = '🔐 Einloggen & Token prüfen';
+        btn.disabled = false;
+        errEl.textContent = `❌ GitHub-Token ungültig (HTTP ${r.status}) — bitte korrigieren`;
+        errEl.style.display = 'block';
+        if (statusEl) { statusEl.textContent = '❌ Token ungültig'; statusEl.style.color='#c04040'; }
+        return; // block login until token is fixed
+      }
+    } catch(e) {
+      // Network error — save token anyway, warn user
       ghConfig.token = newToken;
       localStorage.setItem('bp_gh_config', JSON.stringify(ghConfig));
-      showToast('✅ GitHub-Token gespeichert', 'success');
+      if (statusEl) { statusEl.textContent = '⚠️ Netzwerk-Fehler beim Prüfen'; statusEl.style.color='#c85a0a'; }
     }
-    isAdmin=true; updateTopbarLoginBtn(); closeLoginModal();
-    showToast('✅ Als Admin angemeldet', 'success');
-    if (pendingAfterLogin) { const fn=pendingAfterLogin; pendingAfterLogin=null; setTimeout(fn,100); }
-  } else {
-    const err=document.getElementById('login-err');
-    err.textContent='❌ Falsches Passwort'; err.style.display='block';
-    document.getElementById('login-pw').value='';
+    btn.textContent = '🔐 Einloggen & Token prüfen';
+    btn.disabled = false;
   }
+
+  isAdmin=true; updateTopbarLoginBtn(); closeLoginModal();
+  showToast('✅ Als Admin angemeldet' + (newToken && ghConfig.token===newToken ? ' · Token gespeichert' : ''), 'success');
+  if (pendingAfterLogin) { const fn=pendingAfterLogin; pendingAfterLogin=null; setTimeout(fn,100); }
 }
 
 function doLogout() {
