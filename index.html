@@ -803,7 +803,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.5.3';
+const APP_VERSION = '1.5.4';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -982,7 +982,7 @@ async function getGithubFile(path) {
   try {
     const r = await fetch(`https://api.github.com/repos/${ghConfig.repo}/contents/${path}?ref=${ghConfig.branch}&t=${Date.now()}`, {
       headers: {
-        'Authorization': `Bearer ${ghConfig.token}`,
+        'Authorization': `token ${ghConfig.token}`,
         'Accept': 'application/vnd.github.v3+json',
         'X-GitHub-Api-Version': '2022-11-28'
       }
@@ -1098,7 +1098,10 @@ async function fetchPublicGithubFile(path, _retry) {
 async function readGithubFile(path) {
   if (ghConfig.token) {
     const f = await getGithubFile(path);
-    return f ? f.content : null;
+    if (f !== null) return f ? f.content : null;
+    // getGithubFile returned null — could be auth error, try public fallback
+    console.warn('[BikePacking] readGithubFile: token fetch failed, trying public for', path);
+    return await fetchPublicGithubFile(path);
   } else {
     return await fetchPublicGithubFile(path);
   }
@@ -2366,7 +2369,13 @@ async function doLogin() {
   }
 
   isAdmin=true; updateTopbarLoginBtn(); closeLoginModal();
-  showToast('✅ Als Admin angemeldet' + (newToken && ghConfig.token===newToken ? ' · Token gespeichert' : ''), 'success');
+  const tokenSaved = newToken && ghConfig.token === newToken;
+  showToast('✅ Als Admin angemeldet' + (tokenSaved ? ' · Token gespeichert' : ''), 'success');
+  // If a new token was saved, reload tours & POIs with the new token
+  if (tokenSaved) {
+    showToast('⏳ Lade Touren neu…');
+    await loadToursFromGithub();
+  }
   if (pendingAfterLogin) { const fn=pendingAfterLogin; pendingAfterLogin=null; setTimeout(fn,100); }
 }
 
