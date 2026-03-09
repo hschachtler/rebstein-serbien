@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.3.4';
+const APP_VERSION = '1.3.5';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1923,7 +1923,7 @@ async function fetchOsmDataBatch(pois, radiusM) {
   const query = `[out:json][timeout:25];
 (
 ${unions});
-out center tags 20;`;
+out center tags 30;`;
   try {
     const r = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
@@ -2022,7 +2022,7 @@ async function importExtractedPoisWithOsm() {
 
   const enriched = good.map(p => ({...p}));
   let found = 0, notFound = 0;
-  const BATCH = 10; // POIs per Overpass request
+  const BATCH = 15; // POIs per Overpass request
 
   for (let b = 0; b < enriched.length; b += BATCH) {
     if (osmAbort) break;
@@ -3194,7 +3194,7 @@ async function runOsmEnrichOnTour(onlyEmpty) {
   previewEl.innerHTML = '';
 
   let found = 0, notFound = 0;
-  const BATCH = 10;
+  const BATCH = 15;
 
   for (let b = 0; b < targets.length; b += BATCH) {
     if (osmAbort) break;
