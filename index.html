@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1906,11 +1906,22 @@ const OSM_TYPE_TAGS = {
   Trinkwasser:'[amenity~"drinking_water|water_point"]',
   Sonstiges:  null, // skip OSM lookup for generic type
 };
+// Search radius per POI type — larger for big areas (campings, hotels), smaller for point features
+const OSM_RADIUS = {
+  Camping:    400,
+  Hotel:      300,
+  Supermarkt: 200,
+  Restaurant: 150,
+  Werkstatt:  150,
+  Ladestation:100,
+  Tankstelle: 100,
+  Trinkwasser: 80,
+};
+function osmRadiusForType(t) { return OSM_RADIUS[t] || 150; }
 
 // Batch-fetch OSM data for multiple POIs in a single Overpass request
 // Returns a Map: index -> elements[]
 async function fetchOsmDataBatch(pois, radiusM) {
-  radiusM = radiusM || 80;
   if (!pois.length) return new Map();
   // Build one union query for all POIs (skip types with no OSM tag)
   let unions = '';
@@ -1918,10 +1929,11 @@ async function fetchOsmDataBatch(pois, radiusM) {
   pois.forEach((poi, i) => {
     const tag = OSM_TYPE_TAGS[poi.t];
     if (tag === null || tag === undefined) return; // skip Sonstiges etc.
+    const r = radiusM || osmRadiusForType(poi.t);
     validIndices.push(i);
-    unions += `node${tag}(around:${radiusM},${poi.lat},${poi.lon});
+    unions += `node${tag}(around:${r},${poi.lat},${poi.lon});
 `;
-    unions += `way${tag}(around:${radiusM},${poi.lat},${poi.lon});
+    unions += `way${tag}(around:${r},${poi.lat},${poi.lon});
 `;
   });
   if (!unions) return new Map();
@@ -1943,13 +1955,14 @@ out center tags 30;`;
     // Assign each element back to the nearest POI in the batch
     const result = new Map();
     pois.forEach((poi, i) => {
+      const r = radiusM || osmRadiusForType(poi.t);
       const nearby = elements.filter(el => {
         const elat = el.lat || el.center?.lat;
         const elon = el.lon || el.center?.lon;
         if (!elat || !elon) return false;
         const dlat = elat - poi.lat, dlon = elon - poi.lon;
         const dist = Math.sqrt(dlat*dlat + dlon*dlon) * 111000;
-        return dist <= radiusM * 1.5;
+        return dist <= r * 1.5;
       });
       if (nearby.length) result.set(i, nearby);
     });
@@ -1959,7 +1972,8 @@ out center tags 30;`;
 
 // Legacy single-POI wrapper (kept for compatibility)
 async function fetchOsmData(lat, lon, poiType, radiusM) {
-  const result = await fetchOsmDataBatch([{lat, lon, t: poiType}], radiusM);
+  const r = radiusM || osmRadiusForType(poiType);
+  const result = await fetchOsmDataBatch([{lat, lon, t: poiType}], r);
   return result.get(0) || [];
 }
 
@@ -2042,10 +2056,13 @@ async function importExtractedPoisWithOsm() {
       const best = pickBestOsmElement(elements, poi);
       if (best) {
         const fields = osmTagsToPoiFields(best.tags);
-        if (fields.addr && !poi.addr) poi.addr = fields.addr;
+        if (fields.addr  && !poi.addr)  poi.addr  = fields.addr;
+        if (fields.ort   && !poi.ort)   poi.ort   = fields.ort;
         if (fields.hours && !poi.hours) poi.hours = fields.hours;
-        if (fields.p && !poi.p) poi.p = fields.p;
-        if (fields.l && !poi.l) poi.l = fields.l;
+        if (fields.p     && !poi.p)     poi.p     = fields.p;
+        if (fields.l     && !poi.l)     poi.l     = fields.l;
+        if (fields.www   && !poi.www)   poi.www   = fields.www;
+        if (fields.mail  && !poi.mail)  poi.mail  = fields.mail;
         poi._osmEnriched = true;
         found++;
         const tc = getTypeConfig(poi.t);
@@ -2498,6 +2515,8 @@ function renderPoiCard(p, isNearest) {
       ${p.addr?`<div class="poi-detail-row"><span class="ico">📍</span><span>${escHtml(p.addr)}</span></div>`:''}
       ${p.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${escHtml(p.hours)}</span></div>`:''}
       ${p.p&&p.p!=='nicht verfügbar'?`<div class="poi-detail-row"><span class="ico">📞</span><a href="tel:${p.p}" style="color:#1a6b4a;text-decoration:none">${escHtml(p.p)}</a></div>`:''}
+      ${p.mail?`<div class="poi-detail-row"><span class="ico">📧</span><a href="mailto:${p.mail}" style="color:#1a6b4a;text-decoration:none">${escHtml(p.mail)}</a></div>`:''}
+      ${p.www?`<div class="poi-detail-row"><span class="ico">🌐</span><a href="${p.www}" target="_blank" style="color:#1a6b4a;text-decoration:none;word-break:break-all">${escHtml(p.www.replace(/^https?:\/\//,''))}</a></div>`:''}
       ${p.note?`<div class="poi-detail-row"><span class="ico">📝</span><span>${escHtml(p.note)}</span></div>`:''}
     </div>`:''}
     <div class="poi-actions">
@@ -2910,6 +2929,8 @@ function showPanel(p) {
     ${p.addr?`<div class="irow"><div class="iico" style="background:#f4f6f9">🏠</div><div class="itxt"><div class="ilbl">Adresse</div><div class="ival">${escHtml(p.addr)}</div></div></div>`:''}
     ${p.hours?`<div class="irow"><div class="iico" style="background:#fff8e8">🕐</div><div class="itxt"><div class="ilbl">Öffnungszeiten</div><div class="ival">${escHtml(p.hours)}</div></div></div>`:''}
     ${p.p&&p.p!=='nicht verfügbar'?`<div class="irow"><div class="iico" style="background:#f0f7f4">📞</div><div class="itxt"><div class="ilbl">Telefon</div><div class="ival"><a href="tel:${p.p}" style="color:#1a6b4a;font-weight:600">${escHtml(p.p)}</a></div></div></div>`:''}
+    ${p.mail?`<div class="irow"><div class="iico" style="background:#f0f4ff">📧</div><div class="itxt"><div class="ilbl">E-Mail</div><div class="ival"><a href="mailto:${p.mail}" style="color:#1a6b4a">${escHtml(p.mail)}</a></div></div></div>`:''}
+    ${p.www?`<div class="irow"><div class="iico" style="background:#f4f0ff">🌐</div><div class="itxt"><div class="ilbl">Website</div><div class="ival"><a href="${p.www}" target="_blank" style="color:#1a6b4a;word-break:break-all">${escHtml(p.www.replace(/^https?:\/\//,''))}</a></div></div></div>`:''}
     ${p.note?`<div class="irow"><div class="iico" style="background:#f8f8f8">📝</div><div class="itxt"><div class="ilbl">Notiz</div><div class="ival">${escHtml(p.note)}</div></div></div>`:''}
     ${p.lat&&p.lon?`<div style="display:flex;gap:7px;margin-top:4px"><a class="mapbtn" href="${mapsUrl}" target="_blank" style="flex:1">🗺️ Google Maps</a>${p.p&&p.p!=='nicht verfügbar'?`<a class="mapbtn" href="tel:${p.p}" style="flex:0 0 auto;padding:10px 14px">📞</a>`:''}</div>`:''}
   `;
@@ -3221,7 +3242,8 @@ function closeOsmEnrichModal() {
 }
 
 async function runOsmEnrichOnTour(onlyEmpty) {
-  const allPois = getAllPois().filter(p => p.lat && p.lon);
+  // Use raw arrays so _hidden POIs are also enriched
+  const allPois = [...tourPois, ...customPois].filter(p => p.lat && p.lon && OSM_TYPE_TAGS[p.t] !== null);
   const targets = onlyEmpty
     ? allPois.filter(p => !p.addr || !p.p || !p.hours)
     : allPois;
@@ -3262,10 +3284,13 @@ async function runOsmEnrichOnTour(onlyEmpty) {
             (p.n === poi.n && p.km === poi.km)
           );
           if (idx !== -1) {
-            if (fields.addr && !arr[idx].addr) arr[idx].addr = fields.addr;
+            if (fields.addr  && !arr[idx].addr)  arr[idx].addr  = fields.addr;
+            if (fields.ort   && !arr[idx].ort)   arr[idx].ort   = fields.ort;
             if (fields.hours && !arr[idx].hours) arr[idx].hours = fields.hours;
-            if (fields.p && !arr[idx].p) arr[idx].p = fields.p;
-            if (fields.l && !arr[idx].l) arr[idx].l = fields.l;
+            if (fields.p     && !arr[idx].p)     arr[idx].p     = fields.p;
+            if (fields.l     && !arr[idx].l)     arr[idx].l     = fields.l;
+            if (fields.www   && !arr[idx].www)   arr[idx].www   = fields.www;
+            if (fields.mail  && !arr[idx].mail)  arr[idx].mail  = fields.mail;
             patched = true; break;
           }
         }
@@ -3324,7 +3349,7 @@ async function enrichSinglePoiOsm(safeId, btn) {
   btn.innerHTML = '⏳';
   btn.disabled = true;
 
-  const elements = await fetchOsmData(poi.lat, poi.lon, poi.t, 100);
+  const elements = await fetchOsmData(poi.lat, poi.lon, poi.t); // uses type-aware radius
   const best = pickBestOsmElement(elements, poi);
 
   if (!best) {
@@ -3338,9 +3363,12 @@ async function enrichSinglePoiOsm(safeId, btn) {
   const fields = osmTagsToPoiFields(best.tags);
   let changed = 0;
   if (fields.addr  && !targetArr[targetIdx].addr)  { targetArr[targetIdx].addr  = fields.addr;  changed++; }
+  if (fields.ort   && !targetArr[targetIdx].ort)   { targetArr[targetIdx].ort   = fields.ort;   changed++; }
   if (fields.hours && !targetArr[targetIdx].hours) { targetArr[targetIdx].hours = fields.hours; changed++; }
   if (fields.p     && !targetArr[targetIdx].p)     { targetArr[targetIdx].p     = fields.p;     changed++; }
   if (fields.l     && !targetArr[targetIdx].l)     { targetArr[targetIdx].l     = fields.l;     changed++; }
+  if (fields.www   && !targetArr[targetIdx].www)   { targetArr[targetIdx].www   = fields.www;   changed++; }
+  if (fields.mail  && !targetArr[targetIdx].mail)  { targetArr[targetIdx].mail  = fields.mail;  changed++; }
 
   if (changed === 0) {
     btn.innerHTML = '✅';
