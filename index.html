@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.4.2';
+const APP_VERSION = '1.4.3';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2011,13 +2011,15 @@ async function reverseGeocode(lat, lon) {
     if (!r.ok) return {};
     const d = await r.json();
     const a = d.address || {};
+    const cc = (a.country_code || d['ISO3166-1:alpha2'] || '').toUpperCase();
+    const city = a.city || a.town || a.village || a.hamlet || a.suburb || '';
     return {
-      ort:  a.city || a.town || a.village || a.hamlet || a.suburb || '',
-      l:    a.country_code ? a.country_code.toUpperCase() : '',
+      ort:  city,
+      l:    cc,
       addr: [
         (a.road ? a.road + (a.house_number ? ' ' + a.house_number : '') : ''),
         a.postcode || '',
-        a.city || a.town || a.village || ''
+        city
       ].filter(Boolean).join(', ')
     };
   } catch(e) { return {}; }
@@ -2595,7 +2597,7 @@ function openAddPoi(editId) {
       document.getElementById('poi-note').value  = p.note  || '';
       document.getElementById('poi-lat').value   = p.lat   || '';
       document.getElementById('poi-lon').value   = p.lon   || '';
-      document.getElementById('poi-land').value  = p.l     || 'AT';
+      document.getElementById('poi-land').value  = (p.l && p.l !== '??') ? p.l : '';
       updateFlagPreview();
       selectedType = p.t || 'Camping';
       document.getElementById('modal-title').textContent = '✏️ POI bearbeiten';
@@ -2633,7 +2635,7 @@ function savePoi() {
     id: editingPoiId||('own_'+Date.now()),
     n: name, km: isNaN(km)?0:km, t: selectedType,
     ort: document.getElementById('poi-ort').value.trim()||'',
-    l: document.getElementById('poi-land').value.trim()||'??',
+    l: (document.getElementById('poi-land').value.trim().replace('??',''))||'',
     addr: document.getElementById('poi-addr').value.trim()||'',
     p: document.getElementById('poi-phone').value.trim()||'',
     hours: document.getElementById('poi-hours').value.trim()||'',
@@ -3430,6 +3432,16 @@ async function enrichSinglePoiOsm(safeId, btn) {
   renderList();
   if (mapInitialized) refreshMapMarkers();
   await autosaveToGithub('OSM-Einzelabfrage: ' + poi.n);
+  // If edit modal is currently open for this poi, refresh the fields live
+  if (document.getElementById('poi-modal').style.display !== 'none' && editingPoiId) {
+    const p = targetArr[targetIdx];
+    document.getElementById('poi-ort').value   = p.ort   || '';
+    document.getElementById('poi-addr').value  = p.addr  || '';
+    document.getElementById('poi-land').value  = (p.l && p.l !== '??') ? p.l : '';
+    document.getElementById('poi-phone').value = p.p     || '';
+    document.getElementById('poi-hours').value = p.hours || '';
+    updateFlagPreview();
+  }
   showToast(`✅ ${changed} Felder aus OSM ergänzt`, 'success');
 }
 
