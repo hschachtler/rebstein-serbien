@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.4.8';
+const APP_VERSION = '1.5.0';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1148,7 +1148,7 @@ async function loadTourPois(tourId) {
   updateAppTitle();
   renderList();
   renderTourTabs();
-  if (mapInitialized) { refreshMapMarkers(); loadRiderPosition(); renderPhotoMarkers(); }
+  if (mapInitialized) { refreshMapMarkers(); loadRiderPosition(); loadPhotosFromGithub(); }
 
   // Only show toast if triggered manually (not during initial startup which has its own toast)
   if (!window._appStarting) {
@@ -2833,8 +2833,7 @@ async function initMap() {
 
 function mapFlyIn() {
   // Ensure photos are rendered when map opens
-  if (photos.length > 0) renderPhotoMarkers();
-  else loadPhotosFromGithub();
+  loadPhotosFromGithub();
   if (!mapObj) return;
   // Step 1: Show full route
   if (currentRoutePoints.length > 1) {
@@ -3229,14 +3228,23 @@ async function uploadPhoto() {
     };
     photos.push(entry);
 
-    // Save photos.json to GitHub
-    await savePhotosToGithub();
-
-    // Add marker to map
+    // Add marker to map immediately
     if (mapInitialized && entry.lat) addPhotoMarker(entry);
 
+    // Save Cloudinary URL to GitHub photos.json
+    if (!ghConfig.repo || !ghConfig.token) {
+      closePhotoModal();
+      showToast('⚠️ Foto in Cloudinary — aber kein GitHub-Token: Link nicht gespeichert!', 'error');
+      return;
+    }
+    btn.textContent = '💾 Speichere auf GitHub…';
+    const statusEl = document.getElementById('photo-github-status');
+    if (statusEl) statusEl.textContent = '💾 Speichere Link in GitHub…';
+    await savePhotosToGithub();
+    if (statusEl) statusEl.textContent = '✅ In GitHub gespeichert: tours/' + activeTourId + '/photos.json';
+
     closePhotoModal();
-    showToast('✅ Foto hochgeladen & auf Karte!', 'success');
+    showToast('✅ Foto hochgeladen & in GitHub gespeichert!', 'success');
   } catch(e) {
     showToast('❌ Upload fehlgeschlagen: ' + e.message, 'error');
   } finally {
@@ -3255,15 +3263,20 @@ async function savePhotosToGithub() {
 async function loadPhotosFromGithub() {
   if (!ghConfig.repo) return;
   try {
+    const base = `https://raw.githubusercontent.com/${ghConfig.repo}/${ghConfig.branch||'main'}`;
     const path = activeTourId ? `tours/${activeTourId}/photos.json` : 'photos.json';
-    let text = await readGithubFile(path).catch(() => null);
-    // Fallback to root photos.json for legacy data
-    if (!text && activeTourId) text = await readGithubFile('photos.json').catch(() => null);
-    if (text) {
+    // Use raw URL (public, fast, no token) — add cache-bust
+    let r = await fetch(`${base}/${path}?t=${Date.now()}`);
+    // Fallback to root for legacy data
+    if (!r.ok && activeTourId) r = await fetch(`${base}/photos.json?t=${Date.now()}`);
+    if (r.ok) {
+      const text = await r.text();
       photos = JSON.parse(text);
-      console.log(`[BikePacking] Loaded ${photos.length} photos from ${path}`);
+      console.log(`[BikePacking] Loaded ${photos.length} photos`);
+    } else {
+      photos = [];
     }
-  } catch(e) { console.warn('[BikePacking] photos.json load error:', e); photos = []; }
+  } catch(e) { console.warn('[BikePacking] photos load error:', e); photos = []; }
   if (mapInitialized) renderPhotoMarkers();
 }
 
@@ -3575,6 +3588,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     <div style="display:flex;gap:8px">
       <button onclick="closePhotoModal()" style="flex:0 0 auto;padding:13px 18px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:600;color:#5a7a9a;cursor:pointer;-webkit-appearance:none">Abbrechen</button>
       <button id="photo-upload-btn" onclick="uploadPhoto()" style="flex:1;padding:13px;background:linear-gradient(135deg,#c85a0a,#e07820);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(200,90,10,.25)">⬆️ Hochladen & auf Karte zeigen</button>
+      <div id="photo-github-status" style="font-size:.7rem;color:#6a8aa4;text-align:center;margin-top:2px"></div>
     </div>
   </div>
 </div>
