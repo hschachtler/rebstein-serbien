@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.3.3';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -1902,26 +1902,54 @@ const OSM_TYPE_TAGS = {
   Sonstiges:  '',
 };
 
-async function fetchOsmData(lat, lon, poiType, radiusM) {
+// Batch-fetch OSM data for multiple POIs in a single Overpass request
+// Returns a Map: index -> elements[]
+async function fetchOsmDataBatch(pois, radiusM) {
   radiusM = radiusM || 80;
-  const tagFilter = OSM_TYPE_TAGS[poiType] || '';
-  // Query both node and way, with a fallback to name-only search nearby
-  const query = `[out:json][timeout:8];
+  if (!pois.length) return new Map();
+  // Build one union query for all POIs
+  let unions = '';
+  pois.forEach((poi, i) => {
+    const tag = OSM_TYPE_TAGS[poi.t] || '';
+    unions += `node${tag}(around:${radiusM},${poi.lat},${poi.lon});
+`;
+    unions += `way${tag}(around:${radiusM},${poi.lat},${poi.lon});
+`;
+  });
+  const query = `[out:json][timeout:25];
 (
-  node${tagFilter}(around:${radiusM},${lat},${lon});
-  way${tagFilter}(around:${radiusM},${lat},${lon});
-);
-out center tags 5;`;
+${unions});
+out center tags 20;`;
   try {
     const r = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'data=' + encodeURIComponent(query)
     });
-    if (!r.ok) return null;
+    if (!r.ok) return new Map();
     const data = await r.json();
-    return data.elements || [];
-  } catch(e) { return null; }
+    const elements = data.elements || [];
+    // Assign each element back to the nearest POI in the batch
+    const result = new Map();
+    pois.forEach((poi, i) => {
+      const nearby = elements.filter(el => {
+        const elat = el.lat || el.center?.lat;
+        const elon = el.lon || el.center?.lon;
+        if (!elat || !elon) return false;
+        const dlat = elat - poi.lat, dlon = elon - poi.lon;
+        const dist = Math.sqrt(dlat*dlat + dlon*dlon) * 111000;
+        return dist <= radiusM * 1.5;
+      });
+      if (nearby.length) result.set(i, nearby);
+    });
+    return result;
+  } catch(e) { return new Map(); }
+}
+
+// Legacy single-POI wrapper (kept for compatibility)
+async function fetchOsmData(lat, lon, poiType, radiusM) {
+  const result = await fetchOsmDataBatch([{lat, lon, t: poiType}], radiusM);
+  return result.get(0) || [];
 }
 
 function osmTagsToPoiFields(tags, centerLat, centerLon) {
@@ -1986,24 +2014,23 @@ async function importExtractedPoisWithOsm() {
   progEl.style.display = 'block';
   previewEl.innerHTML = '';
 
-  const enriched = [];
+  const enriched = good.map(p => ({...p}));
   let found = 0, notFound = 0;
+  const BATCH = 10; // POIs per Overpass request
 
-  for (let i = 0; i < good.length; i++) {
+  for (let b = 0; b < enriched.length; b += BATCH) {
     if (osmAbort) break;
-    const poi = { ...good[i] };
-    const pct = Math.round((i / good.length) * 100);
-    barEl.style.width = pct + '%';
-    txtEl.textContent = `${i + 1} / ${good.length} — ${poi.n}`;
+    const slice = enriched.slice(b, b + BATCH).filter(p => p.lat && p.lon);
+    barEl.style.width = Math.round((b / enriched.length) * 100) + '%';
+    txtEl.textContent = `Batch ${Math.floor(b/BATCH)+1} / ${Math.ceil(enriched.length/BATCH)} (POI ${b+1}–${Math.min(b+BATCH, enriched.length)} von ${enriched.length})`;
 
-    if (poi.lat && poi.lon) {
-      const elements = await fetchOsmData(poi.lat, poi.lon, poi.t, 80);
+    const batchResult = await fetchOsmDataBatch(slice, 80);
+
+    slice.forEach((poi, sliceIdx) => {
+      const elements = batchResult.get(sliceIdx) || [];
       const best = pickBestOsmElement(elements, poi);
       if (best) {
-        const lat = best.lat || best.center?.lat || poi.lat;
-        const lon = best.lon || best.center?.lon || poi.lon;
-        const fields = osmTagsToPoiFields(best.tags, lat, lon);
-        // Only overwrite empty fields — never overwrite what GPX already had
+        const fields = osmTagsToPoiFields(best.tags);
         if (fields.addr && !poi.addr) poi.addr = fields.addr;
         if (fields.hours && !poi.hours) poi.hours = fields.hours;
         if (fields.p && !poi.p) poi.p = fields.p;
@@ -2018,15 +2045,11 @@ async function importExtractedPoisWithOsm() {
             <span style="color:#1a8a5a;flex-shrink:0">✅ OSM</span>
           </div>`);
       } else {
-        poi._osmEnriched = false;
         notFound++;
-        const tc = getTypeConfig(poi.t);
-        // No OSM data — import silently without preview entry
       }
-    }
-    enriched.push(poi);
-    // Small delay to avoid hammering Overpass API
-    await new Promise(res => setTimeout(res, 120));
+    });
+    // Short pause between batches — much less than per-POI delay
+    if (b + BATCH < enriched.length) await new Promise(res => setTimeout(res, 300));
   }
 
   barEl.style.width = '100%';
@@ -3165,41 +3188,45 @@ async function runOsmEnrichOnTour(onlyEmpty) {
   previewEl.innerHTML = '';
 
   let found = 0, notFound = 0;
+  const BATCH = 10;
 
-  for (let i = 0; i < targets.length; i++) {
+  for (let b = 0; b < targets.length; b += BATCH) {
     if (osmAbort) break;
-    const poi = targets[i];
-    barEl.style.width = Math.round((i / targets.length) * 100) + '%';
-    txtEl.textContent = `${i + 1} / ${targets.length} — ${poi.n}`;
+    const slice = targets.slice(b, b + BATCH);
+    barEl.style.width = Math.round((b / targets.length) * 100) + '%';
+    txtEl.textContent = `Batch ${Math.floor(b/BATCH)+1} / ${Math.ceil(targets.length/BATCH)} (${b+1}–${Math.min(b+BATCH, targets.length)} von ${targets.length})`;
 
-    const elements = await fetchOsmData(poi.lat, poi.lon, poi.t, 80);
-    const best = pickBestOsmElement(elements, poi);
-    if (best) {
-      const fields = osmTagsToPoiFields(best.tags);
-      // Find poi in tourPois or customPois and patch it
-      let patched = false;
-      for (const arr of [tourPois, customPois]) {
-        const idx = arr.findIndex(p => p === poi || (p.n === poi.n && p.km === poi.km));
-        if (idx !== -1) {
-          if (fields.addr && !arr[idx].addr) arr[idx].addr = fields.addr;
-          if (fields.hours && !arr[idx].hours) arr[idx].hours = fields.hours;
-          if (fields.p && !arr[idx].p) arr[idx].p = fields.p;
-          if (fields.l && !arr[idx].l) arr[idx].l = fields.l;
-          patched = true; break;
+    const batchResult = await fetchOsmDataBatch(slice, 80);
+
+    slice.forEach((poi, sliceIdx) => {
+      const elements = batchResult.get(sliceIdx) || [];
+      const best = pickBestOsmElement(elements, poi);
+      if (best) {
+        const fields = osmTagsToPoiFields(best.tags);
+        let patched = false;
+        for (const arr of [tourPois, customPois]) {
+          const idx = arr.findIndex(p => p === poi || (p.n === poi.n && p.km === poi.km));
+          if (idx !== -1) {
+            if (fields.addr && !arr[idx].addr) arr[idx].addr = fields.addr;
+            if (fields.hours && !arr[idx].hours) arr[idx].hours = fields.hours;
+            if (fields.p && !arr[idx].p) arr[idx].p = fields.p;
+            if (fields.l && !arr[idx].l) arr[idx].l = fields.l;
+            patched = true; break;
+          }
         }
-      }
-      if (patched) {
-        found++;
-        const tc = getTypeConfig(poi.t);
-        previewEl.insertAdjacentHTML('afterbegin',
-          `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:#eaf5f0;margin-bottom:3px;font-size:.65rem">
-            <span>${tc.icon}</span>
-            <span style="font-weight:600;color:#1a4a2a;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(poi.n)}</span>
-            <span style="color:#1a8a5a;flex-shrink:0">✅</span>
-          </div>`);
-      }
-    } else { notFound++; }
-    await new Promise(res => setTimeout(res, 120));
+        if (patched) {
+          found++;
+          const tc = getTypeConfig(poi.t);
+          previewEl.insertAdjacentHTML('afterbegin',
+            `<div style="display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:#eaf5f0;margin-bottom:3px;font-size:.65rem">
+              <span>${tc.icon}</span>
+              <span style="font-weight:600;color:#1a4a2a;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(poi.n)}</span>
+              <span style="color:#1a8a5a;flex-shrink:0">✅</span>
+            </div>`);
+        }
+      } else { notFound++; }
+    });
+    if (b + BATCH < targets.length) await new Promise(res => setTimeout(res, 300));
   }
 
   barEl.style.width = '100%';
