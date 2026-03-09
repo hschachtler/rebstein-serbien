@@ -1038,21 +1038,36 @@ async function putGithubFile(path, content, message, sha) {
 }
 
 // ── Public read via raw.githubusercontent.com (no token needed) ──
-async function fetchPublicGithubFile(path) {
+async function fetchPublicGithubFile(path, _retry) {
+  if (_retry === undefined) _retry = 0;
   if (!ghConfig.repo) return null;
   const branch = ghConfig.branch || 'main';
   const url = `https://raw.githubusercontent.com/${ghConfig.repo}/${branch}/${path}?t=${Date.now()}`;
   try {
-    const r = await fetch(url);
+    // Use Promise.race for timeout — AbortController cannot be cloned across extension boundaries
+    const timeoutPromise = new Promise(function(_, reject) {
+      setTimeout(function() { reject(new Error('Timeout')); }, 8000);
+    });
+    const r = await Promise.race([fetch(url), timeoutPromise]);
     if (!r.ok) {
-      console.warn(`[BikePacking] fetchPublicGithubFile: ${r.status} for ${url}`);
+      console.warn('[BikePacking] fetchPublicGithubFile: ' + r.status + ' for ' + path);
+      if (r.status >= 500 && _retry < 2) {
+        await new Promise(function(res) { setTimeout(res, 1500 * (_retry + 1)); });
+        return fetchPublicGithubFile(path, _retry + 1);
+      }
       return null;
     }
     const text = await r.text();
-    console.log(`[BikePacking] fetchPublicGithubFile OK: ${path} (${text.length} chars)`);
+    console.log('[BikePacking] fetchPublicGithubFile OK: ' + path + ' (' + text.length + ' chars)');
     return text;
   } catch(e) {
-    console.error(`[BikePacking] fetchPublicGithubFile error: ${path}`, e);
+    if (_retry < 3) {
+      const delay = 1000 * Math.pow(2, _retry);
+      console.warn('[BikePacking] fetchPublicGithubFile retry ' + (_retry + 1) + '/3 for ' + path + ' (' + e.message + ')');
+      await new Promise(function(res) { setTimeout(res, delay); });
+      return fetchPublicGithubFile(path, _retry + 1);
+    }
+    console.error('[BikePacking] fetchPublicGithubFile error: ' + path, e);
     return null;
   }
 }
@@ -2011,25 +2026,12 @@ function locateMePoi() {
   if (!navigator.geolocation){st.textContent='GPS nicht verfügbar.';st.className='err';return;}
   if (poiWatchId!==null) {
     navigator.geolocation.clearWatch(poiWatchId); poiWatchId=null;
-    if (window._poiGpsTimeout) { clearTimeout(window._poiGpsTimeout); window._poiGpsTimeout=null; }
     btn.textContent='📡 Standort bestimmen'; btn.className='';
     st.textContent='GPS gestoppt.'; st.className=''; firstGpsFix=true; return;
   }
   btn.textContent='⏳ Ortung läuft…'; btn.className='busy';
   st.textContent='Warte auf GPS-Signal…';
-
-  // Robuster Fallback-Timer: nach 12s abbrechen falls kein Fix
-  window._poiGpsTimeout = setTimeout(()=>{
-    if (poiWatchId!==null && btn.className==='busy') {
-      navigator.geolocation.clearWatch(poiWatchId); poiWatchId=null;
-      btn.textContent='📡 Nochmals versuchen'; btn.className='';
-      st.textContent='⚠️ Kein GPS-Signal – bitte nochmals tippen'; st.className='err';
-    }
-    window._poiGpsTimeout=null;
-  }, 12000);
-
   poiWatchId=navigator.geolocation.watchPosition(pos=>{
-    if (window._poiGpsTimeout) { clearTimeout(window._poiGpsTimeout); window._poiGpsTimeout=null; }
     uLat=pos.coords.latitude; uLon=pos.coords.longitude;
     const acc=Math.round(pos.coords.accuracy);
     btn.textContent='🧭 Aktiv – Tippen zum Stoppen'; btn.className='ok';
@@ -2037,11 +2039,10 @@ function locateMePoi() {
     renderList();
     if (firstGpsFix) { firstGpsFix=false; scrollToNearest(); }
   }, err=>{
-    if (window._poiGpsTimeout) { clearTimeout(window._poiGpsTimeout); window._poiGpsTimeout=null; }
-    const msgs={1:'GPS verweigert – Einstellungen prüfen',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};
+    const msgs={1:'GPS verweigert',2:'Position nicht verfügbar',3:'Zeitüberschreitung'};
     st.textContent=msgs[err.code]||'GPS-Fehler'; st.className='err';
     btn.textContent='📡 Nochmals versuchen'; btn.className=''; poiWatchId=null;
-  }, {enableHighAccuracy:true, timeout:10000, maximumAge:5000});
+  }, {enableHighAccuracy:true,timeout:20000,maximumAge:5000});
 }
 
 function locateMeMap() {
@@ -2057,18 +2058,17 @@ function locateMeMap() {
   btn.textContent='⏳ Suche…'; btn.className='busy';
   autoCenter=true;
 
-  // Robuster Fallback-Timer: nach 12s abbrechen falls kein Fix
-  window._mapGpsTimeout = setTimeout(()=>{
-    if (mapWatchId!==null && btn.className==='busy') {
-      navigator.geolocation.clearWatch(mapWatchId); mapWatchId=null;
-      btn.textContent='📡 GPS'; btn.className='';
+  // Timeout-Fallback: nach 15s Fehlermeldung anzeigen falls kein Fix
+  const gpsTimeout = setTimeout(()=>{
+    if (btn.className==='busy') {
+      btn.textContent='📡 GPS (kein Signal)'; btn.className='';
       showToast('⚠️ Kein GPS-Signal – bitte nochmals tippen','error');
+      navigator.geolocation.clearWatch(mapWatchId); mapWatchId=null;
     }
-    window._mapGpsTimeout=null;
-  }, 12000);
+  }, 15000);
 
   mapWatchId=navigator.geolocation.watchPosition(pos=>{
-    if (window._mapGpsTimeout) { clearTimeout(window._mapGpsTimeout); window._mapGpsTimeout=null; }
+    clearTimeout(gpsTimeout);
     uLat=pos.coords.latitude; uLon=pos.coords.longitude;
     const acc=Math.round(pos.coords.accuracy);
     btn.textContent=`📍 ±${acc}m`; btn.className='ok';
@@ -2078,11 +2078,11 @@ function locateMeMap() {
     if (autoCenter) mapObj.setView([uLat,uLon], compassActive ? 16 : 11);
     updateNearestIndicators();
   }, err=>{
-    if (window._mapGpsTimeout) { clearTimeout(window._mapGpsTimeout); window._mapGpsTimeout=null; }
+    clearTimeout(gpsTimeout);
     const msgs={1:'GPS verweigert – Einstellungen prüfen',2:'Position nicht verfügbar',3:'GPS-Zeitüberschreitung'};
     showToast('❌ '+(msgs[err.code]||'GPS-Fehler'),'error');
     btn.textContent='📡 GPS'; btn.className=''; mapWatchId=null;
-  },{enableHighAccuracy:true, timeout:10000, maximumAge:10000});
+  },{enableHighAccuracy:true, timeout:30000, maximumAge:10000});
 }
 
 function toggleCompass() {
