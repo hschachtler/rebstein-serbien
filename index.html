@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2715,10 +2715,11 @@ function openAddPoiWithData(p, isBuiltin) {
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('poi-lat').value = '';
   document.getElementById('poi-lon').value = '';
-  document.getElementById('poi-land').value = 'AT';
+  document.getElementById('poi-land').value = '';
   document.getElementById('poi-error').style.display = 'none';
 
-  // Fill with poi data
+  // Fill with poi data — strip legacy '??' from l
+  const cleanL = (p.l && p.l !== '??') ? p.l : '';
   document.getElementById('poi-name').value  = p.n     || '';
   document.getElementById('poi-km').value    = p.km    || '';
   document.getElementById('poi-ort').value   = p.ort   || '';
@@ -2728,7 +2729,7 @@ function openAddPoiWithData(p, isBuiltin) {
   document.getElementById('poi-note').value  = p.note  || '';
   document.getElementById('poi-lat').value   = p.lat   || '';
   document.getElementById('poi-lon').value   = p.lon   || '';
-  document.getElementById('poi-land').value  = p.l     || 'AT';
+  document.getElementById('poi-land').value  = cleanL;
 
   updateFlagPreview();
   selectType(selectedType);
