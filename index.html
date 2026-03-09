@@ -803,7 +803,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.5.2';
+const APP_VERSION = '1.5.3';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2322,34 +2322,47 @@ async function doLogin() {
   errEl.style.display='none';
   const newToken = document.getElementById('login-gh-token')?.value?.trim();
 
-  // If a new token was entered — validate it first
+  // If a new token was entered — validate it against /user endpoint
   if (newToken) {
     btn.textContent = '⏳ Token wird geprüft…';
     btn.disabled = true;
     try {
-      const r = await fetch(`https://api.github.com/repos/${ghConfig.repo}`, {
-        headers: { 'Authorization': `Bearer ${newToken}`, 'Accept': 'application/vnd.github.v3+json' }
+      // Use /user endpoint — works for all token types (classic + fine-grained)
+      const r = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `token ${newToken}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
       });
+      btn.textContent = '🔐 Einloggen & Token prüfen';
+      btn.disabled = false;
       if (r.ok) {
+        const userData = await r.json();
         ghConfig.token = newToken;
         localStorage.setItem('bp_gh_config', JSON.stringify(ghConfig));
-        if (statusEl) { statusEl.textContent = '✅ Token gültig & gespeichert'; statusEl.style.color='#1a7a4a'; }
-      } else {
-        btn.textContent = '🔐 Einloggen & Token prüfen';
-        btn.disabled = false;
-        errEl.textContent = `❌ GitHub-Token ungültig (HTTP ${r.status}) — bitte korrigieren`;
+        if (statusEl) {
+          statusEl.textContent = `✅ Token gültig (${userData.login}) — gespeichert`;
+          statusEl.style.color = '#1a7a4a';
+        }
+      } else if (r.status === 401) {
+        errEl.textContent = '❌ Token ungültig (401 Unauthorized) — bitte neu eingeben';
         errEl.style.display = 'block';
-        if (statusEl) { statusEl.textContent = '❌ Token ungültig'; statusEl.style.color='#c04040'; }
-        return; // block login until token is fixed
+        if (statusEl) { statusEl.textContent = '❌ Ungültig'; statusEl.style.color='#c04040'; }
+        return; // only block on definitive 401
+      } else {
+        // 403, 429, 5xx etc — save anyway, might still work
+        ghConfig.token = newToken;
+        localStorage.setItem('bp_gh_config', JSON.stringify(ghConfig));
+        if (statusEl) { statusEl.textContent = `⚠️ Prüfung ergab HTTP ${r.status} — Token gespeichert`; statusEl.style.color='#c85a0a'; }
       }
     } catch(e) {
-      // Network error — save token anyway, warn user
+      btn.textContent = '🔐 Einloggen & Token prüfen';
+      btn.disabled = false;
+      // Network error — save token anyway
       ghConfig.token = newToken;
       localStorage.setItem('bp_gh_config', JSON.stringify(ghConfig));
-      if (statusEl) { statusEl.textContent = '⚠️ Netzwerk-Fehler beim Prüfen'; statusEl.style.color='#c85a0a'; }
+      if (statusEl) { statusEl.textContent = '⚠️ Netzwerk-Fehler — Token gespeichert ohne Prüfung'; statusEl.style.color='#c85a0a'; }
     }
-    btn.textContent = '🔐 Einloggen & Token prüfen';
-    btn.disabled = false;
   }
 
   isAdmin=true; updateTopbarLoginBtn(); closeLoginModal();
