@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.3.8';
+const APP_VERSION = '1.3.9';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2244,6 +2244,8 @@ function updateTopbarLoginBtn() {
   if (!isAdmin && currentView === 'poi') {
     showView('map');
   }
+  // Re-render POI list so admin buttons appear/disappear immediately
+  renderList();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2502,11 +2504,8 @@ function renderPoiCard(p, isNearest) {
       ${p.lat&&p.lon?`<a class="btn-maps" href="${mapsUrl}" target="_blank">🗺️ Google Maps</a>`:'<span class="btn-maps" style="opacity:.4">🗺️ Keine Koordinaten</span>'}
       ${hasPhone?`<a class="btn-call" href="tel:${p.p}">📞</a>`:''}
       ${isAdmin&&p.lat&&p.lon&&OSM_TYPE_TAGS[p.t]!==null?`<button class="btn-call" title="OSM-Daten nachladen" onclick="enrichSinglePoiOsm('${safeId}',this)">🌍</button>`:''}
-      ${isAdmin&&(isOwn)?`<button class="btn-call" onclick="openAddPoi('${p.id}')">✏️</button>`:''}
-      ${isAdmin&&p.isOwn&&!p.isImported?`<button class="btn-call" onclick="deletePoi('${p.id}')" style="color:#c04040">🗑️</button>`:''}
-      ${isAdmin&&(p.isImported||(!p.isOwn&&!p.isOverride))?`<button class="btn-call" onclick="deleteBuiltinPoi('${escHtml(p.n)}')" style="color:#c04040">🗑️</button>`:''}
-      ${isAdmin&&!isOwn?`<button class="btn-call" onclick="editBuiltinPoi('${safeId}')">✏️</button>`:''}
-      ${isAdmin&&!isOwn?`<button class="btn-call" onclick="deleteBuiltinPoi('${escHtml(p.n)}')" style="color:#c04040">🗑️</button>`:''}
+      ${isAdmin?`<button class="btn-call" onclick="editAnyPoi('${safeId}')">✏️</button>`:''}
+      ${isAdmin&&p.isOwn&&!p.isImported?`<button class="btn-call" onclick="deletePoi('${p.id}')" style="color:#c04040">🗑️</button>`:isAdmin?`<button class="btn-call" onclick="deleteBuiltinPoi('${escHtml(p.n)}')" style="color:#c04040">🗑️</button>`:''}
     </div>
   </div>`;
 }
@@ -2647,11 +2646,18 @@ function deleteBuiltinPoi(name) {
   }
 }
 function editBuiltinPoi(safeId) {
-  const p = tourPois.find(x => (x.id||x.n).replace(/[^a-zA-Z0-9]/g,'_') === safeId);
-  if (!p) return;
-  // Give the poi a stable id if missing, then open edit modal directly
-  if (!p.id) p.id = 'tp_' + safeId;
-  openAddPoi('__builtin__' + p.id);
+  editAnyPoi(safeId);
+}
+
+function editAnyPoi(safeId) {
+  // Search customPois first (own/override), then tourPois
+  const custom = customPois.find(x => (x.id||x.n).replace(/[^a-zA-Z0-9]/g,'_') === safeId);
+  if (custom) { openAddPoi(custom.id); return; }
+  const tp = tourPois.find(x => (x.id||x.n).replace(/[^a-zA-Z0-9]/g,'_') === safeId);
+  if (tp) {
+    if (!tp.id) tp.id = 'tp_' + safeId;
+    openAddPoi('__builtin__' + tp.id);
+  }
 }
 
 function useCurrentGpsForPoi() {
