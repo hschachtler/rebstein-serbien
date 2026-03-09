@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.3.1';
+const APP_VERSION = '1.3.2';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2458,9 +2458,10 @@ function renderPoiCard(p, isNearest) {
       </div>
       ${distTxt?`<div class="poi-dist">${distTxt}<small>entfernt</small></div>`:p.km?`<div class="poi-dist" style="font-size:.75rem;color:#9ab0c8">${p.km} km</div>`:''}
     </div>
-    ${(p.addr||p.hours||p.note)?`<div class="poi-details">
+    ${(p.addr||p.hours||p.p||p.note)?`<div class="poi-details">
       ${p.addr?`<div class="poi-detail-row"><span class="ico">📍</span><span>${escHtml(p.addr)}</span></div>`:''}
       ${p.hours?`<div class="poi-detail-row"><span class="ico">🕐</span><span>${escHtml(p.hours)}</span></div>`:''}
+      ${p.p&&p.p!=='nicht verfügbar'?`<div class="poi-detail-row"><span class="ico">📞</span><a href="tel:${p.p}" style="color:#1a6b4a;text-decoration:none">${escHtml(p.p)}</a></div>`:''}
       ${p.note?`<div class="poi-detail-row"><span class="ico">📝</span><span>${escHtml(p.note)}</span></div>`:''}
     </div>`:''}
     <div class="poi-actions">
@@ -2834,9 +2835,9 @@ function showPanel(p) {
     ${p.ort?`<div class="irow"><div class="iico" style="background:#f4f6f9">${flag}</div><div class="itxt"><div class="ilbl">Ort</div><div class="ival">${escHtml(p.ort)}</div></div></div>`:''}
     ${p.addr?`<div class="irow"><div class="iico" style="background:#f4f6f9">🏠</div><div class="itxt"><div class="ilbl">Adresse</div><div class="ival">${escHtml(p.addr)}</div></div></div>`:''}
     ${p.hours?`<div class="irow"><div class="iico" style="background:#fff8e8">🕐</div><div class="itxt"><div class="ilbl">Öffnungszeiten</div><div class="ival">${escHtml(p.hours)}</div></div></div>`:''}
-    ${p.p&&p.p!=='nicht verfügbar'?`<div class="irow"><div class="iico" style="background:#f0f7f4">📞</div><div class="itxt"><div class="ilbl">Telefon</div><div class="ival"><a href="tel:${p.p}" style="color:#1a6b4a">${escHtml(p.p)}</a></div></div></div>`:''}
+    ${p.p&&p.p!=='nicht verfügbar'?`<div class="irow"><div class="iico" style="background:#f0f7f4">📞</div><div class="itxt"><div class="ilbl">Telefon</div><div class="ival"><a href="tel:${p.p}" style="color:#1a6b4a;font-weight:600">${escHtml(p.p)}</a></div></div></div>`:''}
     ${p.note?`<div class="irow"><div class="iico" style="background:#f8f8f8">📝</div><div class="itxt"><div class="ilbl">Notiz</div><div class="ival">${escHtml(p.note)}</div></div></div>`:''}
-    ${p.lat&&p.lon?`<a class="mapbtn" href="${mapsUrl}" target="_blank">🗺️ In Google Maps öffnen</a>`:''}
+    ${p.lat&&p.lon?`<div style="display:flex;gap:7px;margin-top:4px"><a class="mapbtn" href="${mapsUrl}" target="_blank" style="flex:1">🗺️ Google Maps</a>${p.p&&p.p!=='nicht verfügbar'?`<a class="mapbtn" href="tel:${p.p}" style="flex:0 0 auto;padding:10px 14px">📞</a>`:''}</div>`:''}
   `;
   document.getElementById('panel').classList.remove('hidden');
   if(p.lat&&p.lon) mapObj.panTo([p.lat,p.lon]);
