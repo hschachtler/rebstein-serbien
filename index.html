@@ -247,7 +247,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 <div id="topbar">
   <h1>🚴 <span id="app-title-text">BikePacking</span> <span id="version-badge" style="font-size:.52rem;font-weight:400;color:#9ab0c8;font-family:'DM Sans',sans-serif;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:2px 6px;vertical-align:middle;letter-spacing:.03em">v1.0.0</span></h1>
   <div id="topbar-btns">
-    <button class="topbar-btn topbar-btn-wizard" onclick="openWizardAdmin()">🧭 Wizard</button>
+    <button id="topbar-wizard-btn" class="topbar-btn topbar-btn-wizard" onclick="openWizardAdmin()" style="display:none">🧭 Wizard</button>
     <button class="topbar-btn topbar-btn-weather" onclick="openWeather()">🌤️</button>
     <button class="topbar-btn topbar-btn-map" onclick="showView('map')">🗺️ Karte</button>
     <button id="topbar-login-btn" class="topbar-btn topbar-btn-login" onclick="isAdmin?doLogout():openLoginModal()">
@@ -259,10 +259,10 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 <!-- ══════ POI VIEW ══════ -->
 <div id="view-poi" class="active">
   <div id="gpsarea">
-    <button id="gps-btn-poi" onclick="locateMePoi()">📡 Standort bestimmen – nächste POIs anzeigen</button>
+    <button id="gps-btn-poi" onclick="locateMePoi()" style="display:none">📡 Standort bestimmen – nächste POIs anzeigen</button>
     <div id="gps-status-poi"></div>
     <div style="display:flex;gap:6px">
-      <button onclick="isAdmin?openAddPoi():pendingAndLogin(openAddPoi)" style="flex:1;padding:9px;background:linear-gradient(135deg,#7a5aa0,#5a3a80);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:5px;min-height:38px">➕ Eigener POI</button>
+      <button id="own-poi-btn" onclick="isAdmin?openAddPoi():pendingAndLogin(openAddPoi)" style="display:none;flex:1;padding:9px;background:linear-gradient(135deg,#7a5aa0,#5a3a80);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;-webkit-appearance:none;align-items:center;justify-content:center;gap:5px;min-height:38px">➕ Eigener POI</button>
       <button onclick="showView('map')" style="flex:1;padding:9px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;cursor:pointer;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:5px;min-height:38px">🗺️ Karte</button>
     </div>
   </div>
@@ -280,7 +280,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
     <button id="f-rest" class="ftab" onclick="setFilter('rest')">🍽️ Essen</button>
     <button id="f-hotel" class="ftab" onclick="setFilter('hotel')">🏨 Hotel</button>
     <button id="f-workshop" class="ftab" onclick="setFilter('workshop')">🔧 Werkstatt</button>
-    <button id="f-own" class="ftab" onclick="setFilter('own')">📌 Eigene</button>
+    <button id="f-own" class="ftab" onclick="setFilter('own')" style="display:none">📌 Eigene</button>
   </div>
   <div id="listarea">
     <div id="no-gps-hint"><span class="big">📍</span>Tippe auf <b>Standort bestimmen</b>,<br>um die nächsten POIs<br>nach Entfernung zu sehen.</div>
@@ -317,7 +317,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
     </div>
     <div id="admin-btn-wrap" style="display:flex;align-items:center;margin-left:auto;flex-shrink:0">
       <button id="admin-btn" onclick="isAdmin?toggleRiderTracking():openLoginModal()" style="flex-shrink:0;margin:8px 10px;padding:0 12px;background:#f4f6f9;border:1px solid #dde4ec;border-radius:20px;color:#5a7a9a;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;cursor:pointer;white-space:nowrap;min-height:36px;-webkit-appearance:none">🔐 Admin</button>
-      <button onclick="showView('poi')" style="flex-shrink:0;margin:8px 10px 8px 0;padding:0 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:20px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18);min-height:36px;-webkit-appearance:none">📋 POI-Liste</button>
+      <button id="map-poi-list-btn" onclick="showView('poi')" style="flex-shrink:0;margin:8px 10px 8px 0;padding:0 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:20px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18);min-height:36px;-webkit-appearance:none;display:none">📋 POI-Liste</button>
     </div>
     <button id="gps-btn-map" onclick="locateMeMap()">📡 GPS</button>
   </div>
@@ -1220,6 +1220,7 @@ async function loadRiderPosition() {
       if (r.ok) data = await r.json();
     }
     if (!data || !data.lat) return;
+    window._riderPos = data; // Store for non-admin fly-in
     if (riderMarker) mapObj.removeLayer(riderMarker);
     const RIDER_ICON = L.divIcon({
       html:`<div style="display:flex;flex-direction:column;align-items:center;gap:2px">
@@ -1234,6 +1235,14 @@ async function loadRiderPosition() {
     riderMarker.bindTooltip(`<b>🚴 Rider-Standort</b><br>Aktualisiert: ${agoTxt}<br>km ${data.routeKm||'?'}`, {direction:'top', offset:[0,-50]});
     const bar = document.getElementById('rider-bar');
     if (bar) { bar.style.display='flex'; document.getElementById('rider-bar-txt').textContent=`🚴 Letzter Standort: ${agoTxt} · km ${data.routeKm||'?'}`; }
+    // Non-admin: fly to rider position if no live GPS and map just opened
+    if (!isAdmin && !uLat && window._riderPos && !window._riderFlyDone) {
+      window._riderFlyDone = true;
+      setTimeout(()=>{
+        mapObj.flyTo([data.lat, data.lon], 11, {animate:true, duration:2.5, easeLinearity:0.25});
+        _showRadiusCircle(data.lat, data.lon);
+      }, 1200);
+    }
   } catch(e) {}
 }
 
@@ -1945,6 +1954,8 @@ function openWizardAdmin() {
 function showView(v) {
   // Wizard always requires admin
   if (v==='wizard' && !isAdmin) { pendingAfterLogin=()=>showView('wizard'); openLoginModal(); return; }
+  // Non-admin users can only access map view
+  if (v==='poi' && !isAdmin) { v='map'; }
   document.getElementById('topbar').style.display = v==='map'?'none':'';
   document.getElementById('view-poi').style.display = v==='poi'?'flex':'none';
   document.getElementById('view-poi').className = v==='poi'?'active':'';
@@ -2003,6 +2014,29 @@ function updateTopbarLoginBtn() {
   document.getElementById('topbar-login-label').textContent = isAdmin?'Admin':'Login';
   const adminBtn = document.getElementById('admin-btn');
   if (adminBtn) { adminBtn.textContent = isAdmin?'🚴 Tracking':'🔐 Admin'; adminBtn.style.background=isAdmin?'linear-gradient(135deg,#1a6b4a,#1a5080)':''; adminBtn.style.color=isAdmin?'#fff':''; }
+  // Show/hide admin-only UI elements
+  const wizBtn = document.getElementById('topbar-wizard-btn');
+  if (wizBtn) wizBtn.style.display = isAdmin ? '' : 'none';
+  const gpsBtnPoi = document.getElementById('gps-btn-poi');
+  if (gpsBtnPoi) gpsBtnPoi.style.display = isAdmin ? '' : 'none';
+  const ownPoiBtn = document.getElementById('own-poi-btn');
+  if (ownPoiBtn) ownPoiBtn.style.display = isAdmin ? 'flex' : 'none';
+  const gpsarea = document.getElementById('gpsarea');
+  if (gpsarea) gpsarea.style.display = isAdmin ? '' : 'none';
+  const mapPoiListBtn = document.getElementById('map-poi-list-btn');
+  if (mapPoiListBtn) mapPoiListBtn.style.display = isAdmin ? '' : 'none';
+  const fOwn = document.getElementById('f-own');
+  if (fOwn) fOwn.style.display = isAdmin ? '' : 'none';
+  // Non-admin: if on poi view, redirect to map
+  if (!isAdmin && currentView === 'poi') {
+    showView('map');
+  }
+  // On logout: remove radius circle; on login: remove it (admin doesn't need it)
+  if (isAdmin && _radiusCircle && mapObj) {
+    mapObj.removeLayer(_radiusCircle); _radiusCircle = null;
+  }
+  // On login as admin, show poi list button
+  if (isAdmin) window._riderFlyDone = false; // reset so admin can also fly if needed
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2473,17 +2507,33 @@ function mapFlyIn() {
     const bounds = [[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]];
     mapObj.fitBounds(bounds, {padding:[40,40], animate:false});
   }
-  // Step 2: After short pause, fly to current position (or route midpoint)
+  // Step 2: After short pause, fly to current/rider position
   setTimeout(()=>{
     const targetZoom = 11; // ~10km view
     if (uLat) {
+      // We have live GPS
       mapObj.flyTo([uLat, uLon], targetZoom, {animate:true, duration:2.5, easeLinearity:0.25});
+      if (!isAdmin) _showRadiusCircle(uLat, uLon);
+    } else if (!isAdmin && window._riderPos) {
+      // Non-admin: fly to last known rider position from rider.json
+      mapObj.flyTo([window._riderPos.lat, window._riderPos.lon], targetZoom, {animate:true, duration:2.5, easeLinearity:0.25});
+      _showRadiusCircle(window._riderPos.lat, window._riderPos.lon);
     } else if (currentRoutePoints.length) {
       // No GPS – fly to middle of route
       const mid = currentRoutePoints[Math.floor(currentRoutePoints.length/2)];
       mapObj.flyTo(mid, targetZoom, {animate:true, duration:2.5, easeLinearity:0.25});
     }
   }, 800);
+}
+
+let _radiusCircle = null;
+function _showRadiusCircle(lat, lon) {
+  if (_radiusCircle) { mapObj.removeLayer(_radiusCircle); _radiusCircle = null; }
+  _radiusCircle = L.circle([lat, lon], {
+    radius: 10000, // 10km in meters
+    color: '#c85a0a', weight: 2, opacity: 0.6,
+    fillColor: '#c85a0a', fillOpacity: 0.06
+  }).addTo(mapObj);
 }
 
 function refreshMapMarkers() {
@@ -2913,6 +2963,14 @@ function appStartup() {
   loadLocalState();
   buildCountryBtns();
   renderList();
+
+  // Non-admin users always start on map view
+  if (!isAdmin) {
+    // Hide admin-only elements immediately
+    const gpsarea = document.getElementById('gpsarea');
+    if (gpsarea) gpsarea.style.display = 'none';
+    showView('map');
+  }
 
   if (ghConfig.repo) {
     window._appStarting = true;
