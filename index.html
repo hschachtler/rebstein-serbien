@@ -656,8 +656,8 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <div>
-          <label class="form-label">Ort</label>
-          <input id="poi-ort" class="form-input" type="text" placeholder="z.B. Innsbruck">
+          <label class="form-label">PLZ &amp; Ort</label>
+          <input id="poi-ort" class="form-input" type="text" placeholder="z.B. 6020 Innsbruck" onblur="guessCountryFromOrt()">
         </div>
         <div>
           <label class="form-label">Land <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#b0c0d0">(2-Code)</span></label>
@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.4.5';
+const APP_VERSION = '1.4.6';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2002,40 +2002,61 @@ function osmTagsToPoiFields(tags) {
 }
 
 // Fetch city/country from Nominatim when OSM tags are missing them
+// Parse Nominatim address response into our POI fields
+// Always stores PLZ + Ort together in the ort field
 function parseNominatimAddress(d) {
   const a = d.address || {};
-  const cc = (a.country_code || '').toUpperCase();
+  const cc  = (a.country_code || '').toUpperCase();
+  const plz  = a.postcode || '';
   const city = a.city || a.town || a.village || a.hamlet || a.suburb || '';
+  const ort  = [plz, city].filter(Boolean).join(' ');
   return {
-    ort:  city,
+    ort,
     l:    cc,
     addr: [
       (a.road ? a.road + (a.house_number ? ' ' + a.house_number : '') : ''),
-      a.postcode || '',
-      city
+      ort
     ].filter(Boolean).join(', ')
   };
 }
 
+// Lookup country by searching Nominatim with the full "PLZ Ort" string the user typed
+async function guessCountryFromOrt() {
+  const ortVal = document.getElementById('poi-ort')?.value?.trim();
+  const landEl = document.getElementById('poi-land');
+  if (!ortVal || !landEl) return;
+  // Only auto-fill if land is empty or has placeholder ??
+  if (landEl.value && landEl.value !== '??') return;
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(ortVal)}&format=json&limit=3&addressdetails=1&accept-language=de`
+    );
+    if (!r.ok) return;
+    const results = await r.json();
+    if (!results.length) return;
+    const cc = (results[0].address?.country_code || '').toUpperCase();
+    if (cc) { landEl.value = cc; updateFlagPreview(); }
+  } catch(e) {}
+}
+
 async function reverseGeocode(lat, lon, name) {
   try {
-    // Strategy 1: if we have a name, search by name near coords — much more accurate
+    // Strategy 1: search by POI name near coords — most accurate
     if (name) {
       const sr = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&lat=${lat}&lon=${lon}&format=json&limit=5&addressdetails=1&accept-language=de`
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(name)}&format=json&limit=5&addressdetails=1&accept-language=de`
       );
       if (sr.ok) {
         const results = await sr.json();
-        // Pick closest result within 2km
         const best = results.find(r => {
           const dlat = parseFloat(r.lat) - lat;
           const dlon = parseFloat(r.lon) - lon;
-          return Math.sqrt(dlat*dlat + dlon*dlon) * 111000 < 2000;
+          return Math.sqrt(dlat*dlat + dlon*dlon) * 111000 < 5000;
         });
         if (best) return parseNominatimAddress(best);
       }
     }
-    // Strategy 2: reverse geocode by coords
+    // Strategy 2: reverse geocode by coordinates
     const r = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&zoom=14&accept-language=de`
     );
