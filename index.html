@@ -795,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.3.9';
+const APP_VERSION = '1.4.0';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
   SI:'🇸🇮',HR:'🇭🇷',RS:'🇷🇸',BA:'🇧🇦',HU:'🇭🇺',SK:'🇸🇰',
@@ -2650,14 +2650,48 @@ function editBuiltinPoi(safeId) {
 }
 
 function editAnyPoi(safeId) {
-  // Search customPois first (own/override), then tourPois
-  const custom = customPois.find(x => (x.id||x.n).replace(/[^a-zA-Z0-9]/g,'_') === safeId);
-  if (custom) { openAddPoi(custom.id); return; }
-  const tp = tourPois.find(x => (x.id||x.n).replace(/[^a-zA-Z0-9]/g,'_') === safeId);
-  if (tp) {
-    if (!tp.id) tp.id = 'tp_' + safeId;
-    openAddPoi('__builtin__' + tp.id);
-  }
+  // Search customPois first (own/override), then tourPois — match by safeId derived from id or name
+  const mkSafe = x => (x.id||x.n||'').replace(/[^a-zA-Z0-9]/g,'_');
+  const custom = customPois.find(x => mkSafe(x) === safeId);
+  if (custom) { openAddPoiWithData(custom); return; }
+  const tp = tourPois.find(x => mkSafe(x) === safeId);
+  if (tp) { openAddPoiWithData(tp, true); return; }
+}
+
+// Open the POI modal pre-filled with data from any poi object
+function openAddPoiWithData(p, isBuiltin) {
+  if (!isAdmin) return;
+  // Ensure stable id
+  if (!p.id) p.id = (isBuiltin ? 'tp_' : 'own_') + Date.now();
+  editingPoiId = isBuiltin ? '__builtin__' + p.id : p.id;
+  selectedType = p.t || 'Camping';
+
+  // Clear form first
+  ['poi-name','poi-km','poi-ort','poi-addr','poi-phone','poi-hours','poi-note']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('poi-lat').value = '';
+  document.getElementById('poi-lon').value = '';
+  document.getElementById('poi-land').value = 'AT';
+  document.getElementById('poi-error').style.display = 'none';
+
+  // Fill with poi data
+  document.getElementById('poi-name').value  = p.n     || '';
+  document.getElementById('poi-km').value    = p.km    || '';
+  document.getElementById('poi-ort').value   = p.ort   || '';
+  document.getElementById('poi-addr').value  = p.addr  || '';
+  document.getElementById('poi-phone').value = p.p     || '';
+  document.getElementById('poi-hours').value = p.hours || '';
+  document.getElementById('poi-note').value  = p.note  || '';
+  document.getElementById('poi-lat').value   = p.lat   || '';
+  document.getElementById('poi-lon').value   = p.lon   || '';
+  document.getElementById('poi-land').value  = p.l     || 'AT';
+
+  updateFlagPreview();
+  selectType(selectedType);
+  document.getElementById('modal-title').textContent = '✏️ POI bearbeiten';
+  document.getElementById('save-btn').textContent    = '💾 Aktualisieren';
+  document.getElementById('poi-modal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
 }
 
 function useCurrentGpsForPoi() {
