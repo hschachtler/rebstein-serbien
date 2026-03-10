@@ -247,7 +247,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 
 <!-- TOP BAR -->
 <div id="topbar">
-  <h1>🚴 <span id="app-title-text">BikePacking</span> <span id="version-badge" style="font-size:.52rem;font-weight:400;color:#9ab0c8;font-family:'DM Sans',sans-serif;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:2px 6px;vertical-align:middle;letter-spacing:.03em">v1.7.0</span></h1>
+  <h1>🚴 <span id="app-title-text">BikePacking</span> <span id="version-badge" style="font-size:.52rem;font-weight:400;color:#9ab0c8;font-family:'DM Sans',sans-serif;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:2px 6px;vertical-align:middle;letter-spacing:.03em">v1.8.0</span></h1>
   <div id="topbar-btns">
     <button id="topbar-wizard-btn" class="topbar-btn topbar-btn-wizard" onclick="openWizardAdmin()" style="display:none">🧭 Wizard</button>
     <button id="topbar-osm-btn" class="topbar-btn" onclick="openOsmEnrichModal()" style="display:none;background:linear-gradient(135deg,#1a7a4a,#1a5080);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)">🌍 OSM</button>
@@ -524,12 +524,13 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       <div class="wiz-instruction">
         <strong>So gehts:</strong><br>
         1. Öffne <a href="https://overpass-turbo.eu" target="_blank" style="color:#1a6b4a;font-weight:600">overpass-turbo.eu ↗</a><br>
-        2. Führe die vorbereitete Query für deine Route aus (Camping, Hütten, Ladestationen)<br>
-        3. Klicke <b>Export</b> und wähle:<br>
-        &nbsp;&nbsp;&nbsp;→ <b>GeoJSON herunterladen</b> <span style="color:#1a6a3a">✅ empfohlen</span><br>
-        &nbsp;&nbsp;&nbsp;→ <b>Rohdaten (JSON)</b> <span style="color:#1a6a3a">✅ wird ebenfalls erkannt</span><br>
-        4. Lade die heruntergeladene Datei hier hoch<br>
-        <span style="color:#1a6a3a">✅ Die App erkennt beide Formate automatisch und filtert nach Routennähe</span>
+        2. Führe die vorbereitete Query für deine Route aus<br>
+        3. Klicke <b>Export</b> und wähle eines dieser Formate:<br>
+        &nbsp;&nbsp;&nbsp;→ <b>GeoJSON</b> <span style="color:#1a6a3a">✅ empfohlen</span><br>
+        &nbsp;&nbsp;&nbsp;→ <b>Rohdaten (JSON)</b> <span style="color:#1a6a3a">✅ wird erkannt</span><br>
+        &nbsp;&nbsp;&nbsp;→ <b>OSM-Daten (XML)</b> <span style="color:#1a6a3a">✅ wird erkannt</span><br>
+        4. Lade die Datei hier hoch<br>
+        <span style="color:#1a6a3a">✅ Alle drei Export-Formate von overpass-turbo.eu werden automatisch erkannt</span>
       </div>
 
       <!-- Query helper -->
@@ -864,7 +865,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '1.8.0';
 const APP_BUILD   = '2026-03-10';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
@@ -2527,38 +2528,121 @@ function handleGeoJsonFile(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
+    const text = ev.target.result.trim();
     let gj;
-    try {
-      const raw = JSON.parse(ev.target.result);
 
-      // Format 1: Standard GeoJSON FeatureCollection
-      if (raw.type === 'FeatureCollection' && Array.isArray(raw.features)) {
-        gj = raw;
-
-      // Format 2: Overpass JSON (elements-Array mit type node/way/relation)
-      } else if (Array.isArray(raw.elements)) {
-        gj = overpassJsonToGeoJson(raw.elements);
-
-      // Format 3: Overpass JSON aber direkt als Array
-      } else if (Array.isArray(raw) && raw[0]?.type) {
-        gj = overpassJsonToGeoJson(raw);
-
-      } else {
-        showToast('❌ Unbekanntes Format – bitte GeoJSON oder Overpass-JSON exportieren', 'error');
+    // Format: OSM/Overpass XML (starts with <?xml or <osm)
+    if (text.startsWith('<?xml') || text.startsWith('<osm') || text.startsWith('<OverpassAPI')) {
+      try {
+        gj = overpassXmlToGeoJson(text);
+      } catch(e) {
+        showToast('❌ XML Parse-Fehler: ' + e.message, 'error');
         return;
       }
+    } else {
+      // Try JSON formats
+      try {
+        const raw = JSON.parse(text);
 
-      if (!gj.features || !gj.features.length) {
-        showToast('⚠️ Keine verwertbaren POIs im Export gefunden', 'error');
+        // Format 1: Standard GeoJSON FeatureCollection
+        if (raw.type === 'FeatureCollection' && Array.isArray(raw.features)) {
+          gj = raw;
+
+        // Format 2: Overpass JSON (elements-Array mit type node/way/relation)
+        } else if (Array.isArray(raw.elements)) {
+          gj = overpassJsonToGeoJson(raw.elements);
+
+        // Format 3: Overpass JSON aber direkt als Array
+        } else if (Array.isArray(raw) && raw[0]?.type) {
+          gj = overpassJsonToGeoJson(raw);
+
+        } else {
+          showToast('❌ Unbekanntes Format – bei overpass-turbo.eu: Export → GeoJSON oder Rohdaten wählen', 'error');
+          return;
+        }
+      } catch(e) {
+        showToast('❌ Datei ist kein gültiges JSON oder XML. Bei overpass-turbo.eu: Export → GeoJSON oder Rohdaten (JSON) wählen.', 'error');
         return;
       }
-      _geoJsonRaw = gj;
-      processGeoJson(gj);
-    } catch(e) {
-      showToast('❌ JSON Parse-Fehler: ' + e.message, 'error');
     }
+
+    if (!gj || !gj.features || !gj.features.length) {
+      showToast('⚠️ Keine verwertbaren POIs gefunden (Camping, Hütten, Ladestationen)', 'error');
+      return;
+    }
+    _geoJsonRaw = gj;
+    showToast(`✅ ${gj.features.length} Elemente erkannt – verarbeite…`, 'success');
+    processGeoJson(gj);
   };
   reader.readAsText(file, 'UTF-8');
+}
+
+// Convert Overpass XML export to GeoJSON FeatureCollection
+function overpassXmlToGeoJson(xmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+  const parseErr = doc.querySelector('parsererror');
+  if (parseErr) throw new Error('Ungültiges XML');
+
+  // Build node map for way geometry
+  const nodeMap = {};
+  doc.querySelectorAll('node').forEach(n => {
+    const id = n.getAttribute('id');
+    const lat = parseFloat(n.getAttribute('lat'));
+    const lon = parseFloat(n.getAttribute('lon'));
+    const tags = {};
+    n.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
+    nodeMap[id] = { lat, lon, tags };
+  });
+
+  const features = [];
+
+  // Process nodes with relevant tags
+  doc.querySelectorAll('node').forEach(n => {
+    const tags = {};
+    n.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
+    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
+    const lat = parseFloat(n.getAttribute('lat'));
+    const lon = parseFloat(n.getAttribute('lon'));
+    if (isNaN(lat) || isNaN(lon)) return;
+    features.push({ type: 'Feature', properties: tags,
+      geometry: { type: 'Point', coordinates: [lon, lat] } });
+  });
+
+  // Process ways
+  doc.querySelectorAll('way').forEach(w => {
+    const tags = {};
+    w.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
+    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
+    const coords = [];
+    w.querySelectorAll('nd').forEach(nd => {
+      const ref = nd.getAttribute('ref');
+      const n = nodeMap[ref];
+      if (n) coords.push([n.lon, n.lat]);
+    });
+    if (coords.length < 2) return;
+    // Use centroid as Point
+    const lat = coords.reduce((s,c)=>s+c[1],0)/coords.length;
+    const lon = coords.reduce((s,c)=>s+c[0],0)/coords.length;
+    features.push({ type: 'Feature', properties: tags,
+      geometry: { type: 'Point', coordinates: [lon, lat] } });
+  });
+
+  // Process relations with center
+  doc.querySelectorAll('relation').forEach(r => {
+    const tags = {};
+    r.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
+    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
+    const center = r.querySelector('center');
+    if (!center) return;
+    const lat = parseFloat(center.getAttribute('lat'));
+    const lon = parseFloat(center.getAttribute('lon'));
+    if (isNaN(lat) || isNaN(lon)) return;
+    features.push({ type: 'Feature', properties: tags,
+      geometry: { type: 'Point', coordinates: [lon, lat] } });
+  });
+
+  return { type: 'FeatureCollection', features };
 }
 
 // Convert Overpass JSON elements array to GeoJSON FeatureCollection
