@@ -9,7 +9,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <title>BikePacking – Tour Manager</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -100,22 +103,21 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 .type-btn.active-type{background:#f0ecf8;border-color:#7a5aa0;color:#4a2a7a}
 
 /* MAP VIEW */
-#gpsbar{background:#fff;border-bottom:2px solid #e2e8f0;display:flex;align-items:stretch;flex-shrink:0;box-shadow:0 1px 6px rgba(0,0,0,.04);overflow-x:auto;-webkit-overflow-scrolling:touch;min-height:54px;padding-top:env(safe-area-inset-top)}
+#gpsbar{background:#fff;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.06);height:44px;padding-top:env(safe-area-inset-top);padding-left:8px;gap:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 #gpsbar::-webkit-scrollbar{display:none}
-.gpssec{display:flex;align-items:center;gap:7px;padding:5px 11px;border-right:1px solid #edf2f7;flex-shrink:0}
+.gpssec{display:flex;align-items:center;gap:5px;padding:0 8px;border-right:1px solid #edf2f7;flex-shrink:0;height:44px}
 .gpssec:last-child{border-right:none}
-.gpsico{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.gpsico{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0}
 .gpstxt{min-width:0}
-.gpslbl{font-size:.48rem;color:#9ab0c8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:1px}
-.gpsval{font-size:.72rem;font-weight:600;color:#1a2b3c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:128px}
-.gpssub{font-size:.58rem;color:#6a8aa4;margin-top:1px;line-height:1.3}
-#gps-btn-map{display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:500;cursor:pointer;flex-shrink:0;min-width:120px;min-height:54px;transition:opacity .2s;-webkit-appearance:none}
+.gpslbl{font-size:.42rem;color:#9ab0c8;text-transform:uppercase;letter-spacing:.08em}
+.gpsval{font-size:.68rem;font-weight:600;color:#1a2b3c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.gpssub{font-size:.55rem;color:#6a8aa4;line-height:1.2}
+#gps-btn-map{display:flex;align-items:center;justify-content:center;gap:4px;padding:0 12px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:.66rem;font-weight:600;cursor:pointer;flex-shrink:0;height:44px;min-width:80px;transition:opacity .2s;-webkit-appearance:none;margin-left:auto}
 #gps-btn-map:active{opacity:.8}
-#compass-btn{position:absolute;bottom:140px;right:10px;z-index:900;width:40px;height:40px;border-radius:50%;background:#fff;border:2px solid #dde4ec;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:1.1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none;transition:all .2s}
+#compass-btn{position:absolute;bottom:calc(120px + env(safe-area-inset-bottom,0px));right:12px;z-index:900;width:46px;height:46px;border-radius:50%;background:#fff;border:2px solid #dde4ec;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:1.2rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none;transition:all .2s}
 #compass-btn.active{background:linear-gradient(135deg,#c85a0a,#e07820);border-color:#c85a0a;color:#fff;box-shadow:0 2px 12px rgba(200,90,10,.4)}
-#map-north-arrow{position:absolute;top:70px;right:12px;z-index:899;pointer-events:none;font-size:1.3rem;display:none;transition:transform .3s ease}
-#photo-btn{position:absolute;bottom:calc(90px + env(safe-area-inset-bottom, 0px));right:max(10px, env(safe-area-inset-right, 10px));z-index:900;width:40px;height:40px;border-radius:50%;background:#fff;border:2px solid #dde4ec;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:1.1rem;display:none;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none}
-#photo-btn.admin-visible{display:flex}
+#map-north-arrow{position:absolute;top:54px;right:12px;z-index:899;pointer-events:none;font-size:1.3rem;display:none;transition:transform .3s ease}
+#photo-btn{position:absolute;bottom:calc(64px + env(safe-area-inset-bottom,0px));right:12px;z-index:900;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#c85a0a,#e07820);border:none;box-shadow:0 3px 12px rgba(200,90,10,.4);font-size:1.25rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none;color:#fff}
 .photo-marker-wrap{width:44px;height:44px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.3);overflow:hidden;cursor:pointer}
 .photo-marker-wrap img{width:100%;height:100%;object-fit:cover}
 /* Photo upload modal */
@@ -145,8 +147,8 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 .ival{font-size:.73rem;color:#1a2b3c;line-height:1.35}
 .mapbtn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:9px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:500;cursor:pointer;text-decoration:none;transition:all .2s;margin-top:9px;min-height:42px;-webkit-appearance:none}
 .mapbtn:active{opacity:.85}
-#listpanel{position:absolute;bottom:8px;left:8px;width:calc(100vw - 16px);max-width:290px;background:#fff;border:1px solid #dde4ec;border-radius:14px;z-index:800;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.09);transition:all .3s}
-#listpanel.hidden{transform:translateY(12px);opacity:0;pointer-events:none}
+#listpanel{position:absolute;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:8px;width:calc(100vw - 72px);max-width:280px;background:#fff;border:1px solid #dde4ec;border-radius:14px;z-index:800;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.09);transition:transform .25s,opacity .25s;transform:translateY(14px);opacity:0;pointer-events:none}
+#listpanel.lp-open{transform:translateY(0);opacity:1;pointer-events:all}
 #listhdr{padding:9px 12px;background:linear-gradient(135deg,#f0f7f4,#e8f0fb);border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between}
 #listhdr h4{font-family:'Playfair Display',serif;font-size:.78rem;color:#1a2b3c}
 
@@ -235,9 +237,9 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 
 /* LEAFLET overrides */
 #map-filter-bar::-webkit-scrollbar{display:none}
-#map-filter-bar .mf-btn{pointer-events:all;border:none;border-radius:20px;padding:5px 11px;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-appearance:none;transition:all .15s;box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;gap:4px;opacity:.85}
-#map-filter-bar .mf-btn.active{opacity:1;transform:scale(1.06);box-shadow:0 3px 12px rgba(0,0,0,.28)}
-#map-filter-bar .mf-btn.inactive{opacity:.45;filter:grayscale(.4)}
+#map-filter-bar .mf-btn{pointer-events:all;border:none;border-radius:20px;padding:7px 13px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-appearance:none;transition:all .15s;box-shadow:0 2px 8px rgba(0,0,0,.18);display:flex;align-items:center;gap:4px;min-height:34px;opacity:.88}
+#map-filter-bar .mf-btn.active{opacity:1;transform:scale(1.07);box-shadow:0 3px 12px rgba(0,0,0,.28)}
+#map-filter-bar .mf-btn.inactive{opacity:.42;filter:grayscale(.4)}
 .leaflet-popup-content-wrapper{background:#fff!important;border:1px solid #dde4ec!important;border-radius:12px!important;box-shadow:0 6px 24px rgba(0,0,0,.12)!important;font-family:'DM Sans',sans-serif!important;color:#1a2b3c!important}
 .leaflet-popup-tip{background:#fff!important}
 .leaflet-popup-content{margin:9px 13px!important;font-size:.76rem!important;line-height:1.5!important;color:#1a2b3c!important}
@@ -247,7 +249,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 
 <!-- TOP BAR -->
 <div id="topbar">
-  <h1>🚴 <span id="app-title-text">BikePacking</span> <span id="version-badge" style="font-size:.52rem;font-weight:400;color:#9ab0c8;font-family:'DM Sans',sans-serif;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:2px 6px;vertical-align:middle;letter-spacing:.03em">v1.8.0</span></h1>
+  <h1>🚴 <span id="app-title-text">BikePacking</span> <span id="version-badge" style="font-size:.52rem;font-weight:400;color:#9ab0c8;font-family:'DM Sans',sans-serif;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:2px 6px;vertical-align:middle;letter-spacing:.03em">v2.0.0</span></h1>
   <div id="topbar-btns">
     <button id="topbar-wizard-btn" class="topbar-btn topbar-btn-wizard" onclick="openWizardAdmin()" style="display:none">🧭 Wizard</button>
     <button id="topbar-osm-btn" class="topbar-btn" onclick="openOsmEnrichModal()" style="display:none;background:linear-gradient(135deg,#1a7a4a,#1a5080);color:#fff;box-shadow:0 1px 5px rgba(0,0,0,.15)">🌍 OSM</button>
@@ -320,15 +322,16 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       </div>
     </div>
     <div id="admin-btn-wrap" style="display:flex;align-items:center;margin-left:auto;flex-shrink:0">
-      <button id="admin-btn" onclick="isAdmin?toggleRiderTracking():openLoginModal()" style="flex-shrink:0;margin:8px 10px;padding:0 12px;background:#f4f6f9;border:1px solid #dde4ec;border-radius:20px;color:#5a7a9a;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;cursor:pointer;white-space:nowrap;min-height:36px;-webkit-appearance:none">🔐 Admin</button>
-      <button id="map-poi-list-btn" onclick="showView('poi')" style="flex-shrink:0;margin:8px 10px 8px 0;padding:0 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:20px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.18);min-height:36px;-webkit-appearance:none;display:none">📋 POI-Liste</button>
+      <button id="admin-btn" onclick="isAdmin?toggleRiderTracking():openLoginModal()" style="flex-shrink:0;margin:0 6px;padding:0 10px;background:#f4f6f9;border:1px solid #dde4ec;border-radius:16px;color:#5a7a9a;font-family:'DM Sans',sans-serif;font-size:.62rem;font-weight:600;cursor:pointer;white-space:nowrap;height:30px;-webkit-appearance:none">🔐</button>
     </div>
     <button id="gps-btn-map" onclick="locateMeMap()">📡 GPS</button>
   </div>
   <div id="map"></div>
   <div id="rider-bar"><span id="rider-bar-txt">🚴 Standort wird geladen…</span></div>
-  <button id="compass-btn" onclick="toggleCompass()" title="Karte in Fahrtrichtung drehen">🧭</button>
-  <button id="photo-btn" onclick="openPhotoModal()" title="Foto hochladen">📸</button>
+  <button id="compass-btn" onclick="toggleCompass()" title="Fahrtrichtung">🧭</button>
+  <button id="photo-btn" onclick="isAdmin?openPhotoModal():openLoginModal()" title="Foto hochladen">📸</button>
+  <!-- List-Toggle Button -->
+  <button id="list-toggle-btn" onclick="document.getElementById('listpanel').classList.toggle('lp-open')" title="POI-Liste" style="position:absolute;bottom:calc(12px + env(safe-area-inset-bottom,0px));right:12px;z-index:900;width:46px;height:46px;border-radius:50%;background:#fff;border:2px solid #dde4ec;box-shadow:0 2px 10px rgba(0,0,0,.18);font-size:1.2rem;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-appearance:none">📋</button>
   <div id="map-north-arrow">⬆️</div>
 
   <!-- Map panel -->
@@ -340,19 +343,19 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
     <div id="pbody"></div>
   </div>
 
-  <!-- Map POI Type Filter -->
-  <div id="map-filter-bar" style="position:absolute;bottom:48px;left:0;right:0;z-index:800;pointer-events:none;padding:0 8px 6px;display:flex;gap:5px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
+  <!-- Map POI Type Filter — top, below gpsbar -->
+  <div id="map-filter-bar" style="position:absolute;top:0;left:0;right:0;z-index:800;pointer-events:none;padding:6px 8px 5px;display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none">
   </div>
 
-  <!-- List panel -->
+  <!-- List panel — hidden by default -->
   <div id="listpanel">
     <div id="listhdr">
       <h4 id="list-hdr-title">POIs auf Route</h4>
-      <button onclick="document.getElementById('listpanel').classList.toggle('hidden')" style="background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;font-size:.65rem;cursor:pointer;-webkit-appearance:none">▼</button>
+      <button onclick="document.getElementById('listpanel').classList.remove('lp-open')" style="background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;padding:4px 10px;font-family:'DM Sans',sans-serif;font-size:.65rem;cursor:pointer;-webkit-appearance:none">✕</button>
     </div>
     <div id="elist" style="max-height:200px;overflow-y:auto;padding:4px 0;-webkit-overflow-scrolling:touch"></div>
     <div style="padding:8px 10px;border-top:1px solid #edf2f7">
-      <button onclick="mapObj&&mapObj.fitBounds([[47.37,9.61],[44.16,20.39]],{padding:[30,30]})" style="width:100%;padding:8px;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.7rem;cursor:pointer;color:#1a2b3c;-webkit-appearance:none">🔎 Gesamte Route anzeigen</button>
+      <button onclick="mapObj&&currentRoutePoints.length>1&&mapObj.fitBounds(L.polyline(currentRoutePoints).getBounds(),{padding:[40,40]})" style="width:100%;padding:8px;background:#f0f4f8;border:1px solid #dde4ec;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.7rem;cursor:pointer;color:#1a2b3c;-webkit-appearance:none">🔎 Gesamte Route</button>
     </div>
   </div>
 </div>
@@ -524,13 +527,10 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       <div class="wiz-instruction">
         <strong>So gehts:</strong><br>
         1. Öffne <a href="https://overpass-turbo.eu" target="_blank" style="color:#1a6b4a;font-weight:600">overpass-turbo.eu ↗</a><br>
-        2. Führe die vorbereitete Query für deine Route aus<br>
-        3. Klicke <b>Export</b> und wähle eines dieser Formate:<br>
-        &nbsp;&nbsp;&nbsp;→ <b>GeoJSON</b> <span style="color:#1a6a3a">✅ empfohlen</span><br>
-        &nbsp;&nbsp;&nbsp;→ <b>Rohdaten (JSON)</b> <span style="color:#1a6a3a">✅ wird erkannt</span><br>
-        &nbsp;&nbsp;&nbsp;→ <b>OSM-Daten (XML)</b> <span style="color:#1a6a3a">✅ wird erkannt</span><br>
-        4. Lade die Datei hier hoch<br>
-        <span style="color:#1a6a3a">✅ Alle drei Export-Formate von overpass-turbo.eu werden automatisch erkannt</span>
+        2. Führe die vorbereitete Query für deine Route aus (Camping, Hütten, Ladestationen)<br>
+        3. Klicke <b>Export → GeoJSON herunterladen</b><br>
+        4. Lade die <code>export.geojson</code> hier hoch<br>
+        <span style="color:#1a6a3a">✅ Die App filtert automatisch nach Routennähe und erkennt alle POI-Typen</span>
       </div>
 
       <!-- Query helper -->
@@ -546,8 +546,8 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       <!-- Drop zone -->
       <div id="geojson-drop-zone" class="drop-zone" onclick="document.getElementById('geojson-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleGeoJsonDrop(event)">
         <span class="drop-icon">🗺️</span>
-        export.geojson oder overpass-export.json hierher ziehen<br>
-        <small style="color:#9ab0c8">GeoJSON und Overpass-JSON werden beide erkannt</small>
+        export.geojson hierher ziehen<br>
+        <small style="color:#9ab0c8">oder tippen zum Auswählen</small>
       </div>
       <input type="file" id="geojson-file-input" accept=".geojson,.json" style="display:none" onchange="handleGeoJsonFile(this.files[0])">
 
@@ -865,7 +865,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 // CONSTANTS & STATE
 // ═══════════════════════════════════════════════════════════
 const ADMIN_PASS = '880197'; // ⚠️ Demo only – replace with server-side auth for production
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '2.0.0';
 const APP_BUILD   = '2026-03-10';
 const FLAG_MAP = {
   CH:'🇨🇭',AT:'🇦🇹',DE:'🇩🇪',IT:'🇮🇹',FR:'🇫🇷',ES:'🇪🇸',
@@ -913,6 +913,7 @@ let customPoiMarkers = {};
 let routePolylines = [];
 let campM = [], chargeM = [];
 let allPoiMarkers = []; // ALL poi markers — tracked for clean removal
+let poiClusterGroup = null; // Leaflet MarkerCluster layer
 let activeMapId = null;
 let firstGpsFix = true;
 let extractedPois = []; // from enriched GPX import
@@ -1301,7 +1302,7 @@ async function loadRiderPosition() {
     let data = null;
     loadCloudinaryConfig();
   // Show photo button for admins
-  if (isAdmin) document.getElementById('photo-btn')?.classList.add('admin-visible');
+  
 
   if (ghConfig.repo) {
       // Use raw GitHub URL (public read, no token needed)
@@ -2528,167 +2529,16 @@ function handleGeoJsonFile(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    const text = ev.target.result.trim();
-    let gj;
-
-    // Format: OSM/Overpass XML (starts with <?xml or <osm)
-    if (text.startsWith('<?xml') || text.startsWith('<osm') || text.startsWith('<OverpassAPI')) {
-      try {
-        gj = overpassXmlToGeoJson(text);
-      } catch(e) {
-        showToast('❌ XML Parse-Fehler: ' + e.message, 'error');
-        return;
-      }
-    } else {
-      // Try JSON formats
-      try {
-        const raw = JSON.parse(text);
-
-        // Format 1: Standard GeoJSON FeatureCollection
-        if (raw.type === 'FeatureCollection' && Array.isArray(raw.features)) {
-          gj = raw;
-
-        // Format 2: Overpass JSON (elements-Array mit type node/way/relation)
-        } else if (Array.isArray(raw.elements)) {
-          gj = overpassJsonToGeoJson(raw.elements);
-
-        // Format 3: Overpass JSON aber direkt als Array
-        } else if (Array.isArray(raw) && raw[0]?.type) {
-          gj = overpassJsonToGeoJson(raw);
-
-        } else {
-          showToast('❌ Unbekanntes Format – bei overpass-turbo.eu: Export → GeoJSON oder Rohdaten wählen', 'error');
-          return;
-        }
-      } catch(e) {
-        showToast('❌ Datei ist kein gültiges JSON oder XML. Bei overpass-turbo.eu: Export → GeoJSON oder Rohdaten (JSON) wählen.', 'error');
-        return;
-      }
+    try {
+      const gj = JSON.parse(ev.target.result);
+      if (!gj.features) { showToast('❌ Keine GeoJSON-Features gefunden', 'error'); return; }
+      _geoJsonRaw = gj;
+      processGeoJson(gj);
+    } catch(e) {
+      showToast('❌ GeoJSON Parse-Fehler: ' + e.message, 'error');
     }
-
-    if (!gj || !gj.features || !gj.features.length) {
-      showToast('⚠️ Keine verwertbaren POIs gefunden (Camping, Hütten, Ladestationen)', 'error');
-      return;
-    }
-    _geoJsonRaw = gj;
-    showToast(`✅ ${gj.features.length} Elemente erkannt – verarbeite…`, 'success');
-    processGeoJson(gj);
   };
   reader.readAsText(file, 'UTF-8');
-}
-
-// Convert Overpass XML export to GeoJSON FeatureCollection
-function overpassXmlToGeoJson(xmlText) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlText, 'application/xml');
-  const parseErr = doc.querySelector('parsererror');
-  if (parseErr) throw new Error('Ungültiges XML');
-
-  // Build node map for way geometry
-  const nodeMap = {};
-  doc.querySelectorAll('node').forEach(n => {
-    const id = n.getAttribute('id');
-    const lat = parseFloat(n.getAttribute('lat'));
-    const lon = parseFloat(n.getAttribute('lon'));
-    const tags = {};
-    n.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
-    nodeMap[id] = { lat, lon, tags };
-  });
-
-  const features = [];
-
-  // Process nodes with relevant tags
-  doc.querySelectorAll('node').forEach(n => {
-    const tags = {};
-    n.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
-    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
-    const lat = parseFloat(n.getAttribute('lat'));
-    const lon = parseFloat(n.getAttribute('lon'));
-    if (isNaN(lat) || isNaN(lon)) return;
-    features.push({ type: 'Feature', properties: tags,
-      geometry: { type: 'Point', coordinates: [lon, lat] } });
-  });
-
-  // Process ways
-  doc.querySelectorAll('way').forEach(w => {
-    const tags = {};
-    w.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
-    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
-    const coords = [];
-    w.querySelectorAll('nd').forEach(nd => {
-      const ref = nd.getAttribute('ref');
-      const n = nodeMap[ref];
-      if (n) coords.push([n.lon, n.lat]);
-    });
-    if (coords.length < 2) return;
-    // Use centroid as Point
-    const lat = coords.reduce((s,c)=>s+c[1],0)/coords.length;
-    const lon = coords.reduce((s,c)=>s+c[0],0)/coords.length;
-    features.push({ type: 'Feature', properties: tags,
-      geometry: { type: 'Point', coordinates: [lon, lat] } });
-  });
-
-  // Process relations with center
-  doc.querySelectorAll('relation').forEach(r => {
-    const tags = {};
-    r.querySelectorAll('tag').forEach(t => { tags[t.getAttribute('k')] = t.getAttribute('v'); });
-    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
-    const center = r.querySelector('center');
-    if (!center) return;
-    const lat = parseFloat(center.getAttribute('lat'));
-    const lon = parseFloat(center.getAttribute('lon'));
-    if (isNaN(lat) || isNaN(lon)) return;
-    features.push({ type: 'Feature', properties: tags,
-      geometry: { type: 'Point', coordinates: [lon, lat] } });
-  });
-
-  return { type: 'FeatureCollection', features };
-}
-
-// Convert Overpass JSON elements array to GeoJSON FeatureCollection
-function overpassJsonToGeoJson(elements) {
-  // Build node lookup for way/relation geometry
-  const nodeMap = {};
-  elements.forEach(el => {
-    if (el.type === 'node') nodeMap[el.id] = el;
-  });
-
-  const features = [];
-  elements.forEach(el => {
-    let geometry = null;
-    const tags = el.tags || {};
-
-    if (el.type === 'node' && el.lat != null && el.lon != null) {
-      geometry = { type: 'Point', coordinates: [el.lon, el.lat] };
-
-    } else if (el.type === 'way' && Array.isArray(el.nodes)) {
-      const coords = el.nodes.map(id => nodeMap[id]).filter(n => n && n.lat != null)
-                              .map(n => [n.lon, n.lat]);
-      if (coords.length >= 3) {
-        // Close ring if needed
-        if (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1]) {
-          coords.push(coords[0]);
-        }
-        geometry = { type: 'Polygon', coordinates: [coords] };
-      } else if (coords.length >= 2) {
-        geometry = { type: 'LineString', coordinates: coords };
-      }
-
-    } else if (el.type === 'relation' && el.center) {
-      geometry = { type: 'Point', coordinates: [el.center.lon, el.center.lat] };
-
-    } else if (el.type === 'node' && el.center) {
-      geometry = { type: 'Point', coordinates: [el.center.lon, el.center.lat] };
-    }
-
-    if (!geometry) return;
-    // Only include elements that have relevant tags
-    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
-
-    features.push({ type: 'Feature', properties: tags, geometry });
-  });
-
-  return { type: 'FeatureCollection', features };
 }
 
 function reprocessGeoJson() {
@@ -3628,13 +3478,18 @@ function useCurrentGpsForPoi() {
 function syncCustomPoiMarker(poi) {
   if (!mapObj||!mapInitialized) return;
   if (!poi.lat||!poi.lon) return;
-  if (customPoiMarkers[poi.id]) mapObj.removeLayer(customPoiMarkers[poi.id]);
+  if (customPoiMarkers[poi.id]) {
+    if (poiClusterGroup) poiClusterGroup.removeLayer(customPoiMarkers[poi.id]);
+    else mapObj.removeLayer(customPoiMarkers[poi.id]);
+  }
   const tc=getTypeConfig(poi.t);
   const icon=L.divIcon({html:`<div style="background:#7a5aa0;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${tc.icon}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
   const m=L.marker([poi.lat,poi.lon],{icon,zIndexOffset:200});
+  m._poiType = poi.t;
   m.bindTooltip(`<b>📌 ${poi.n}</b><br>${getFlag(poi.l)} ${poi.ort||''} · km ${poi.km}`,{direction:'top',offset:[0,-12]});
   m.on('click',()=>showPanel(poi));
-  m.addTo(mapObj);
+  if (poiClusterGroup) poiClusterGroup.addLayer(m);
+  else m.addTo(mapObj);
   customPoiMarkers[poi.id]=m;
 }
 
@@ -3709,18 +3564,16 @@ function _showRadiusCircle(lat, lon) {
 
 function refreshMapMarkers() {
   if (!mapObj) return;
-  // Remove old route
-  routePolylines.forEach(l=>mapObj.removeLayer(l));
-  routePolylines=[];
-  // Remove ALL poi markers (not just camp/charge)
-  allPoiMarkers.forEach(m=>mapObj.removeLayer(m)); allPoiMarkers=[];
-  campM=[]; chargeM=[];
+  // Remove route
+  routePolylines.forEach(l=>mapObj.removeLayer(l)); routePolylines=[];
+  // Remove cluster layer
+  if (poiClusterGroup) { mapObj.removeLayer(poiClusterGroup); poiClusterGroup=null; }
+  allPoiMarkers=[]; campM=[]; chargeM=[];
 
   // Draw route
   if (currentRoutePoints.length > 1) {
     const line=L.polyline(currentRoutePoints,{color:'#c85a0a',weight:3.5,opacity:.75,smoothFactor:1}).addTo(mapObj);
     routePolylines.push(line);
-    // Start/end markers
     const pin=(em,bg)=>L.divIcon({html:`<div style="background:${bg};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18)">${em}</div>`,iconSize:[32,32],iconAnchor:[16,16],className:''});
     const s=currentRoutePoints[0], e=currentRoutePoints[currentRoutePoints.length-1];
     L.marker(s,{icon:pin('🏁','#1a8a5a')}).addTo(mapObj).bindTooltip('<b>START</b>',{direction:'right'});
@@ -3728,23 +3581,47 @@ function refreshMapMarkers() {
     mapObj.fitBounds(line.getBounds(),{padding:[40,40]});
   }
 
-  // POI markers from tourPois + customPois — apply type filter
+  // Build cluster group
+  poiClusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    disableClusteringAtZoom: 14,
+    spiderfyOnMaxZoom: true,
+    showCoverageOnHover: false,
+    iconCreateFunction: function(cluster) {
+      const count = cluster.getChildCount();
+      const markers = cluster.getAllChildMarkers();
+      // Dominant type colour
+      const typeCounts={};
+      markers.forEach(m=>{ if(m._poiType) typeCounts[m._poiType]=(typeCounts[m._poiType]||0)+1; });
+      const dominant = Object.keys(typeCounts).sort((a,b)=>typeCounts[b]-typeCounts[a])[0];
+      const colMap={Camping:'#1a9a5a',Ladestation:'#1a60c0',Schutzhütte:'#c8a060',Hotel:'#c8a020',Restaurant:'#e07820',Werkstatt:'#4a7a9a'};
+      const col = colMap[dominant] || '#5a7a9a';
+      const size = count < 10 ? 36 : count < 50 ? 42 : 48;
+      return L.divIcon({
+        html:`<div style="background:${col};width:${size}px;height:${size}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#fff;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.25)">${count}</div>`,
+        iconSize:[size,size],iconAnchor:[size/2,size/2],className:''
+      });
+    }
+  });
+
+  // POI markers — apply type filter
   const allPoisRaw=getAllPois().filter(p=>p.lat&&p.lon);
   const allPois=mapTypeFilter.size>0 ? allPoisRaw.filter(p=>mapTypeFilter.has(p.t)) : allPoisRaw;
   allPois.forEach(p=>{
     const tc=getTypeConfig(p.t);
     const col=p.isOwn?'#7a5aa0':p.t==='Camping'?'#1a9a5a':p.t==='Ladestation'?'#1a60c0':p.t==='Schutzhütte'?'#c8a060':p.t==='Restaurant'?'#e07820':p.t==='Hotel'?'#c8a020':'#5a7a9a';
-    const icon=L.divIcon({html:`<div style="background:${col};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${tc.icon}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
+    const icon=L.divIcon({html:`<div style="background:${col};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer">${tc.icon}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
     const m=L.marker([p.lat,p.lon],{icon});
+    m._poiType = p.t;
     m.bindTooltip(`<b>${tc.icon} ${p.n}</b><br>${getFlag(p.l)} ${p.ort||''} · km ${p.km}`,{direction:'top',offset:[0,-12]});
     m.on('click',()=>showPanel(p));
-    m.addTo(mapObj);
     allPoiMarkers.push(m);
+    poiClusterGroup.addLayer(m);
     if(p.t==='Camping') campM.push(m);
     else if(p.t==='Ladestation') chargeM.push(m);
   });
+  mapObj.addLayer(poiClusterGroup);
 
-  // Update filter bar
   renderMapFilterBar();
 
   // Update elist
@@ -3756,7 +3633,7 @@ function refreshMapMarkers() {
       const d=document.createElement('div');
       d.style.cssText='display:flex;align-items:center;gap:7px;padding:5px 10px;cursor:pointer;border-bottom:1px solid #f0f4f8';
       d.innerHTML=`<span style="width:20px;text-align:center">${tc.icon}</span><span style="font-size:.7rem;font-weight:600;color:#4a6a84;flex-shrink:0">${p.km||0} km</span><span style="font-size:.72rem;color:#1a2b3c;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.n)}</span>`;
-      d.onclick=()=>{mapObj.setView([p.lat,p.lon],14);showPanel(p);};
+      d.onclick=()=>{mapObj.setView([p.lat,p.lon],15);showPanel(p);};
       el.appendChild(d);
     });
   }
@@ -3975,7 +3852,7 @@ function saveCloudinaryFromWizard() {
   const st = document.getElementById('cld-status');
   if (!cn || !up) { if(st) st.textContent = '❌ Beide Felder ausfüllen'; return; }
   saveCloudinaryConfig(cn, up);
-  document.getElementById('photo-btn')?.classList.add('admin-visible');
+  
   if (st) st.textContent = '✅ Gespeichert!';
   showToast('✅ Foto-Tagebuch aktiviert!', 'success');
 }
