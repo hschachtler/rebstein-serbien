@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -831,8 +832,32 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
           <div style="font-size:.7rem;font-weight:700;color:#1a4a2a">🔑 GitHub-Token</div>
           <div id="login-gh-status" style="font-size:.65rem;color:#5a8a6a"></div>
         </div>
-        <input id="login-gh-token" class="form-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="font-size:.75rem">
+        <div style="display:flex;gap:6px;align-items:center">
+          <input id="login-gh-token" class="form-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="font-size:.75rem;flex:1">
+          <button type="button" id="token-scan-btn" onclick="openTokenScan()" title="Token per Kamera einlesen" style="flex-shrink:0;padding:9px 11px;background:linear-gradient(135deg,#1a5080,#2a6aaa);border:none;border-radius:10px;color:#fff;cursor:pointer;-webkit-appearance:none;min-height:38px;display:flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;white-space:nowrap">📷 Scan</button>
+        </div>
+        <input type="file" id="token-scan-input" accept="image/*" capture="environment" style="display:none" onchange="handleTokenScanPhoto(this)">
         <div style="font-size:.62rem;color:#5a8a6a;margin-top:4px">Wird lokal gespeichert — nötig für Fotos &amp; POI-Speichern</div>
+        <!-- OCR Scan Overlay -->
+        <div id="token-scan-overlay" style="display:none;background:#f0f7ff;border:1px solid #b0d0f0;border-radius:10px;padding:12px;flex-direction:column;gap:8px;margin-top:4px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="font-size:.72rem;font-weight:700;color:#1a4a8a">📷 Token wird erkannt…</div>
+            <button type="button" onclick="cancelTokenScan()" style="background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:3px 9px;font-size:.65rem;color:#c04040;cursor:pointer;font-weight:600;-webkit-appearance:none">✕</button>
+          </div>
+          <canvas id="token-scan-canvas" style="display:none;width:100%;border-radius:8px;max-height:110px"></canvas>
+          <div style="background:#e0eeff;border-radius:6px;height:6px;overflow:hidden">
+            <div id="token-scan-bar" style="height:100%;background:linear-gradient(90deg,#1a60c0,#2a8aff);border-radius:6px;width:0%;transition:width .3s"></div>
+          </div>
+          <div id="token-scan-status" style="font-size:.68rem;color:#4a6a9a;text-align:center">Bild wird analysiert…</div>
+          <div id="token-scan-result" style="display:none;background:#f0fff4;border:1px solid #9ad8b0;border-radius:8px;padding:8px 10px">
+            <div style="font-size:.62rem;color:#1a4a2a;font-weight:700;margin-bottom:3px">Erkannter Token:</div>
+            <div id="token-scan-preview" style="font-size:.68rem;color:#1a2b3c;word-break:break-all;font-family:monospace;background:#fff;border-radius:6px;padding:5px 8px;border:1px solid #c0e8c0"></div>
+            <div style="display:flex;gap:6px;margin-top:7px">
+              <button type="button" onclick="acceptScannedToken()" style="flex:1;padding:8px;background:linear-gradient(135deg,#1a7a4a,#1a5a8a);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;-webkit-appearance:none">✅ Übernehmen</button>
+              <button type="button" onclick="retryTokenScan()" style="flex:1;padding:8px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:8px;color:#1a2b3c;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;-webkit-appearance:none">🔄 Nochmal</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040"></div>
       <button id="login-submit-btn" onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen & Token prüfen</button>
@@ -2874,6 +2899,127 @@ function showView(v) {
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
+// ── TOKEN SCAN via OCR ──────────────────────────────────────────────
+let _scannedToken = '';
+
+function openTokenScan() {
+  document.getElementById('token-scan-input').value = '';
+  document.getElementById('token-scan-input').click();
+}
+
+function retryTokenScan() {
+  document.getElementById('token-scan-result').style.display = 'none';
+  document.getElementById('token-scan-canvas').style.display = 'none';
+  _scannedToken = '';
+  openTokenScan();
+}
+
+function cancelTokenScan() {
+  const overlay = document.getElementById('token-scan-overlay');
+  overlay.style.display = 'none';
+  _scannedToken = '';
+}
+
+function acceptScannedToken() {
+  if (_scannedToken) {
+    document.getElementById('login-gh-token').value = _scannedToken;
+    cancelTokenScan();
+    const statusEl = document.getElementById('login-gh-status');
+    if (statusEl) { statusEl.textContent = '📷 Token aus Foto übernommen'; statusEl.style.color = '#1a5080'; }
+  }
+}
+
+function extractGithubToken(text) {
+  // Normalize: remove spaces, newlines, common OCR artefacts
+  const clean = text.replace(/[\s\u00A0]/g, '').replace(/[oO]/g, '0').replace(/[lI]/g, '1');
+  // Try fine-grained: github_pat_...
+  const fg = clean.match(/github_pat_[A-Za-z0-9_]{20,}/i);
+  if (fg) return fg[0];
+  // Try classic: ghp_...
+  const classic = clean.match(/ghp_[A-Za-z0-9]{30,}/i);
+  if (classic) return classic[0];
+  // Try ghs_, ghr_, gho_
+  const other = clean.match(/gh[spro]_[A-Za-z0-9]{20,}/i);
+  if (other) return other[0];
+  // Fallback: longest alphanumeric-ish run that looks token-like (40+ chars)
+  const raw = text.replace(/\s+/g, '');
+  const long = raw.match(/[A-Za-z0-9_]{40,}/);
+  if (long) return long[0];
+  return null;
+}
+
+async function handleTokenScanPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const overlay = document.getElementById('token-scan-overlay');
+  const bar     = document.getElementById('token-scan-bar');
+  const status  = document.getElementById('token-scan-status');
+  const result  = document.getElementById('token-scan-result');
+  const preview = document.getElementById('token-scan-preview');
+  const canvas  = document.getElementById('token-scan-canvas');
+
+  // Show overlay
+  overlay.style.display = 'flex';
+  result.style.display  = 'none';
+  bar.style.width = '5%';
+  status.textContent = '📷 Bild wird geladen…';
+  _scannedToken = '';
+
+  // Draw image on canvas for preview
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = async () => {
+    canvas.width  = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    canvas.style.display = 'block';
+    URL.revokeObjectURL(url);
+
+    bar.style.width = '20%';
+    status.textContent = '🔍 OCR läuft – bitte warten…';
+
+    try {
+      const worker = await Tesseract.createWorker('eng', 1, {
+        logger: m => {
+          if (m.status === 'recognizing text') {
+            const pct = Math.round((m.progress || 0) * 70) + 20;
+            bar.style.width = pct + '%';
+          }
+        }
+      });
+      // OCR-friendly: treat as single line, increase character whitelist
+      await worker.setParameters({
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_',
+        tessedit_pageseg_mode:   '6'
+      });
+      const { data: { text } } = await worker.recognize(canvas);
+      await worker.terminate();
+
+      bar.style.width = '100%';
+
+      const token = extractGithubToken(text);
+      if (token) {
+        _scannedToken = token;
+        preview.textContent = token;
+        result.style.display = 'block';
+        status.textContent = '✅ Token erkannt!';
+        bar.style.background = 'linear-gradient(90deg,#1a9a5a,#1a7a3a)';
+      } else {
+        status.textContent = '⚠️ Kein Token gefunden – bitte nochmal versuchen';
+        bar.style.background = 'linear-gradient(90deg,#c85a0a,#e07820)';
+        bar.style.width = '100%';
+        result.style.display = 'none';
+      }
+    } catch (err) {
+      status.textContent = '❌ OCR-Fehler: ' + err.message;
+      bar.style.background = 'linear-gradient(90deg,#c04040,#a02020)';
+    }
+  };
+  img.src = url;
+}
+// ── END TOKEN SCAN ─────────────────────────────────────────────────
+
 function openLoginModal() {
   document.getElementById('login-modal').style.display='flex';
   const tokenInput = document.getElementById('login-gh-token');
