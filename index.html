@@ -525,9 +525,11 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <strong>So gehts:</strong><br>
         1. Öffne <a href="https://overpass-turbo.eu" target="_blank" style="color:#1a6b4a;font-weight:600">overpass-turbo.eu ↗</a><br>
         2. Führe die vorbereitete Query für deine Route aus (Camping, Hütten, Ladestationen)<br>
-        3. Klicke <b>Export → GeoJSON herunterladen</b><br>
-        4. Lade die <code>export.geojson</code> hier hoch<br>
-        <span style="color:#1a6a3a">✅ Die App filtert automatisch nach Routennähe und erkennt alle POI-Typen</span>
+        3. Klicke <b>Export</b> und wähle:<br>
+        &nbsp;&nbsp;&nbsp;→ <b>GeoJSON herunterladen</b> <span style="color:#1a6a3a">✅ empfohlen</span><br>
+        &nbsp;&nbsp;&nbsp;→ <b>Rohdaten (JSON)</b> <span style="color:#1a6a3a">✅ wird ebenfalls erkannt</span><br>
+        4. Lade die heruntergeladene Datei hier hoch<br>
+        <span style="color:#1a6a3a">✅ Die App erkennt beide Formate automatisch und filtert nach Routennähe</span>
       </div>
 
       <!-- Query helper -->
@@ -543,8 +545,8 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       <!-- Drop zone -->
       <div id="geojson-drop-zone" class="drop-zone" onclick="document.getElementById('geojson-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleGeoJsonDrop(event)">
         <span class="drop-icon">🗺️</span>
-        export.geojson hierher ziehen<br>
-        <small style="color:#9ab0c8">oder tippen zum Auswählen</small>
+        export.geojson oder overpass-export.json hierher ziehen<br>
+        <small style="color:#9ab0c8">GeoJSON und Overpass-JSON werden beide erkannt</small>
       </div>
       <input type="file" id="geojson-file-input" accept=".geojson,.json" style="display:none" onchange="handleGeoJsonFile(this.files[0])">
 
@@ -2524,16 +2526,84 @@ function handleGeoJsonFile(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
+    let gj;
     try {
-      const gj = JSON.parse(ev.target.result);
-      if (!gj.features) { showToast('❌ Keine GeoJSON-Features gefunden', 'error'); return; }
+      const raw = JSON.parse(ev.target.result);
+
+      // Format 1: Standard GeoJSON FeatureCollection
+      if (raw.type === 'FeatureCollection' && Array.isArray(raw.features)) {
+        gj = raw;
+
+      // Format 2: Overpass JSON (elements-Array mit type node/way/relation)
+      } else if (Array.isArray(raw.elements)) {
+        gj = overpassJsonToGeoJson(raw.elements);
+
+      // Format 3: Overpass JSON aber direkt als Array
+      } else if (Array.isArray(raw) && raw[0]?.type) {
+        gj = overpassJsonToGeoJson(raw);
+
+      } else {
+        showToast('❌ Unbekanntes Format – bitte GeoJSON oder Overpass-JSON exportieren', 'error');
+        return;
+      }
+
+      if (!gj.features || !gj.features.length) {
+        showToast('⚠️ Keine verwertbaren POIs im Export gefunden', 'error');
+        return;
+      }
       _geoJsonRaw = gj;
       processGeoJson(gj);
     } catch(e) {
-      showToast('❌ GeoJSON Parse-Fehler: ' + e.message, 'error');
+      showToast('❌ JSON Parse-Fehler: ' + e.message, 'error');
     }
   };
   reader.readAsText(file, 'UTF-8');
+}
+
+// Convert Overpass JSON elements array to GeoJSON FeatureCollection
+function overpassJsonToGeoJson(elements) {
+  // Build node lookup for way/relation geometry
+  const nodeMap = {};
+  elements.forEach(el => {
+    if (el.type === 'node') nodeMap[el.id] = el;
+  });
+
+  const features = [];
+  elements.forEach(el => {
+    let geometry = null;
+    const tags = el.tags || {};
+
+    if (el.type === 'node' && el.lat != null && el.lon != null) {
+      geometry = { type: 'Point', coordinates: [el.lon, el.lat] };
+
+    } else if (el.type === 'way' && Array.isArray(el.nodes)) {
+      const coords = el.nodes.map(id => nodeMap[id]).filter(n => n && n.lat != null)
+                              .map(n => [n.lon, n.lat]);
+      if (coords.length >= 3) {
+        // Close ring if needed
+        if (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1]) {
+          coords.push(coords[0]);
+        }
+        geometry = { type: 'Polygon', coordinates: [coords] };
+      } else if (coords.length >= 2) {
+        geometry = { type: 'LineString', coordinates: coords };
+      }
+
+    } else if (el.type === 'relation' && el.center) {
+      geometry = { type: 'Point', coordinates: [el.center.lon, el.center.lat] };
+
+    } else if (el.type === 'node' && el.center) {
+      geometry = { type: 'Point', coordinates: [el.center.lon, el.center.lat] };
+    }
+
+    if (!geometry) return;
+    // Only include elements that have relevant tags
+    if (!tags.tourism && !tags.amenity && !tags.leisure) return;
+
+    features.push({ type: 'Feature', properties: tags, geometry });
+  });
+
+  return { type: 'FeatureCollection', features };
 }
 
 function reprocessGeoJson() {
