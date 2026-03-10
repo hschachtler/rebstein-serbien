@@ -2903,6 +2903,18 @@ function showView(v) {
 let _scannedToken = '';
 
 function openTokenScan() {
+  // Reset state
+  const overlay = document.getElementById('token-scan-overlay');
+  const bar     = document.getElementById('token-scan-bar');
+  const status  = document.getElementById('token-scan-status');
+  const result  = document.getElementById('token-scan-result');
+  const canvas  = document.getElementById('token-scan-canvas');
+  overlay.style.display = 'none';
+  if (bar)    { bar.style.width = '0%'; bar.style.background = 'linear-gradient(90deg,#1a60c0,#2a8aff)'; }
+  if (status) status.textContent = 'Bild wird analysiert…';
+  if (result) result.style.display = 'none';
+  if (canvas) canvas.style.display = 'none';
+  _scannedToken = '';
   document.getElementById('token-scan-input').value = '';
   document.getElementById('token-scan-input').click();
 }
@@ -2922,29 +2934,74 @@ function cancelTokenScan() {
 
 function acceptScannedToken() {
   if (_scannedToken) {
-    document.getElementById('login-gh-token').value = _scannedToken;
+    const tokenInput = document.getElementById('login-gh-token');
+    tokenInput.value = _scannedToken;
+    // Switch from password to text so user can see the token was filled
+    tokenInput.type = 'text';
+    setTimeout(() => { tokenInput.type = 'password'; }, 2500);
     cancelTokenScan();
     const statusEl = document.getElementById('login-gh-status');
-    if (statusEl) { statusEl.textContent = '📷 Token aus Foto übernommen'; statusEl.style.color = '#1a5080'; }
+    if (statusEl) { statusEl.textContent = '📷 Token aus Foto übernommen ✅'; statusEl.style.color = '#1a7a4a'; }
+    // Scroll login box so token field is visible
+    tokenInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
-function extractGithubToken(text) {
-  // Normalize: remove spaces, newlines, common OCR artefacts
-  const clean = text.replace(/[\s\u00A0]/g, '').replace(/[oO]/g, '0').replace(/[lI]/g, '1');
-  // Try fine-grained: github_pat_...
-  const fg = clean.match(/github_pat_[A-Za-z0-9_]{20,}/i);
-  if (fg) return fg[0];
-  // Try classic: ghp_...
-  const classic = clean.match(/ghp_[A-Za-z0-9]{30,}/i);
-  if (classic) return classic[0];
-  // Try ghs_, ghr_, gho_
-  const other = clean.match(/gh[spro]_[A-Za-z0-9]{20,}/i);
-  if (other) return other[0];
-  // Fallback: longest alphanumeric-ish run that looks token-like (40+ chars)
-  const raw = text.replace(/\s+/g, '');
-  const long = raw.match(/[A-Za-z0-9_]{40,}/);
-  if (long) return long[0];
+function extractGithubToken(rawText) {
+  // --- Schritt 1: OCR-Korrekturen auf Zeichenebene ---
+  const ocrFix = s => s
+    .replace(/\bqhp_/gi,  'ghp_')
+    .replace(/\b9hp_/gi,  'ghp_')
+    .replace(/\bGhp_/g,   'ghp_')
+    .replace(/\bGHP_/g,   'ghp_')
+    .replace(/\bgli_/gi,  'ghp_')
+    .replace(/\bgli\b/gi, 'ghp_')
+    // fine-grained prefix variations
+    .replace(/qithub_pat_/gi,  'github_pat_')
+    .replace(/9ithub_pat_/gi,  'github_pat_')
+    .replace(/Github_pat_/g,   'github_pat_')
+    // common letter/digit confusions inside token body
+    .replace(/(?<=[ghp_github_pat_][A-Za-z0-9_]{0,80})[oO]/g, m => m === 'O' ? '0' : m)
+    .replace(/(?<=[ghp_github_pat_][A-Za-z0-9_]{0,80})[lI|]/g, '1');
+
+  // Work with fixed text AND original (try both)
+  const candidates = [rawText, ocrFix(rawText)];
+
+  for (const text of candidates) {
+    // Remove all whitespace for matching
+    const flat = text.replace(/\s+/g, '');
+
+    // Fine-grained token (github_pat_…)
+    const fg = flat.match(/github_pat_[A-Za-z0-9_]{20,}/i);
+    if (fg) return fg[0];
+
+    // Classic ghp_… (36–40 alphanum after prefix)
+    const classic = flat.match(/ghp_[A-Za-z0-9]{20,}/i);
+    if (classic) return classic[0];
+
+    // Other prefixes: ghs_, ghr_, gho_, ghu_
+    const other = flat.match(/gh[shrou]_[A-Za-z0-9]{20,}/i);
+    if (other) return other[0];
+  }
+
+  // --- Schritt 2: Fuzzy – suche längsten Block aus Token-Zeichen ---
+  // Matches anything that looks like a long alphanum token (min 36 chars)
+  const flat = rawText.replace(/\s+/g, '');
+  const runs = flat.match(/[A-Za-z0-9_]{36,}/g);
+  if (runs) {
+    // Prefer the longest match
+    const best = runs.sort((a,b) => b.length - a.length)[0];
+    return best;
+  }
+
+  // --- Schritt 3: Multi-line scan – find prefix on one line, body on next ---
+  const lines = rawText.split(/\n/).map(l => l.trim()).filter(Boolean);
+  for (let i = 0; i < lines.length; i++) {
+    const combined = lines.slice(i, i+3).join('');
+    const m = combined.replace(/\s+/g,'').match(/(ghp_|github_pat_)[A-Za-z0-9_]{20,}/i);
+    if (m) return m[0];
+  }
+
   return null;
 }
 
