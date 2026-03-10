@@ -808,59 +808,62 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 </div>
 
 <!-- LOGIN MODAL -->
-<div id="login-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(10,20,40,.7);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 50px rgba(0,0,0,.3);max-width:340px;width:100%">
-    <div style="background:linear-gradient(135deg,#1a2b3c,#2a4060);padding:18px 20px;display:flex;align-items:center;gap:10px">
-      <div style="font-size:1.8rem">🔐</div>
-      <div>
+<div id="login-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(10,20,40,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:flex-end;justify-content:center;padding:0">
+  <div style="background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:480px;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 -8px 40px rgba(0,0,0,.35);display:flex;flex-direction:column">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#1a2b3c,#2a4060);padding:16px 18px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;border-radius:22px 22px 0 0">
+      <div style="font-size:1.6rem">🔐</div>
+      <div style="flex:1">
         <div style="font-family:'Playfair Display',serif;color:#fff;font-size:1rem">Admin Login</div>
-        <div style="font-size:.7rem;color:rgba(255,255,255,.6);margin-top:2px">POIs · Touren · Standort-Tracking</div>
+        <div style="font-size:.68rem;color:rgba(255,255,255,.6);margin-top:1px">POIs · Touren · Standort-Tracking</div>
       </div>
-      <button onclick="closeLoginModal()" style="margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none">✕</button>
+      <button onclick="closeLoginModal()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-appearance:none;flex-shrink:0">✕</button>
     </div>
-    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
-      <div>
-        <label class="form-label">Benutzer</label>
-        <input id="login-user" class="form-input" type="text" value="admin">
-      </div>
+
+    <div style="padding:18px;display:flex;flex-direction:column;gap:14px">
+
+      <!-- Passwort -->
       <div>
         <label class="form-label">Passwort</label>
-        <input id="login-pw" class="form-input" type="password" placeholder="••••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        <input id="login-pw" class="form-input" type="password" placeholder="••••••••••" style="font-size:1rem;padding:12px 14px" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
-      <div id="login-gh-section" style="background:#f0f7f4;border:1px solid #9ad8b0;border-radius:10px;padding:10px 12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:.7rem;font-weight:700;color:#1a4a2a">🔑 GitHub-Token</div>
+
+      <!-- GitHub Token Section -->
+      <div style="background:#f0f7f4;border:1.5px solid #9ad8b0;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:.78rem;font-weight:700;color:#1a4a2a">🔑 GitHub-Token</div>
           <div id="login-gh-status" style="font-size:.65rem;color:#5a8a6a"></div>
         </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <input id="login-gh-token" class="form-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" style="font-size:.75rem;flex:1">
-          <button type="button" id="token-scan-btn" onclick="openTokenScan()" title="Token per Kamera einlesen" style="flex-shrink:0;padding:9px 11px;background:linear-gradient(135deg,#1a5080,#2a6aaa);border:none;border-radius:10px;color:#fff;cursor:pointer;-webkit-appearance:none;min-height:38px;display:flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;font-size:.68rem;font-weight:600;white-space:nowrap">📷 Scan</button>
+
+        <!-- Big paste textarea — mobile friendly -->
+        <div style="position:relative">
+          <textarea id="login-gh-token"
+            placeholder="Token hier einfügen (Tippen &amp; halten → Einfügen)&#10;&#10;ghp_xxxxxxxxxxxxxxxxxxxx&#10;oder&#10;github_pat_xxxxxxxx…"
+            autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off"
+            style="width:100%;min-height:90px;padding:12px 14px;font-size:.9rem;font-family:monospace;border:2px solid #c0dcc8;border-radius:10px;background:#fff;resize:none;color:#1a2b3c;line-height:1.5;-webkit-appearance:none;outline:none;box-sizing:border-box"
+            oninput="onTokenPaste(this)"
+            onpaste="setTimeout(()=>onTokenPaste(this),50)"
+          ></textarea>
+          <!-- Paste button — triggers native clipboard -->
+          <button type="button" onclick="pasteFromClipboard()" style="position:absolute;top:8px;right:8px;padding:5px 10px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.65rem;font-weight:700;cursor:pointer;-webkit-appearance:none;opacity:.9">📋 Einfügen</button>
         </div>
-        <input type="file" id="token-scan-input" accept="image/*" capture="environment" style="display:none" onchange="handleTokenScanPhoto(this)">
-        <div style="font-size:.62rem;color:#5a8a6a;margin-top:4px">Wird lokal gespeichert — nötig für Fotos &amp; POI-Speichern</div>
-        <!-- OCR Scan Overlay -->
-        <div id="token-scan-overlay" style="display:none;background:#f0f7ff;border:1px solid #b0d0f0;border-radius:10px;padding:12px;flex-direction:column;gap:8px;margin-top:4px">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div style="font-size:.72rem;font-weight:700;color:#1a4a8a">📷 Token wird erkannt…</div>
-            <button type="button" onclick="cancelTokenScan()" style="background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:3px 9px;font-size:.65rem;color:#c04040;cursor:pointer;font-weight:600;-webkit-appearance:none">✕</button>
-          </div>
-          <canvas id="token-scan-canvas" style="display:none;width:100%;border-radius:8px;max-height:110px"></canvas>
-          <div style="background:#e0eeff;border-radius:6px;height:6px;overflow:hidden">
-            <div id="token-scan-bar" style="height:100%;background:linear-gradient(90deg,#1a60c0,#2a8aff);border-radius:6px;width:0%;transition:width .3s"></div>
-          </div>
-          <div id="token-scan-status" style="font-size:.68rem;color:#4a6a9a;text-align:center">Bild wird analysiert…</div>
-          <div id="token-scan-result" style="display:none;background:#f0fff4;border:1px solid #9ad8b0;border-radius:8px;padding:8px 10px">
-            <div style="font-size:.62rem;color:#1a4a2a;font-weight:700;margin-bottom:3px">Erkannter Token:</div>
-            <div id="token-scan-preview" style="font-size:.68rem;color:#1a2b3c;word-break:break-all;font-family:monospace;background:#fff;border-radius:6px;padding:5px 8px;border:1px solid #c0e8c0"></div>
-            <div style="display:flex;gap:6px;margin-top:7px">
-              <button type="button" onclick="acceptScannedToken()" style="flex:1;padding:8px;background:linear-gradient(135deg,#1a7a4a,#1a5a8a);border:none;border-radius:8px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;cursor:pointer;-webkit-appearance:none">✅ Übernehmen</button>
-              <button type="button" onclick="retryTokenScan()" style="flex:1;padding:8px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:8px;color:#1a2b3c;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;-webkit-appearance:none">🔄 Nochmal</button>
-            </div>
-          </div>
-        </div>
+
+        <!-- Live token preview -->
+        <div id="token-detected-hint" style="display:none;background:#e8f5ee;border:1px solid #9ad8b0;border-radius:8px;padding:8px 12px;font-size:.7rem;color:#1a4a2a;word-break:break-all;font-family:monospace"></div>
+
+        <div style="font-size:.62rem;color:#5a8a6a;line-height:1.5">Wird nur lokal gespeichert · nötig für Fotos &amp; POI-Speichern</div>
       </div>
-      <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:8px 12px;font-size:.75rem;color:#c04040"></div>
-      <button id="login-submit-btn" onclick="doLogin()" style="width:100%;padding:13px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(26,43,60,.3)">🔐 Einloggen & Token prüfen</button>
+
+      <!-- hidden input to sync textarea → doLogin reads this -->
+      <input type="hidden" id="login-gh-token-hidden">
+
+      <div id="login-err" style="display:none;background:#fff0f0;border:1px solid #f0a0a0;border-radius:8px;padding:10px 12px;font-size:.78rem;color:#c04040"></div>
+
+      <button id="login-submit-btn" onclick="doLogin()" style="width:100%;padding:15px;background:linear-gradient(135deg,#1a2b3c,#2a4060);border:none;border-radius:14px;font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;box-shadow:0 4px 16px rgba(26,43,60,.35)">🔐 Einloggen & Token prüfen</button>
+
+      <!-- Hidden fields kept for backwards compat -->
+      <input type="hidden" id="login-user" value="admin">
     </div>
   </div>
 </div>
@@ -2899,6 +2902,46 @@ function showView(v) {
 // ═══════════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════════
+// ── TOKEN PASTE HELPERS ─────────────────────────────────────────────
+function onTokenPaste(ta) {
+  const raw = ta.value.replace(/[\s\n\r\t]/g, '');
+  const hint = document.getElementById('token-detected-hint');
+  const statusEl = document.getElementById('login-gh-status');
+  if (!hint) return;
+  if (raw.length > 8) {
+    // Show first 8 + … + last 4 chars
+    const preview = raw.length > 16 ? raw.slice(0,8) + '…' + raw.slice(-4) : raw;
+    hint.textContent = '✅ Token erkannt: ' + preview;
+    hint.style.display = 'block';
+    if (statusEl) { statusEl.textContent = '✅ Token eingegeben'; statusEl.style.color='#1a7a4a'; }
+    // highlight textarea border green
+    ta.style.borderColor = '#1a9a5a';
+  } else {
+    hint.style.display = 'none';
+    ta.style.borderColor = '#c0dcc8';
+  }
+}
+
+async function pasteFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText();
+    const ta = document.getElementById('login-gh-token');
+    if (ta) {
+      ta.value = text;
+      onTokenPaste(ta);
+    }
+  } catch(e) {
+    // Clipboard API blocked (e.g. no permission) — show hint instead
+    const ta = document.getElementById('login-gh-token');
+    if (ta) {
+      ta.focus();
+      // Trigger native paste dialog on iOS/Android via execCommand fallback
+      try { document.execCommand('paste'); } catch(_) {}
+    }
+  }
+}
+// ── END TOKEN PASTE ─────────────────────────────────────────────────
+
 // ── TOKEN SCAN via OCR ──────────────────────────────────────────────
 let _scannedToken = '';
 
@@ -3079,25 +3122,26 @@ async function handleTokenScanPhoto(input) {
 
 function openLoginModal() {
   document.getElementById('login-modal').style.display='flex';
-  const tokenInput = document.getElementById('login-gh-token');
-  const statusEl   = document.getElementById('login-gh-status');
-  if (tokenInput) tokenInput.value = '';
+  const ta = document.getElementById('login-gh-token');
+  const statusEl = document.getElementById('login-gh-status');
+  if (ta) ta.value = '';
+  document.getElementById('token-detected-hint').style.display = 'none';
   if (statusEl) {
     if (ghConfig.token) {
       statusEl.textContent = '✅ Token gespeichert — neu eingeben zum Ändern';
       statusEl.style.color = '#1a7a4a';
     } else {
-      statusEl.textContent = '⚠️ Kein Token — bitte eingeben';
+      statusEl.textContent = '⚠️ Kein Token gespeichert';
       statusEl.style.color = '#c85a0a';
     }
   }
-  setTimeout(()=>document.getElementById('login-pw').focus(),100);
+  setTimeout(()=>document.getElementById('login-pw')?.focus(), 150);
 }
 function closeLoginModal() { document.getElementById('login-modal').style.display='none'; pendingAfterLogin=null; }
 function pendingAndLogin(fn) { pendingAfterLogin=fn; openLoginModal(); }
 
 async function doLogin() {
-  const u = document.getElementById('login-user').value.trim().toLowerCase();
+  const u = (document.getElementById('login-user')?.value || 'admin').trim().toLowerCase();
   const p = document.getElementById('login-pw').value;
   const errEl   = document.getElementById('login-err');
   const statusEl = document.getElementById('login-gh-status');
@@ -3110,7 +3154,9 @@ async function doLogin() {
   }
 
   errEl.style.display='none';
-  const newToken = document.getElementById('login-gh-token')?.value?.trim();
+  // Read from textarea, strip whitespace/newlines
+  const rawToken = document.getElementById('login-gh-token')?.value || '';
+  const newToken = rawToken.replace(/[\s\n\r\t]/g, '').trim();
 
   // If a new token was entered — validate it against /user endpoint
   if (newToken) {
