@@ -338,9 +338,6 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
   <!-- Bottom navigation bar -->
   <div id="map-bottom-nav" style="position:absolute;bottom:0;left:0;right:0;z-index:850;background:#fff;border-top:1px solid #e2e8f0;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;box-shadow:0 -2px 12px rgba(0,0,0,.1)">
     <button onclick="showView('poi')" style="flex:1;padding:10px 6px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;color:#1a2b3c;cursor:pointer;-webkit-appearance:none;display:flex;align-items:center;justify-content:center;gap:5px">📋 POI-Liste</button>
-    <button id="map-nav-wizard-btn" onclick="openWizardAdmin()" style="display:none;flex:1;padding:10px 6px;background:linear-gradient(135deg,#c85a0a,#e07820);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;display:none;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 8px rgba(200,90,10,.3)">🧭 Wizard</button>
-    <button id="map-nav-poi-btn" onclick="isAdmin?openAddPoi():openLoginModal()" style="display:none;flex:1;padding:10px 6px;background:linear-gradient(135deg,#7a5aa0,#5a3a80);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 8px rgba(122,90,160,.3)">➕ POI</button>
-    <button onclick="locateMeMap()" style="flex:0 0 auto;padding:10px 14px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:700;color:#fff;cursor:pointer;-webkit-appearance:none;display:flex;align-items:center;gap:5px;box-shadow:0 2px 8px rgba(26,107,74,.25)">📡 GPS</button>
   </div>
 
   <button id="compass-btn" onclick="toggleCompass()" title="Fahrtrichtung">🧭</button>
@@ -3245,12 +3242,6 @@ function updateTopbarLoginBtn() {
   // Non-admin: hide own-poi filter tab
   const fOwn = document.getElementById('f-own');
   if (fOwn) fOwn.style.display = isAdmin ? '' : 'none';
-  // (poi view stays visible for all users)
-  // Show/hide admin buttons in map bottom nav
-  const mapNavWizard = document.getElementById('map-nav-wizard-btn');
-  const mapNavPoi = document.getElementById('map-nav-poi-btn');
-  if (mapNavWizard) mapNavWizard.style.display = isAdmin ? 'flex' : 'none';
-  if (mapNavPoi) mapNavPoi.style.display = isAdmin ? 'flex' : 'none';
   // Topbar visibility: hide only when admin is on map view (full-screen map)
   const topbarEl2 = document.getElementById('topbar');
   topbarEl2.style.display = (currentView==='map' && isAdmin)?'none':'';
