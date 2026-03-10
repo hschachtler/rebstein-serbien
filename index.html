@@ -50,7 +50,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 #gps-status-poi.err{color:#c04040}
 
 /* FILTERS */
-#filters{display:flex;gap:6px;padding:8px 14px;background:#fff;border-bottom:1px solid #e8eef4;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+#filters{display:flex;gap:6px;padding:8px 14px 10px;background:#fff;border-bottom:1px solid #e8eef4;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;min-height:56px;align-items:center}
 #filters::-webkit-scrollbar{display:none}
 .ftab{flex-shrink:0;padding:7px 10px;border:2px solid #dde4ec;border-radius:10px;background:#f4f6f9;color:#5a7a9a;font-family:'DM Sans',sans-serif;font-size:.72rem;font-weight:600;cursor:pointer;text-align:center;min-height:38px;display:flex;align-items:center;justify-content:center;gap:3px;transition:all .15s;-webkit-appearance:none}
 .ftab.active-camp{background:#eaf5f0;border-color:#1a9a5a;color:#1a6a3a}
@@ -2855,8 +2855,7 @@ function openWizardAdmin() {
 function showView(v) {
   // Wizard always requires admin
   if (v==='wizard' && !isAdmin) { pendingAfterLogin=()=>showView('wizard'); openLoginModal(); return; }
-  // Non-admin users can only access map view
-  if (v==='poi' && !isAdmin) { v='map'; }
+  // (poi view is accessible for everyone)
   // Topbar: hide on map view for admins (full-screen map), but keep visible for non-admins (need login button)
   const topbarEl = document.getElementById('topbar');
   topbarEl.style.display = (v==='map' && isAdmin)?'none':'';
@@ -3228,19 +3227,17 @@ function updateTopbarLoginBtn() {
   const osmBtn = document.getElementById('topbar-osm-btn');
   if (osmBtn) osmBtn.style.display = isAdmin ? '' : 'none';
   const gpsBtnPoi = document.getElementById('gps-btn-poi');
-  if (gpsBtnPoi) gpsBtnPoi.style.display = isAdmin ? '' : 'none';
+  if (gpsBtnPoi) gpsBtnPoi.style.display = ''; // always visible
   const ownPoiBtn = document.getElementById('own-poi-btn');
   if (ownPoiBtn) ownPoiBtn.style.display = isAdmin ? 'flex' : 'none';
   const gpsarea = document.getElementById('gpsarea');
-  if (gpsarea) gpsarea.style.display = isAdmin ? '' : 'none';
+  if (gpsarea) gpsarea.style.display = ''; // always visible
   const mapPoiListBtn = document.getElementById('map-poi-list-btn');
   if (mapPoiListBtn) mapPoiListBtn.style.display = isAdmin ? '' : 'none';
+  // Non-admin: hide own-poi filter tab
   const fOwn = document.getElementById('f-own');
   if (fOwn) fOwn.style.display = isAdmin ? '' : 'none';
-  // Non-admin: if on poi view, redirect to map
-  if (!isAdmin && currentView === 'poi') {
-    showView('map');
-  }
+  // (poi view stays visible for all users)
   // Topbar visibility: hide only when admin is on map view (full-screen map)
   const topbarEl2 = document.getElementById('topbar');
   topbarEl2.style.display = (currentView==='map' && isAdmin)?'none':'';
@@ -4486,12 +4483,6 @@ function appStartup() {
   buildCountryBtns();
   renderList();
 
-  // Hide admin-only elements immediately for non-admins
-  if (!isAdmin) {
-    const gpsarea = document.getElementById('gpsarea');
-    if (gpsarea) gpsarea.style.display = 'none';
-  }
-
   if (ghConfig.repo) {
     window._appStarting = true;
     showToast('⏳ Lade Tour & POIs…');
@@ -4509,11 +4500,9 @@ function appStartup() {
       } else {
         showToast('⚠️ Keine Tour gefunden — bitte Wizard öffnen', 'error');
       }
-      // Always open map after data is loaded — rider.json is fetched inside initMap→loadRiderPosition
       showView('map');
     });
   } else {
-    // No repo configured — still open map, show hint
     showView('map');
     const hint = document.createElement('div');
     hint.id = 'setup-hint';
