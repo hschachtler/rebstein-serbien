@@ -57,6 +57,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 .ftab.active-hotel{background:#fff8e8;border-color:#c8a020;color:#7a5010}
 .ftab.active-workshop{background:#f0f4f8;border-color:#4a7a9a;color:#2a5a7a}
 .ftab.active-own{background:#f0ecf8;border-color:#7a5aa0;color:#4a2a7a}
+.ftab.active-huette{background:#f5f0e8;border-color:#c8a060;color:#6a4010}
 
 /* LIST AREA */
 #listarea{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 12px 24px}
@@ -81,6 +82,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
 .badge-workshop{background:#f0f4f8;color:#2a5a7a;border:1px solid #9ab8c8}
 .badge-own{background:#f0ecf8;color:#5a2a9a;border:1px solid #c0a0e8}
 .badge-sonstiges{background:#f4f6f9;color:#3a5a7a;border:1px solid #c0cdd8}
+.badge-huette{background:#f5f0e8;color:#6a4a2a;border:1px solid #d8c0a0}
 .nearest-tag{display:inline-flex;align-items:center;gap:3px;background:#fff3cd;color:#856404;border-radius:6px;padding:1px 6px;font-size:.6rem;font-weight:700}
 .poi-dist{font-size:.95rem;font-weight:700;color:#c85a0a;white-space:nowrap;flex-shrink:0}
 .poi-dist small{font-size:.58rem;font-weight:500;color:#9ab0c8;display:block;text-align:right}
@@ -278,6 +280,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
     <button id="f-all" class="ftab active-all" onclick="setFilter('all')">🗂️ Alle</button>
     <button id="f-camp" class="ftab" onclick="setFilter('camp')">⛺ Camp</button>
     <button id="f-chg" class="ftab" onclick="setFilter('chg')">⚡ Laden</button>
+    <button id="f-huette" class="ftab" onclick="setFilter('huette')">🏠 Hütte</button>
     <button id="f-rest" class="ftab" onclick="setFilter('rest')">🍽️ Essen</button>
     <button id="f-hotel" class="ftab" onclick="setFilter('hotel')">🏨 Hotel</button>
     <button id="f-workshop" class="ftab" onclick="setFilter('workshop')">🔧 Werkstatt</button>
@@ -509,45 +512,100 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
       <div id="gpx-split-result" style="display:none"></div>
     </div>
 
-    <!-- Step 2: onroutemap -->
+    <!-- Step 2: Overpass GeoJSON Import -->
     <div class="wizard-step-card step-locked" id="wiz-step-2">
       <div class="wiz-step-hdr">
         <div class="wiz-step-num locked" id="wiz-num-2">3</div>
         <div>
-          <div class="wiz-step-title">onroutemap.de — POIs hinzufügen</div>
-          <div class="wiz-step-sub">GPX importieren, POIs mit Details ergänzen, exportieren</div>
+          <div class="wiz-step-title">POIs via overpass-turbo.eu importieren</div>
+          <div class="wiz-step-sub">Camping · Schutzhütten · E-Bike Ladestationen aus OSM</div>
         </div>
       </div>
       <div class="wiz-instruction">
-        <strong>So gehts (je GPX-Teil):</strong><br>
-        1. Öffne <a href="https://onroutemap.de" target="_blank" style="color:#1a6b4a;font-weight:600">onroutemap.de ↗</a><br>
-        2. GPX hochladen → POIs suchen und hinzufügen<br>
-        3. Die App importiert POIs mit spezifischem Namen und sinnvollem Typ automatisch<br>
-        4. GPX wieder exportieren<br>
-        5. Wiederhole für alle Teile
+        <strong>So gehts:</strong><br>
+        1. Öffne <a href="https://overpass-turbo.eu" target="_blank" style="color:#1a6b4a;font-weight:600">overpass-turbo.eu ↗</a><br>
+        2. Führe die vorbereitete Query für deine Route aus (Camping, Hütten, Ladestationen)<br>
+        3. Klicke <b>Export → GeoJSON herunterladen</b><br>
+        4. Lade die <code>export.geojson</code> hier hoch<br>
+        <span style="color:#1a6a3a">✅ Die App filtert automatisch nach Routennähe und erkennt alle POI-Typen</span>
       </div>
-      <button class="wiz-btn wiz-btn-secondary" onclick="window.open('https://onroutemap.de','_blank')">🗺️ onroutemap.de öffnen</button>
-      <button class="wiz-btn wiz-btn-primary" onclick="markStep2Done()">✅ POIs erfasst – weiter zu Schritt 4</button>
+
+      <!-- Query helper -->
+      <details style="margin-bottom:10px">
+        <summary style="font-size:.72rem;font-weight:600;color:#1a5080;cursor:pointer;padding:8px 0">📋 Overpass-Query anzeigen / kopieren</summary>
+        <div style="margin-top:8px">
+          <div style="background:#1a2b3c;border-radius:10px;padding:12px;font-size:.62rem;color:#9ad8b0;font-family:monospace;line-height:1.6;overflow-x:auto;white-space:pre-wrap" id="overpass-query-display"></div>
+          <button onclick="copyOverpassQuery()" style="margin-top:6px;width:100%;padding:9px;background:#f0f7f4;border:1.5px solid #9ad8b0;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;color:#1a6a3a;cursor:pointer;-webkit-appearance:none">📋 Query in Zwischenablage kopieren</button>
+          <button onclick="openOverpassWithQuery()" style="margin-top:6px;width:100%;padding:9px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:600;color:#fff;cursor:pointer;-webkit-appearance:none">🌍 overpass-turbo.eu öffnen</button>
+        </div>
+      </details>
+
+      <!-- Drop zone -->
+      <div id="geojson-drop-zone" class="drop-zone" onclick="document.getElementById('geojson-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleGeoJsonDrop(event)">
+        <span class="drop-icon">🗺️</span>
+        export.geojson hierher ziehen<br>
+        <small style="color:#9ab0c8">oder tippen zum Auswählen</small>
+      </div>
+      <input type="file" id="geojson-file-input" accept=".geojson,.json" style="display:none" onchange="handleGeoJsonFile(this.files[0])">
+
+      <!-- Progress -->
+      <div id="geojson-progress" style="display:none;margin-top:10px;background:#f0f7ff;border:1px solid #b0d0f0;border-radius:12px;padding:14px">
+        <div style="font-size:.78rem;font-weight:700;color:#1a4a8a;margin-bottom:8px">⏳ Verarbeite GeoJSON…</div>
+        <div style="background:#e0eeff;border-radius:6px;height:8px;overflow:hidden;margin-bottom:6px">
+          <div id="geojson-progress-bar" style="height:100%;background:linear-gradient(90deg,#1a60c0,#2a8aff);border-radius:6px;width:0%;transition:width .3s"></div>
+        </div>
+        <div id="geojson-progress-txt" style="font-size:.68rem;color:#4a6a9a;text-align:center"></div>
+      </div>
+
+      <!-- Stats & result -->
+      <div id="geojson-stats" style="display:none;margin-top:10px"></div>
+
+      <!-- Route radius config -->
+      <div id="geojson-config" style="display:none;margin-top:8px;background:#f8fffe;border:1.5px solid #9ad8c0;border-radius:10px;padding:12px">
+        <div style="font-size:.7rem;font-weight:700;color:#1a4a2a;margin-bottom:8px">⚙️ Suchradius (Abstand zur Route)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div>
+            <label style="font-size:.62rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:3px">⛺ Camping</label>
+            <input id="radius-camp" type="number" value="600" style="width:100%;padding:6px 8px;border:1.5px solid #dde4ec;border-radius:7px;font-size:.78rem;text-align:center">
+          </div>
+          <div>
+            <label style="font-size:.62rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:3px">🏠 Hütten</label>
+            <input id="radius-huette" type="number" value="1500" style="width:100%;padding:6px 8px;border:1.5px solid #dde4ec;border-radius:7px;font-size:.78rem;text-align:center">
+          </div>
+          <div>
+            <label style="font-size:.62rem;font-weight:600;color:#6a8aa4;text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:3px">⚡ Laden</label>
+            <input id="radius-chg" type="number" value="600" style="width:100%;padding:6px 8px;border:1.5px solid #dde4ec;border-radius:7px;font-size:.78rem;text-align:center">
+          </div>
+        </div>
+        <div style="font-size:.62rem;color:#9ab0c8;margin-top:6px">Meter — Hütten höher weil sie oft hangseitig liegen</div>
+      </div>
+
+      <!-- Actions -->
+      <div id="geojson-actions" style="display:none;margin-top:10px;flex-direction:column;gap:8px">
+        <button class="wiz-btn wiz-btn-green" id="geojson-import-btn" onclick="importGeoJsonPois()">✅ POIs in Tour importieren & speichern</button>
+        <button class="wiz-btn wiz-btn-secondary" style="font-size:.72rem;padding:9px" onclick="reprocessGeoJson()">🔄 Radius anpassen & neu filtern</button>
+      </div>
     </div>
 
-    <!-- Step 3: Import enriched GPX with POIs -->
+    <!-- Step 3: Manage POIs (renumbered) -->
     <div class="wizard-step-card step-locked" id="wiz-step-3">
       <div class="wiz-step-hdr">
         <div class="wiz-step-num locked" id="wiz-num-3">4</div>
         <div>
-          <div class="wiz-step-title">Angereicherte GPX importieren</div>
-          <div class="wiz-step-sub">POIs aus onroutemap laden — mehrere GPX-Dateien möglich</div>
+          <div class="wiz-step-title">POI-GPX importieren</div>
+          <div class="wiz-step-sub">gpx-utils.de · onroutemap.de — Camping, Werkstätten, Tankstellen</div>
         </div>
       </div>
       <div class="wiz-instruction">
-        <strong>Lade alle von onroutemap exportierten GPX-Dateien hoch.</strong><br>
-        Die App filtert automatisch nach Qualität und zeigt was importiert wird.<br>
-        <span style="color:#1a6a3a">✅ Kriterien: spezifischer Name · sinnvoller Typ · max. 500m von der Route</span>
+        <strong>Camping · Werkstätten · Tankstellen mit Kontaktdaten</strong><br>
+        Lade die GPX-Datei von <a href="https://gpx-utils.de" target="_blank" style="color:#1a6b4a;font-weight:600">gpx-utils.de ↗</a> hoch — die App erkennt das Format automatisch und dedupliziert die Doppeleinträge.<br>
+        Alternativ funktioniert auch eine <b>onroutemap.de</b>-GPX für Restaurants, Hotels etc.<br>
+        <span style="color:#1a6a3a">✅ gpx-utils.de liefert 45% Telefonnummern &amp; 60% Websites direkt mit</span>
       </div>
       <div id="enriched-drop-zone" class="drop-zone" onclick="document.getElementById('enriched-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleEnrichedDrop(event)">
         <span class="drop-icon">📥</span>
-        Eine oder mehrere GPX-Dateien hierher ziehen<br>
-        <small style="color:#9ab0c8">oder tippen — Mehrfachauswahl möglich</small>
+        GPX-Datei von gpx-utils.de hier ablegen<br>
+        <small style="color:#9ab0c8">oder tippen · gpx-utils.de &amp; onroutemap.de werden erkannt</small>
       </div>
       <input type="file" id="enriched-file-input" accept=".gpx" multiple style="display:none" onchange="handleEnrichedFiles(this.files)">
 
@@ -578,6 +636,7 @@ body{font-family:'DM Sans',sans-serif;background:#f0f4f8;color:#1a2b3c;height:10
         <div id="osm-progress-txt" style="font-size:.68rem;color:#4a6a9a;text-align:center"></div>
         <div id="osm-results-preview" style="margin-top:8px;max-height:160px;overflow-y:auto"></div>
       </div>
+      <button class="wiz-btn wiz-btn-secondary" style="margin-top:10px" onclick="skipEnrichedImport()">⏭️ Diesen Schritt überspringen</button>
     </div>
 
     <!-- Step 4: Manage POIs -->
@@ -816,16 +875,17 @@ const COUNTRIES = [
   ['HU','🇭🇺 HU'],['SK','🇸🇰 SK']
 ];
 const TYPE_CONFIG = {
-  Camping:   {icon:'⛺',bg:'#eaf5f0',badge:'badge-camp',label:'Camping'},
-  Ladestation:{icon:'⚡',bg:'#e8f0fb',badge:'badge-chg',label:'E-Laden'},
-  Restaurant:{icon:'🍽️',bg:'#fff4e8',badge:'badge-rest',label:'Restaurant'},
-  Hotel:     {icon:'🏨',bg:'#fff8e8',badge:'badge-hotel',label:'Hotel'},
-  Werkstatt: {icon:'🔧',bg:'#f0f4f8',badge:'badge-workshop',label:'Werkstatt'},
-  Sonstiges: {icon:'📍',bg:'#f4f6f9',badge:'badge-sonstiges',label:'Sonstiges'},
+  Camping:     {icon:'⛺',bg:'#eaf5f0',badge:'badge-camp',label:'Camping'},
+  Ladestation: {icon:'⚡',bg:'#e8f0fb',badge:'badge-chg',label:'E-Laden'},
+  Schutzhütte: {icon:'🏠',bg:'#f5f0e8',badge:'badge-huette',label:'Schutzhütte'},
+  Restaurant:  {icon:'🍽️',bg:'#fff4e8',badge:'badge-rest',label:'Restaurant'},
+  Hotel:       {icon:'🏨',bg:'#fff8e8',badge:'badge-hotel',label:'Hotel'},
+  Werkstatt:   {icon:'🔧',bg:'#f0f4f8',badge:'badge-workshop',label:'Werkstatt'},
+  Sonstiges:   {icon:'📍',bg:'#f4f6f9',badge:'badge-sonstiges',label:'Sonstiges'},
 };
 const FILTER_MAP = {
-  all:null, camp:'Camping', chg:'Ladestation', rest:'Restaurant',
-  hotel:'Hotel', workshop:'Werkstatt', own:'own'
+  all:null, camp:'Camping', chg:'Ladestation', huette:'Schutzhütte',
+  rest:'Restaurant', hotel:'Hotel', workshop:'Werkstatt', own:'own'
 };
 
 let isAdmin = false;
@@ -1461,30 +1521,56 @@ function parseGpx(text) {
   const ns = 'http://www.topografix.com/GPX/1/1';
   const getTag = (el, tag) => el.getElementsByTagNameNS(ns, tag)[0] || el.getElementsByTagName(tag)[0];
   const getTxt = (el, tag) => { const e=getTag(el,tag); return e?e.textContent.trim():''; };
-
-  // Waypoints (POIs)
+  // ── Waypoints (POIs) ──────────────────────────────────────────────────────
+  // Supports: onroutemap.de AND gpx-utils.de (dual-entry format)
   const wptEls = [...doc.getElementsByTagNameNS(ns,'wpt'), ...doc.getElementsByTagName('wpt')].filter((v,i,a)=>a.indexOf(v)===i);
   const waypoints = wptEls.map(w => {
     const desc = getTxt(w,'desc') || '';
-   // Standard GPX <name> tag — used by onroutemap.de for waypoint names
     const name = getTxt(w,'name') || '';
     const type = getTxt(w,'type') || '';
-    // Parse km and distance from onroutemap desc format:
-    // "Typ: Campingplatz, Entfernung zur Route: 316 m, Streckenkilometer: 2.6 km"
-    const kmMatch   = desc.match(/Streckenkilometer:\s*([\d.]+)/);
-    const distMatch = desc.match(/Entfernung zur Route:\s*([\d.]+)/);
-    const km   = kmMatch   ? parseFloat(kmMatch[1])   : null;
-    const dist = distMatch ? parseFloat(distMatch[1]) : null;
-    // www/link optional
+    const sym  = getTxt(w,'sym')  || '';
+    const cmt  = getTxt(w,'cmt')  || ''; // gpx-utils.de: phone number in <cmt>
+
+    // Route-km: onroutemap.de format "Streckenkilometer: 2.6 km"
+    const kmMatch = desc.match(/Streckenkilometer:\s*([\d.]+)/);
+    const km = kmMatch ? parseFloat(kmMatch[1]) : null;
+
+    // Distance to route — two formats:
+    // onroutemap.de: "Entfernung zur Route: 316 m"
+    // gpx-utils.de:  "away: 352 m" or "away: 4 km"
+    let dist = null;
+    const distOnr = desc.match(/Entfernung zur Route:\s*([\d.]+)/);
+    if (distOnr) {
+      dist = parseFloat(distOnr[1]);
+    } else {
+      const awayM = desc.match(/away:\s*([\d.]+)\s*(m|km)/i);
+      if (awayM) { dist = parseFloat(awayM[1]); if (awayM[2].toLowerCase()==='km') dist *= 1000; }
+    }
+
+    // osmand:icon (gpx-utils.de) — encodes POI category
+    // Namespaced as <osmand:icon xmlns:osmand="https://osmand.net/...">
+    let osmandIcon = '';
+    const extEl = w.getElementsByTagName('extensions')[0];
+    if (extEl) {
+      const t1 = extEl.getElementsByTagName('osmand:icon');
+      const t2 = extEl.getElementsByTagNameNS('https://osmand.net/docs/technical/osmand-file-formats/osmand-gpx','icon');
+      const ie  = (t1 && t1[0]) || (t2 && t2[0]);
+      if (ie) osmandIcon = ie.textContent.trim();
+    }
+
+    // Link/URL
     const linkEl = w.getElementsByTagNameNS(ns,'link')[0] || w.getElementsByTagName('link')[0];
     const www = (linkEl ? linkEl.getAttribute('href') : '') || getTxt(w,'url') || '';
+
     return {
-      lat:  parseFloat(w.getAttribute('lat')),
-      lon:  parseFloat(w.getAttribute('lon')),
-      name, desc, type, www, km, dist,
-      sym:  getTxt(w,'sym') || '',
-      addr: '', p: ''
+      lat: parseFloat(w.getAttribute('lat')),
+      lon: parseFloat(w.getAttribute('lon')),
+      name, desc, type, sym, www, km, dist,
+      cmt,         // phone (gpx-utils.de)
+      osmandIcon,  // POI category icon (gpx-utils.de)
+      addr: '', p: cmt || ''
     };
+  });
   });
 
   // Track points
@@ -1690,41 +1776,117 @@ function handleEnrichedFiles(files) {
   Array.from(files).forEach(file => {
     const reader = new FileReader();
     reader.onload = ev => {
-      const { waypoints, trackPoints } = parseGpx(ev.target.result);
+      const text = ev.target.result;
+      const { waypoints, trackPoints } = parseGpx(text);
+
+      // Detect source format
+      const isGpxUtils = waypoints.some(w => w.osmandIcon);
+
       // Also try to get route from this file
       if (trackPoints.length > 10 && currentRoutePoints.length === 0) {
         currentRoutePoints = trackPoints.map(p=>[p.lat,p.lon]);
-        // Save this route to GitHub too
         if (activeTourId && ghConfig.token) {
           const rd = JSON.stringify({ points: currentRoutePoints }, null, 0);
           getGithubFile('tours/' + activeTourId + '/route.json').then(rf =>
             putGithubFile('tours/' + activeTourId + '/route.json', rd, 'Save route', rf?.sha));
         }
       }
-      waypoints.forEach(w => {
-        if (!w.lat || !w.lon || isNaN(w.lat)) return;
-        const appType = mapOnroutemapType(w.type);
-        extractedPois.push({
-          id: 'imp_'+Date.now()+'_'+Math.random().toString(36).slice(2),
-          n:    w.name || '',
-          lat:  w.lat,
-          lon:  w.lon,
-          t:    appType,
-          onroutemapType: w.type || '', // original <type> value e.g. "Campingplatz"
-          desc: w.desc || '',
-          www:  w.www  || '',
-          km:   w.km   !== null ? w.km : 0,
-          dist: w.dist !== null ? w.dist : 999,
-          ort: '', l: '??', addr: '', p: '', hours: '', note: '',
-          isImported: true
+
+      if (isGpxUtils) {
+        // ── gpx-utils.de: each POI exported TWICE ─────────────────────────
+        // Entry 1 (snapped): lat/lon on route → use for dist value
+        // Entry 2 (real):    actual OSM lat/lon → use for map position
+        // Strategy: group by name, use entry[0].dist + entry[1].lat/lon
+        const byName = {};
+        waypoints.forEach(w => {
+          if (!w.name || !w.lat || isNaN(w.lat)) return;
+          if (!byName[w.name]) byName[w.name] = [];
+          byName[w.name].push(w);
         });
-      });
+
+        Object.values(byName).forEach(entries => {
+          const snapEntry = entries[0];                         // snapped → dist
+          const realEntry = entries.length >= 2 ? entries[1] : entries[0]; // real coords
+          const appType   = mapOsmandIcon(realEntry.osmandIcon) || mapOnroutemapType(realEntry.type);
+          if (appType === 'Sonstiges' || appType === 'Unterstand') return; // skip low-value
+
+          const dist = snapEntry.dist !== null ? snapEntry.dist : (realEntry.dist ?? 9999);
+
+          extractedPois.push({
+            id:   'gpxu_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+            n:    realEntry.name,
+            lat:  realEntry.lat,
+            lon:  realEntry.lon,
+            t:    appType,
+            osmandIcon:     realEntry.osmandIcon || '',
+            onroutemapType: realEntry.type       || '',
+            desc: realEntry.desc || '',
+            www:  realEntry.www  || '',
+            p:    realEntry.cmt  || '',   // phone from <cmt>
+            km:   realEntry.km   !== null ? realEntry.km : 0,
+            dist: dist,
+            ort: '', l: countryFromLatLon(realEntry.lat, realEntry.lon) || '??',
+            addr: '', hours: '', note: '',
+            isImported: true,
+            _src: 'gpx-utils'
+          });
+        });
+
+      } else {
+        // ── onroutemap.de / standard GPX ──────────────────────────────────
+        waypoints.forEach(w => {
+          if (!w.lat || !w.lon || isNaN(w.lat)) return;
+          const appType = mapOnroutemapType(w.type);
+          extractedPois.push({
+            id:   'imp_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+            n:    w.name || '',
+            lat:  w.lat,
+            lon:  w.lon,
+            t:    appType,
+            onroutemapType: w.type || '',
+            desc: w.desc || '',
+            www:  w.www  || '',
+            p:    w.cmt  || '',
+            km:   w.km   !== null ? w.km : 0,
+            dist: w.dist !== null ? w.dist : 999,
+            ort: '', l: '??', addr: '', hours: '', note: '',
+            isImported: true,
+            _src: 'onroutemap'
+          });
+        });
+      }
+
       pending--;
       if (pending === 0) renderExtractedPois();
     };
     reader.readAsText(file, 'UTF-8');
   });
 }
+
+// Map gpx-utils.de osmand:icon values to app POI categories
+function mapOsmandIcon(icon) {
+  const m = {
+    'tourism_camp_site':    'Camping',
+    'tourism_caravan_site': 'Camping',
+    'tourism_alpine_hut':   'Schutzhütte',
+    'tourism_wilderness_hut':'Schutzhütte',
+    'tourism_picnic_site':  'Sonstiges',   // skip
+    'club_bicycle':         'Werkstatt',
+    'charging_station':     'Ladestation',
+    'fuel':                 'Tankstelle',
+    'amenity_fuel':         'Tankstelle',
+    'amenity_restaurant':   'Restaurant',
+    'amenity_cafe':         'Restaurant',
+    'amenity_fast_food':    'Restaurant',
+    'amenity_hotel':        'Hotel',
+    'amenity_hostel':       'Hotel',
+    'shop_supermarket':     'Supermarkt',
+    'amenity_drinking_water':'Trinkwasser',
+    'amenity_water_point':  'Trinkwasser',
+  };
+  return m[icon] || null;
+}
+
 
 // Map onroutemap.de type strings to app categories
 function mapOnroutemapType(t) {
@@ -1772,15 +1934,27 @@ function poiQuality(p) {
   const name   = (p.n || '').trim();
   const dist   = (p.dist !== undefined && p.dist !== null) ? p.dist : 999;
 
-  // Skip if type is low-value (toilets, shelters etc.)
-  const skipType = SKIP_IMPORT_TYPES.has(onType);
-  // Skip if no name, name equals type, or name is in GENERIC_NAMES set (=generic, no real info)
-  const genericName = !name || name === onType || GENERIC_NAMES.has(name);
-  // Skip if too far from route
-  const tooFar = dist > 500;
+  // gpx-utils.de POIs: different quality rules
+  // - No generic-name filter (e.g. "e bicycles charging station" is perfectly valid)
+  // - Larger dist threshold: dist is to nearest route point, not true perpendicular
+  // - BUT: skip truly low-value types (Sonstiges, Unterstand, Toilette)
+  const isGpxUtils = !!p._src && p._src === 'gpx-utils';
+  if (isGpxUtils) {
+    const skipType = SKIP_IMPORT_TYPES.has(p.t);
+    const noName   = !name;
+    const tooFar   = dist > 1500; // gpx-utils uses snapped dist → 1500m threshold
+    const ok = !skipType && !noName && !tooFar;
+    return { ok, skipType, genericName: false, tooFar };
+  }
 
+  // onroutemap.de: original strict rules
+  const skipType   = SKIP_IMPORT_TYPES.has(onType);
+  const genericName = !name || name === onType || GENERIC_NAMES.has(name);
+  const tooFar      = dist > 500;
   const ok = !skipType && !genericName && !tooFar;
   return { ok, skipType, genericName, tooFar };
+}
+
 }
 
 // Legacy alias
@@ -1836,10 +2010,25 @@ function renderExtractedPois() {
   good.forEach(p => { (byType[p.t] = byType[p.t]||[]).push(p); });
 
   // Stats
+  // Detect format source
+  const srcGpxUtils = extractedPois.filter(p=>p._src==='gpx-utils').length;
+  const srcOnroute  = extractedPois.filter(p=>p._src==='onroutemap').length;
+  const srcBadge = srcGpxUtils > 0
+    ? `<span style="background:#fff4ec;color:#c85a0a;border:1px solid #f0c090;border-radius:8px;padding:2px 8px;font-size:.6rem;font-weight:700">📍 gpx-utils.de</span>`
+    : srcOnroute > 0
+    ? `<span style="background:#e8f4fb;color:#1a4a8a;border:1px solid #90b8e8;border-radius:8px;padding:2px 8px;font-size:.6rem;font-weight:700">🗺️ onroutemap.de</span>`
+    : '';
+  const hasPhone = good.filter(p=>p.p && p.p.trim()).length;
+  const hasWww   = good.filter(p=>p.www && p.www.trim()).length;
+
   statsEl.style.display='block';
   statsEl.innerHTML=`
     <div style="background:#f0faf5;border:1px solid #9ad8b0;border-radius:10px;padding:12px 14px;margin-bottom:4px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        ${srcBadge}
+        <span style="font-size:.62rem;color:#6a8aa4">${extractedPois.length} Waypoints eingelesen</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div style="text-align:center;background:#fff;border-radius:8px;padding:8px">
           <div style="font-size:1.4rem;font-weight:700;color:#1a9a5a">${good.length}</div>
           <div style="font-size:.62rem;color:#6a8aa4">✅ Wird importiert</div>
@@ -1849,10 +2038,14 @@ function renderExtractedPois() {
           <div style="font-size:.62rem;color:#6a8aa4">⏭️ Übersprungen</div>
         </div>
       </div>
+      ${(hasPhone||hasWww)?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        ${hasPhone?`<span style="background:#eaf5f0;color:#1a6a3a;border:1px solid #9ad8b0;border-radius:6px;padding:2px 8px;font-size:.62rem">📞 ${hasPhone} mit Telefon</span>`:''}
+        ${hasWww?`<span style="background:#e8f0fb;color:#1a4a8a;border:1px solid #90b8e8;border-radius:6px;padding:2px 8px;font-size:.62rem">🌐 ${hasWww} mit Website</span>`:''}
+      </div>`:''}
       <div style="font-size:.65rem;color:#4a7a5a;line-height:1.7">
-        ${skipType?`<div>⏭️ <b>${skipType}</b> Niedrig-Wert-Typen (Toilette, Unterstand…)</div>`:''}
-        ${genericName?`<div>⏭️ <b>${genericName}</b> Generischer Name (= Typname, kein spez. Ort)</div>`:''}
-        ${tooFar?`<div>⏭️ <b>${tooFar}</b> Mehr als 500m von der Route entfernt</div>`:''}
+        ${skipType?`<div>⏭️ <b>${skipType}</b> Niedrig-Wert-Typen</div>`:''}
+        ${genericName?`<div>⏭️ <b>${genericName}</b> Generischer Name</div>`:''}
+        ${tooFar?`<div>⏭️ <b>${tooFar}</b> Zu weit von der Route</div>`:''}
       </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px">
@@ -1864,7 +2057,7 @@ function renderExtractedPois() {
 
   // POI cards — group by type, sorted by km
   let html='';
-  const typeOrder=['Camping','Hotel','Restaurant','Werkstatt','Ladestation','Supermarkt','Tankstelle','Trinkwasser','Sonstiges'];
+  const typeOrder=['Camping','Schutzhütte','Hotel','Restaurant','Werkstatt','Ladestation','Supermarkt','Tankstelle','Trinkwasser','Sonstiges'];
   const sortedTypes=[...typeOrder.filter(t=>byType[t]),...Object.keys(byType).filter(t=>!typeOrder.includes(t))];
 
   sortedTypes.forEach(t=>{
@@ -1879,9 +2072,12 @@ function renderExtractedPois() {
         <div style="width:30px;height:30px;border-radius:8px;background:${tc.bg};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${tc.icon}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:.78rem;font-weight:600;color:#1a2b3c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p.n)}</div>
-          <div style="font-size:.62rem;color:#6a8aa4;margin-top:1px;display:flex;gap:8px">
+          <div style="font-size:.62rem;color:#6a8aa4;margin-top:1px;display:flex;gap:6px;flex-wrap:wrap">
             <span>📍 km ${p.km||0}</span>
-            ${p.dist?`<span style="color:${p.dist>300?'#c85a0a':'#6a8aa4'}">${Math.round(p.dist)}m zur Route</span>`:''}
+            ${p.dist?`<span style="color:${p.dist>500?'#c85a0a':'#6a8aa4'}">${Math.round(p.dist)}m</span>`:''}
+            ${p.p?`<span style="color:#1a6a3a">📞</span>`:''}
+            ${p.www?`<span style="color:#1a4a8a">🌐</span>`:''}
+            ${p.l&&p.l!=='??'?`<span>${getFlag(p.l)}</span>`:''}
           </div>
         </div>
       </div>`).join('');
@@ -2203,8 +2399,377 @@ async function importExtractedPois() {
   await saveToursToGithub();
 }
 
-function markStep2Done() {
+// ═══════════════════════════════════════════════════════════
+// GEOJSON / OVERPASS-TURBO IMPORT
+// ═══════════════════════════════════════════════════════════
+
+// Prepared Overpass query for the Rebstein → Serbien route
+const OVERPASS_QUERY = `[out:json][timeout:120];
+(
+  // Campingplätze entlang der Route
+  node[tourism~"camp_site|caravan_site"](poly:"47.39 9.58 47.39 10.52 47.04 10.52 47.04 11.51 47.27 11.51 47.27 12.02 46.91 12.02 46.91 13.04 46.64 13.04 46.64 13.97 46.91 13.97 46.91 14.96 46.45 14.96 46.45 15.87 46.73 15.87 46.73 16.78 46.40 16.78 46.40 17.58 46.56 17.58 46.56 18.35 45.84 18.35 45.84 19.08 46.00 19.08 46.00 19.50 45.42 19.50 45.42 19.34 45.16 19.34 45.16 20.42 45.62 20.42 45.62 20.51 45.34 20.51 45.34 20.42 44.94 20.42 44.94 20.48 45.10 20.48 45.10 20.48 44.26 20.48 44.26 20.13 44.08 20.13 44.08 20.48 44.16 20.48 44.16 20.39");
+  way[tourism~"camp_site|caravan_site"](poly:"47.39 9.58 47.39 10.52 47.04 10.52 47.04 11.51 47.27 11.51 47.27 12.02 46.91 12.02 46.91 13.04 46.64 13.04 46.64 13.97 46.91 13.97 46.91 14.96 46.45 14.96 46.45 15.87 46.73 15.87 46.73 16.78 46.40 16.78 46.40 17.58 46.56 17.58 46.56 18.35 45.84 18.35 45.84 19.08 46.00 19.08 46.00 19.50 45.42 19.50 45.42 19.34 45.16 19.34 45.16 20.42 45.62 20.42");
+  // Alpine Hütten
+  node[tourism~"alpine_hut|wilderness_hut"](poly:"47.39 9.58 47.39 10.52 47.04 10.52 47.04 11.51 47.27 11.51 47.27 12.02 46.91 12.02 46.91 13.04 46.64 13.04 46.64 13.97 46.91 13.97 46.91 14.96 46.45 14.96 46.45 15.87 46.73 15.87 46.73 16.78 46.40 16.78 46.40 17.58 46.56 17.58 46.56 18.35 45.84 18.35 45.84 19.08 46.00 19.08 46.00 19.50 45.42 19.50 45.42 19.34 45.16 19.34 45.16 20.42 45.62 20.42");
+  // E-Bike Ladestationen
+  node[amenity=charging_station](poly:"47.39 9.58 47.39 10.52 47.04 10.52 47.04 11.51 47.27 11.51 47.27 12.02 46.91 12.02 46.91 13.04 46.64 13.04 46.64 13.97 46.91 13.97 46.91 14.96 46.45 14.96 46.45 15.87 46.73 15.87 46.73 16.78 46.40 16.78 46.40 17.58 46.56 17.58 46.56 18.35 45.84 18.35 45.84 19.08 46.00 19.08 46.00 19.50 45.42 19.50 45.42 19.34 45.16 19.34 45.16 20.42 45.62 20.42");
+);
+out center tags;`;
+
+let _geoJsonRaw = null; // cache raw parsed GeoJSON for re-processing
+
+function copyOverpassQuery() {
+  navigator.clipboard?.writeText(OVERPASS_QUERY).then(()=>showToast('📋 Query kopiert!','success')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=OVERPASS_QUERY;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('📋 Query kopiert!','success');
+  });
+}
+
+function openOverpassWithQuery() {
+  const encoded=encodeURIComponent(OVERPASS_QUERY);
+  window.open('https://overpass-turbo.eu/?Q='+encoded+'&R=1','_blank');
+}
+
+// Init the query display element on first view
+function initOverpassQueryDisplay() {
+  const el=document.getElementById('overpass-query-display');
+  if(el&&!el.textContent) el.textContent=OVERPASS_QUERY;
+}
+
+// Map OSM tourism/amenity tags to app types
+function osmFeatureToAppType(props) {
+  const tourism = (props.tourism || '').toLowerCase();
+  const amenity = (props.amenity || '').toLowerCase();
+  if (tourism === 'camp_site' || tourism === 'caravan_site') return 'Camping';
+  if (tourism === 'alpine_hut' || tourism === 'wilderness_hut') return 'Schutzhütte';
+  if (amenity === 'charging_station') return 'Ladestation';
+  if (tourism === 'hotel' || tourism === 'hostel' || tourism === 'motel' || tourism === 'guest_house') return 'Hotel';
+  if (amenity === 'restaurant' || amenity === 'cafe' || amenity === 'fast_food') return 'Restaurant';
+  if (amenity === 'bicycle_repair_station' || amenity === 'bicycle_rental') return 'Werkstatt';
+  return 'Sonstiges';
+}
+
+// Extract lat/lon from GeoJSON feature (handles Point, Polygon, MultiPolygon)
+function featureLatLon(feat) {
+  const geom = feat.geometry;
+  if (!geom) return null;
+  if (geom.type === 'Point') {
+    return { lat: geom.coordinates[1], lon: geom.coordinates[0] };
+  }
+  if (geom.type === 'Polygon' && geom.coordinates[0]) {
+    // Use centroid approximation (average of outer ring)
+    const ring = geom.coordinates[0];
+    const lat = ring.reduce((s,c)=>s+c[1],0)/ring.length;
+    const lon = ring.reduce((s,c)=>s+c[0],0)/ring.length;
+    return { lat, lon };
+  }
+  if (geom.type === 'MultiPolygon' && geom.coordinates[0]?.[0]) {
+    const ring = geom.coordinates[0][0];
+    const lat = ring.reduce((s,c)=>s+c[1],0)/ring.length;
+    const lon = ring.reduce((s,c)=>s+c[0],0)/ring.length;
+    return { lat, lon };
+  }
+  return null;
+}
+
+// Compute minimum distance (meters) from a point to the route
+function distToRoute(lat, lon) {
+  if (!currentRoutePoints.length) return 0;
+  // Sample every 20th point for performance
+  let minD = Infinity;
+  for (let i = 0; i < currentRoutePoints.length; i += 20) {
+    const d = hav(lat, lon, currentRoutePoints[i][0], currentRoutePoints[i][1]) * 1000;
+    if (d < minD) minD = d;
+  }
+  // Also check last point
+  const last = currentRoutePoints[currentRoutePoints.length-1];
+  const dLast = hav(lat, lon, last[0], last[1]) * 1000;
+  if (dLast < minD) minD = dLast;
+  return minD;
+}
+
+// Get approximate country from coordinates
+function countryFromLatLon(lat, lon) {
+  if (lon < 9.7) return 'CH';
+  if (lat > 46.8 && lon < 15.1) return 'AT';
+  if (lat > 46.4 && lon >= 10.4 && lon < 12.3) return 'IT';
+  if (lat > 46.0 && lon >= 13.5 && lon < 16.6) return 'SI';
+  if (lat > 45.0 && lon >= 14.0 && lon < 19.5) return 'HR';
+  if (lat > 45.7 && lon >= 15.8 && lon < 18.5) return 'HU';
+  if (lat < 46.0 && lon >= 18.5) return 'RS';
+  return '';
+}
+
+// OSM tags → POI fields (phone, hours, website, address)
+function geoJsonTagsToPoiFields(tags) {
+  if (!tags) return {};
+  const phone = tags.phone || tags['contact:phone'] || tags['contact:mobile'] || '';
+  const hours = tags.opening_hours || '';
+  const www   = tags.website || tags['contact:website'] || tags.url || '';
+  const road  = tags['addr:street'] || '';
+  const num   = tags['addr:housenumber'] || '';
+  const city  = tags['addr:city'] || tags['addr:village'] || tags['addr:town'] || '';
+  const plz   = tags['addr:postcode'] || '';
+  const addr  = [road+(num?' '+num:''), [plz,city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const ort   = [plz,city].filter(Boolean).join(' ');
+  const elev  = tags.ele ? Math.round(parseFloat(tags.ele)) : null;
+  const oper  = tags.operator || tags.brand || '';
+  return { phone, hours, www, addr, ort, elev, oper };
+}
+
+function handleGeoJsonDrop(e) {
+  e.preventDefault();
+  document.getElementById('geojson-drop-zone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleGeoJsonFile(f);
+}
+
+function handleGeoJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const gj = JSON.parse(ev.target.result);
+      if (!gj.features) { showToast('❌ Keine GeoJSON-Features gefunden', 'error'); return; }
+      _geoJsonRaw = gj;
+      processGeoJson(gj);
+    } catch(e) {
+      showToast('❌ GeoJSON Parse-Fehler: ' + e.message, 'error');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function reprocessGeoJson() {
+  if (!_geoJsonRaw) { showToast('⚠️ Bitte erst GeoJSON hochladen', 'error'); return; }
+  processGeoJson(_geoJsonRaw);
+}
+
+function processGeoJson(gj) {
+  const prog = document.getElementById('geojson-progress');
+  const bar  = document.getElementById('geojson-progress-bar');
+  const txt  = document.getElementById('geojson-progress-txt');
+  const stats= document.getElementById('geojson-stats');
+  const cfg  = document.getElementById('geojson-config');
+  const act  = document.getElementById('geojson-actions');
+
+  prog.style.display = 'block';
+  stats.style.display = 'none';
+  cfg.style.display = 'none';
+  act.style.display = 'none';
+  bar.style.width = '0%';
+
+  const features = gj.features || [];
+  txt.textContent = `${features.length} Features gefunden – verarbeite…`;
+  bar.style.width = '20%';
+
+  // Get radius values
+  const rCamp   = parseInt(document.getElementById('radius-camp')?.value  || 600);
+  const rHuette = parseInt(document.getElementById('radius-huette')?.value || 1500);
+  const rChg    = parseInt(document.getElementById('radius-chg')?.value   || 600);
+
+  const getRadius = t => {
+    if (t === 'Camping') return rCamp;
+    if (t === 'Schutzhütte') return rHuette;
+    if (t === 'Ladestation') return rChg;
+    return 600;
+  };
+
+  // Use setTimeout to avoid blocking UI
+  setTimeout(() => {
+    bar.style.width = '40%';
+    txt.textContent = 'Konvertiere Features…';
+
+    const allPois = [];
+    features.forEach((feat, i) => {
+      const props = feat.properties || {};
+      const type = osmFeatureToAppType(props);
+      if (type === 'Sonstiges') return; // skip unknown types
+
+      const coords = featureLatLon(feat);
+      if (!coords || isNaN(coords.lat) || isNaN(coords.lon)) return;
+
+      const name = props.name || props['name:de'] || props['name:en'] || '';
+      const fields = geoJsonTagsToPoiFields(props);
+      const country = countryFromLatLon(coords.lat, coords.lon);
+
+      allPois.push({
+        _lat: coords.lat, _lon: coords.lon,
+        _type: type, _name: name, _fields: fields,
+        _country: country
+      });
+    });
+
+    bar.style.width = '60%';
+    txt.textContent = `${allPois.length} POIs erkannt – prüfe Routennähe…`;
+
+    setTimeout(() => {
+      // Filter by route proximity
+      const filtered = [];
+      allPois.forEach(p => {
+        const dist = distToRoute(p._lat, p._lon);
+        const radius = getRadius(p._type);
+        if (dist <= radius) {
+          filtered.push({ ...p, _dist: Math.round(dist) });
+        }
+      });
+
+      bar.style.width = '80%';
+      txt.textContent = `${filtered.length} POIs in Routennähe – berechne km-Positionen…`;
+
+      setTimeout(() => {
+        // Calculate km position along route
+        filtered.forEach(p => {
+          if (!currentRoutePoints.length) { p._km = 0; return; }
+          let minD = Infinity, nearKm = 0;
+          let cumKm = 0;
+          for (let i = 0; i < currentRoutePoints.length; i++) {
+            if (i > 0) cumKm += hav(currentRoutePoints[i-1][0], currentRoutePoints[i-1][1], currentRoutePoints[i][0], currentRoutePoints[i][1]);
+            const d = hav(p._lat, p._lon, currentRoutePoints[i][0], currentRoutePoints[i][1]);
+            if (d < minD) { minD = d; nearKm = cumKm; }
+          }
+          p._km = Math.round(nearKm);
+        });
+
+        bar.style.width = '100%';
+        prog.style.display = 'none';
+
+        // Count by type
+        const byCat = {};
+        filtered.forEach(p => { byCat[p._type] = (byCat[p._type]||[]).concat(p); });
+
+        // Type stats for summary
+        const catOrder = ['Camping','Schutzhütte','Ladestation'];
+        const total = filtered.length;
+
+        const catColors = { Camping:'#1a9a5a', Schutzhütte:'#c8a060', Ladestation:'#1a60c0' };
+
+        let statsHtml = `<div style="background:#f0faf5;border:1px solid #9ad8b0;border-radius:12px;padding:14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <div style="font-size:1.6rem;font-weight:700;color:#1a9a5a">${total}</div>
+            <div style="font-size:.78rem;color:#4a7a5a;font-weight:600">POIs in Routennähe gefunden</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">`;
+
+        catOrder.forEach(cat => {
+          const tc = getTypeConfig(cat);
+          const count = (byCat[cat]||[]).length;
+          const col = catColors[cat]||'#5a7a9a';
+          statsHtml += `<div style="text-align:center;background:#fff;border-radius:8px;padding:8px 4px;border:1.5px solid ${col}20">
+            <div style="font-size:1.2rem">${tc.icon}</div>
+            <div style="font-size:1rem;font-weight:700;color:${col}">${count}</div>
+            <div style="font-size:.58rem;color:#9ab0c8;font-weight:600">${tc.label}</div>
+          </div>`;
+        });
+
+        statsHtml += `</div>`;
+
+        // Show POI previews by category
+        catOrder.filter(c => byCat[c]?.length).forEach(cat => {
+          const tc = getTypeConfig(cat);
+          const pois = byCat[cat].sort((a,b)=>a._km-b._km);
+          const col = catColors[cat]||'#5a7a9a';
+          statsHtml += `<div style="margin-bottom:8px">
+            <div style="font-size:.65rem;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.08em;padding:6px 2px 4px;display:flex;align-items:center;gap:5px">
+              ${tc.icon} ${tc.label} <span style="color:#9ab0c8;font-weight:400">${pois.length} POIs</span>
+            </div>
+            <div style="max-height:160px;overflow-y:auto">
+            ${pois.map(p=>`
+              <div style="background:#fff;border:1px solid #e8eef4;border-radius:8px;margin-bottom:4px;padding:7px 10px;display:flex;align-items:center;gap:8px">
+                <div style="font-size:.9rem;width:22px;text-align:center">${tc.icon}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:.75rem;font-weight:600;color:#1a2b3c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(p._name||'(ohne Name)')}</div>
+                  <div style="font-size:.6rem;color:#9ab0c8;display:flex;gap:6px;margin-top:1px">
+                    <span>${getFlag(p._country)} km ${p._km}</span>
+                    <span style="color:${p._dist>500?'#c85a0a':'#9ab0c8'}">${p._dist}m z. Route</span>
+                    ${p._fields?.elev?`<span>⛰️ ${p._fields.elev}m</span>`:''}
+                  </div>
+                </div>
+              </div>`).join('')}
+            </div>
+          </div>`;
+        });
+
+        statsHtml += `</div>`;
+
+        stats.style.display = 'block';
+        stats.innerHTML = statsHtml;
+        cfg.style.display = 'block';
+        act.style.display = 'flex';
+
+        // Store for import
+        window._geoJsonPois = filtered;
+
+        showToast(`✅ ${total} POIs aus GeoJSON geladen`, 'success');
+      }, 100);
+    }, 100);
+  }, 50);
+}
+
+function importGeoJsonPois() {
+  const pois = window._geoJsonPois;
+  if (!pois || !pois.length) { showToast('❌ Keine POIs zum Importieren', 'error'); return; }
+  if (!activeTourId) {
+    setWizStepActive('T');
+    document.getElementById('wiz-step-T')?.scrollIntoView({behavior:'smooth'});
+    showToast('⚠️ Bitte zuerst eine Tour anlegen', 'error');
+    return;
+  }
+
+  const imported = pois.map(p => ({
+    id: 'osm_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    n:    p._name || '(unbekannt)',
+    lat:  p._lat,
+    lon:  p._lon,
+    t:    p._type,
+    km:   p._km,
+    l:    p._country || '',
+    ort:  p._fields?.ort || '',
+    addr: p._fields?.addr || '',
+    p:    p._fields?.phone || '',
+    hours:p._fields?.hours || '',
+    www:  p._fields?.www || '',
+    note: p._type==='Schutzhütte' && p._fields?.elev ? `⛰️ ${p._fields.elev}m ü.M.` : '',
+    isImported: true,
+    _osmDist: p._dist
+  }));
+
+  // Merge with existing tourPois — avoid duplicates (same type + within 100m)
+  let added = 0;
+  imported.forEach(np => {
+    const isDuplicate = tourPois.some(ep =>
+      ep.t === np.t && ep.lat && ep.lon &&
+      hav(ep.lat, ep.lon, np.lat, np.lon) * 1000 < 100
+    );
+    if (!isDuplicate) {
+      tourPois.push(np);
+      added++;
+    }
+  });
+
+  window._geoJsonPois = null;
+  _geoJsonRaw = null;
+
+  const statsEl = document.getElementById('geojson-stats');
+  const actEl = document.getElementById('geojson-actions');
+  if (statsEl) statsEl.innerHTML = `<div style="background:#eaf5f0;border:1px solid #9ad8b0;border-radius:10px;padding:12px 14px;font-size:.78rem;color:#1a4a2a;font-weight:600">
+    ✅ ${added} neue POIs importiert (${imported.length - added} Duplikate übersprungen)
+    <div style="font-weight:400;color:#3a8a5a;margin-top:2px">Camping, Schutzhütten &amp; Ladestationen aus OSM</div>
+  </div>`;
+  if (actEl) actEl.style.display = 'none';
+
   setWizStepDone(2); setWizStepActive(3);
+  renderList();
+  if (mapInitialized) refreshMapMarkers();
+  saveToursToGithub();
+  showToast(`✅ ${added} OSM-POIs importiert!`, 'success');
+}
+
+function skipEnrichedImport() {
+  setWizStepDone(3); setWizStepActive(4);
+  showToast('⏭️ Schritt übersprungen', 'success');
+}
+
+
   // Also reset enriched import area for fresh upload
   document.getElementById('enriched-poi-list').style.display = 'none';
   const statsEl = document.getElementById('enriched-stats');
@@ -2284,6 +2849,7 @@ function showView(v) {
     renderWizTourList();
     // If no github config yet, ensure step 0 is active
     if (!ghConfig.token) { setWizStepActive(0); } // step 0 if no write access yet
+    initOverpassQueryDisplay();
   }
 }
 
@@ -2583,7 +3149,7 @@ function scrollToNearest() {
 // ═══════════════════════════════════════════════════════════
 function setFilter(f) {
   activeFilter=f;
-  ['all','camp','chg','rest','hotel','workshop','own'].forEach(k=>{
+  ['all','camp','chg','huette','rest','hotel','workshop','own'].forEach(k=>{
     const el=document.getElementById('f-'+k);
     if(el) el.className='ftab'+(f===k?' active-'+k:'');
   });
@@ -2976,7 +3542,7 @@ function refreshMapMarkers() {
   const allPois=mapTypeFilter.size>0 ? allPoisRaw.filter(p=>mapTypeFilter.has(p.t)) : allPoisRaw;
   allPois.forEach(p=>{
     const tc=getTypeConfig(p.t);
-    const col=p.isOwn?'#7a5aa0':p.t==='Camping'?'#1a9a5a':p.t==='Ladestation'?'#1a60c0':p.t==='Restaurant'?'#e07820':p.t==='Hotel'?'#c8a020':'#5a7a9a';
+    const col=p.isOwn?'#7a5aa0':p.t==='Camping'?'#1a9a5a':p.t==='Ladestation'?'#1a60c0':p.t==='Schutzhütte'?'#c8a060':p.t==='Restaurant'?'#e07820':p.t==='Hotel'?'#c8a020':'#5a7a9a';
     const icon=L.divIcon({html:`<div style="background:${col};width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,.18);cursor:pointer">${tc.icon}</div>`,iconSize:[30,30],iconAnchor:[15,15],className:''});
     const m=L.marker([p.lat,p.lon],{icon});
     m.bindTooltip(`<b>${tc.icon} ${p.n}</b><br>${getFlag(p.l)} ${p.ort||''} · km ${p.km}`,{direction:'top',offset:[0,-12]});
@@ -3016,7 +3582,7 @@ function renderMapFilterBar() {
   const typeCounts = {};
   allPois.forEach(p => { typeCounts[p.t] = (typeCounts[p.t]||0)+1; });
 
-  const typeOrder = ['Camping','Hotel','Restaurant','Werkstatt','Ladestation',
+  const typeOrder = ['Camping','Schutzhütte','Hotel','Restaurant','Werkstatt','Ladestation',
     'Supermarkt','Tankstelle','Trinkwasser','Sonstiges'];
   const allTypes = [...typeOrder.filter(t=>typeCounts[t]),
     ...Object.keys(typeCounts).filter(t=>!typeOrder.includes(t))];
@@ -3024,9 +3590,9 @@ function renderMapFilterBar() {
   // Color map for filter buttons
   const colorMap = {
     Camping:'#1a9a5a', Hotel:'#c8a020', Restaurant:'#e07820',
-    Werkstatt:'#4a7a9a', Ladestation:'#1a60c0', Supermarkt:'#2a8a6a',
-    Tankstelle:'#e05a20', Trinkwasser:'#1a70c0', Sonstiges:'#7a8a9a',
-    Unterstand:'#8a8a7a'
+    Schutzhütte:'#c8a060', Werkstatt:'#4a7a9a', Ladestation:'#1a60c0',
+    Supermarkt:'#2a8a6a', Tankstelle:'#e05a20', Trinkwasser:'#1a70c0',
+    Sonstiges:'#7a8a9a', Unterstand:'#8a8a7a'
   };
 
   bar.style.display = 'flex';
