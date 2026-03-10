@@ -1571,7 +1571,6 @@ function parseGpx(text) {
       addr: '', p: cmt || ''
     };
   });
-  });
 
   // Track points
   const trkEls = [...doc.getElementsByTagNameNS(ns,'trkpt'), ...doc.getElementsByTagName('trkpt')].filter((v,i,a)=>a.indexOf(v)===i);
@@ -1953,8 +1952,6 @@ function poiQuality(p) {
   const tooFar      = dist > 500;
   const ok = !skipType && !genericName && !tooFar;
   return { ok, skipType, genericName, tooFar };
-}
-
 }
 
 // Legacy alias
@@ -2770,6 +2767,7 @@ function skipEnrichedImport() {
 }
 
 
+function resetEnrichedImport() {
   // Also reset enriched import area for fresh upload
   document.getElementById('enriched-poi-list').style.display = 'none';
   const statsEl = document.getElementById('enriched-stats');
