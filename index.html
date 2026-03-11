@@ -3765,8 +3765,8 @@ async function initMap() {
   mapInitialized=true;
   const center = currentRoutePoints.length ? currentRoutePoints[Math.floor(currentRoutePoints.length/2)] : [47,13];
   mapObj=L.map('map',{center,zoom:currentRoutePoints.length?7:5,preferCanvas:true});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-    attribution:'© OpenStreetMap © CartoDB',subdomains:'abcd',maxZoom:19
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',subdomains:'abc',maxZoom:19
   }).addTo(mapObj);
 
   refreshMapMarkers();
