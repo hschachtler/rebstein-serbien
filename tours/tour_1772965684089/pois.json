@@ -57997,6 +57997,25 @@
     "isImported": true
   },
   {
+    "id": "xlsx_1773206246326_32uj9efnhq",
+    "n": "Tesla Supercharger Slavonski Brod",
+    "lat": 45.1753,
+    "lon": 18.0632,
+    "t": "Ladestation",
+    "onroutemapType": "Ladestation",
+    "desc": "HR, Slavonski Brod – km 1051.7",
+    "www": "",
+    "km": 0,
+    "dist": 0,
+    "ort": "Slavonski Brod",
+    "l": "HR",
+    "addr": "Gospodarska ul. 11, 35207 Slavonski Brod, Croatia",
+    "p": "",
+    "hours": "",
+    "note": "Aus Excel-Route importiert (km 1051.7)",
+    "isImported": true
+  },
+  {
     "id": "xlsx_1773206246326_fwnm5taya9",
     "n": "Camping Zasavica",
     "lat": 44.9607,
@@ -58052,5 +58071,20 @@
     "hours": "",
     "note": "Aus Excel-Route importiert (km 1360.1)",
     "isImported": true
+  },
+  {
+    "id": "own_1773206935052",
+    "n": "Campingplatz - Picknickstellen",
+    "km": 770,
+    "t": "Camping",
+    "ort": "40305 Gornji Kuršanec",
+    "l": "HR",
+    "addr": "Zrinskih ul. 57",
+    "p": "+38542408200",
+    "hours": "",
+    "note": "",
+    "lat": 46.322549,
+    "lon": 16.373344,
+    "isOwn": true
   }
 ]
