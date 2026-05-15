@@ -3236,7 +3236,9 @@ function updateTopbarLoginBtn() {
   const ownPoiBtn = document.getElementById('own-poi-btn');
   if (ownPoiBtn) ownPoiBtn.style.display = isAdmin ? 'flex' : 'none';
   const gpsarea = document.getElementById('gpsarea');
-  if (gpsarea) gpsarea.style.display = ''; // always visible
+  if (gpsarea) gpsarea.style.display = isAdmin ? '' : 'none';
+  const filtersEl = document.getElementById('filters');
+  if (filtersEl) filtersEl.style.display = isAdmin ? '' : 'none';
   const mapPoiListBtn = document.getElementById('map-poi-list-btn');
   if (mapPoiListBtn) mapPoiListBtn.style.display = isAdmin ? '' : 'none';
   // Admin-only map controls: GPS, Foto-Button, POI-Typ-Filter, Admin-Wrap
@@ -3269,6 +3271,8 @@ function updateTopbarLoginBtn() {
   }
   // Re-render POI list so admin buttons appear/disappear immediately
   renderList();
+  // Refresh map markers to show/hide POIs based on login state
+  if (typeof mapInitialized !== 'undefined' && mapInitialized) refreshMapMarkers();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -3463,6 +3467,18 @@ function getAllPois() {
 function renderList() {
   const hint=document.getElementById('no-gps-hint');
   const list=document.getElementById('poi-list');
+
+  // POIs are only visible when logged in
+  if (!isAdmin) {
+    hint.style.display='none';
+    list.innerHTML=`<div style="text-align:center;padding:48px 24px;color:#9ab0c8;font-size:.82rem;line-height:1.9">
+      <span style="font-size:2.5rem;display:block;margin-bottom:12px">🔐</span>
+      <div style="font-family:'Playfair Display',serif;font-size:1rem;color:#1a2b3c;margin-bottom:8px">Bitte einloggen</div>
+      <div style="margin-bottom:20px;color:#6a8aa4">Um die POIs zu sehen, melde dich als Admin an.</div>
+      <button onclick="openLoginModal()" style="padding:12px 24px;background:linear-gradient(135deg,#c85a0a,#e07820);border:none;border-radius:14px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;-webkit-appearance:none;box-shadow:0 3px 12px rgba(200,90,10,.25)">🔐 Einloggen</button>
+    </div>`;
+    return;
+  }
 
   let pois = getAllPois();
   if (activeFilter==='own') pois=customPois.filter(p=>p.isOwn||p.isOverride);
@@ -3863,6 +3879,13 @@ function refreshMapMarkers() {
     }
   });
 
+  // POI markers — only show when logged in
+  if (!isAdmin) {
+    mapObj.addLayer(poiClusterGroup);
+    renderMapFilterBar();
+    return;
+  }
+
   // POI markers — apply type filter
   const allPoisRaw=getAllPois().filter(p=>p.lat&&p.lon);
   const allPois=mapTypeFilter.size>0 ? allPoisRaw.filter(p=>mapTypeFilter.has(p.t)) : allPoisRaw;
@@ -3902,6 +3925,7 @@ function refreshMapMarkers() {
 function renderMapFilterBar() {
   const bar = document.getElementById('map-filter-bar');
   if (!bar) return;
+  if (!isAdmin) { bar.style.display='none'; return; }
   const allPois = getAllPois().filter(p => p.lat && p.lon);
   if (!allPois.length) { bar.style.display='none'; return; }
 
@@ -4266,18 +4290,51 @@ function addPhotoMarker(p) {
     iconSize: [72, 72], iconAnchor: [36, 36], className: ''
   });
   const m = L.marker([p.lat, p.lon], {icon, zIndexOffset: 500}).addTo(mapObj);
-  const deleteBtn = isAdmin
-    ? `<button onclick="deletePhoto('${p.id}')" style="margin-top:8px;width:100%;padding:8px;background:linear-gradient(135deg,#c04040,#a02020);border:none;border-radius:9px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.75rem;font-weight:700;cursor:pointer;-webkit-appearance:none">🗑️ Foto löschen</button>`
-    : '';
-  m.bindPopup(`
-    <div style="max-width:280px">
-      <img src="${p.url}" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-bottom:8px;display:block">
-      ${p.caption ? `<div style="font-size:.85rem;font-weight:600;color:#1a2b3c;line-height:1.35">${p.caption}</div>` : ''}
-      <div style="font-size:.68rem;color:#6a8aa4;margin-top:5px">${new Date(p.ts).toLocaleDateString('de-CH')}${p.routeKm ? ' · km ' + p.routeKm : ''}</div>
-      ${deleteBtn}
-    </div>
-  `, {maxWidth: 300});
+  m.on('click', () => openPhotoLightbox(p));
   photoMarkers.push(m);
+}
+
+function openPhotoLightbox(p) {
+  let lb = document.getElementById('photo-lightbox');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.id = 'photo-lightbox';
+    lb.style.cssText = 'display:none;position:fixed;inset:0;z-index:20000;background:rgba(0,0,0,.88);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;box-sizing:border-box';
+    lb.innerHTML = `
+      <div id="photo-lb-box" style="background:#fff;border-radius:20px;max-width:520px;width:100%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5);display:flex;flex-direction:column">
+        <img id="photo-lb-img" src="" style="width:100%;max-height:65vh;object-fit:contain;background:#1a2b3c;display:block">
+        <div style="padding:16px 18px 20px;display:flex;flex-direction:column;gap:8px">
+          <div id="photo-lb-caption" style="font-family:'DM Sans',sans-serif;font-size:.92rem;font-weight:600;color:#1a2b3c;line-height:1.4"></div>
+          <div id="photo-lb-meta" style="font-size:.7rem;color:#9ab0c8"></div>
+          <div id="photo-lb-actions" style="display:flex;gap:8px;margin-top:4px"></div>
+        </div>
+      </div>`;
+    lb.addEventListener('click', e => { if (e.target === lb) closePhotoLightbox(); });
+    document.body.appendChild(lb);
+  }
+  document.getElementById('photo-lb-img').src = p.url;
+  document.getElementById('photo-lb-caption').textContent = p.caption || '';
+  document.getElementById('photo-lb-caption').style.display = p.caption ? '' : 'none';
+  document.getElementById('photo-lb-meta').textContent =
+    new Date(p.ts).toLocaleDateString('de-CH', {day:'2-digit',month:'long',year:'numeric'}) +
+    (p.routeKm ? ' · km ' + p.routeKm : '') +
+    (p.lat ? ` · ${p.lat.toFixed(4)}°N ${p.lon.toFixed(4)}°E` : '');
+  const actions = document.getElementById('photo-lb-actions');
+  const deleteBtn = isAdmin
+    ? `<button onclick="deletePhoto('${p.id}');closePhotoLightbox()" style="flex:1;padding:10px;background:linear-gradient(135deg,#c04040,#a02020);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;-webkit-appearance:none">🗑️ Löschen</button>`
+    : '';
+  actions.innerHTML = `
+    <button onclick="closePhotoLightbox()" style="flex:1;padding:10px;background:#f0f4f8;border:1.5px solid #dde4ec;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;color:#5a7a9a;cursor:pointer;-webkit-appearance:none">✕ Schliessen</button>
+    <a href="${p.url}" target="_blank" style="flex:1;padding:10px;background:linear-gradient(135deg,#1a6b4a,#1a5080);border:none;border-radius:10px;color:#fff;font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px">🔗 Original öffnen</a>
+    ${deleteBtn}`;
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePhotoLightbox() {
+  const lb = document.getElementById('photo-lightbox');
+  if (lb) lb.style.display = 'none';
+  document.body.style.overflow = '';
 }
 
 async function deletePhoto(photoId) {
@@ -4548,6 +4605,11 @@ function appStartup() {
 }
 
 document.addEventListener('DOMContentLoaded', appStartup);
+
+// Close photo lightbox on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePhotoLightbox?.();
+});
 
 // km hint on poi-km input
 document.addEventListener('DOMContentLoaded', ()=>{
