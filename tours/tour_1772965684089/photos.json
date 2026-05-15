@@ -8,15 +8,5 @@
     "caption": "Schööön!",
     "ts": 1773333331464,
     "routeKm": 3
-  },
-  {
-    "id": "photo_1778825531294",
-    "url": "https://res.cloudinary.com/drkfuxkb1/image/upload/v1778825530/bikepacking/vrnivcnfgg5b2g5ldpol.jpg",
-    "thumb": "https://res.cloudinary.com/drkfuxkb1/image/upload/w_200,h_200,c_fill/v1778825530/bikepacking/vrnivcnfgg5b2g5ldpol.jpg",
-    "lat": 47.38662522855701,
-    "lon": 9.660816126513025,
-    "caption": "Test",
-    "ts": 1778825531294,
-    "routeKm": 4
   }
 ]
