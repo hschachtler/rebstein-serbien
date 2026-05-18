@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "id": "photo_1779097226529",
+    "url": "https://res.cloudinary.com/drkfuxkb1/image/upload/v1779097225/bikepacking/ptgntagbakvxusmnuoun.jpg",
+    "thumb": "https://res.cloudinary.com/drkfuxkb1/image/upload/w_200,h_200,c_fill/v1779097225/bikepacking/ptgntagbakvxusmnuoun.jpg",
+    "lat": 47.39201345872332,
+    "lon": 9.62242332226749,
+    "caption": "Test",
+    "ts": 1779097226529,
+    "routeKm": 2
+  }
+]
